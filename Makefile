@@ -1,9 +1,9 @@
 CC=g++
 LDFLAGS=-std=c++11 -lm
-SOURCES=src/Main/main.cpp src/Parser/parser.cpp src/DataModel/dm.cpp src/ParamHandler/paramhdl.cpp src/Utility/message.cpp src/Utility/drawHtml.cpp src/Placer/3Dplacer.cpp
+SOURCES=src/main/main.cpp src/parser/parser.cpp src/dataModel/dm.cpp src/paramHandler/paramhdl.cpp src/utility/message.cpp src/utility/drawHtml.cpp src/placer/3Dplacer.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 EXECUTABLE=3d-placer
-INCLUDES=src/Parser/parser.h src/DataModel/dm.h src/ParamHandler/paramhdl.h src/Utility/message.h src/Utility/drawHtml.h src/Placer/3Dplacer.h
+INCLUDES=src/parser/parser.h src/dataModel/dm.h src/paramHandler/paramhdl.h src/utility/message.h src/utility/drawHtml.h src/placer/3Dplacer.h
 
 all: $(SOURCES) bin/$(EXECUTABLE)
 
