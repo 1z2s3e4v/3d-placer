@@ -15,7 +15,7 @@ iccad contest 2022 problem B
   
 If the program and the output data violate any of these above bullets, you will get 0 score for the corresponding test case.  
   
-Evaluation score = HPWL of top die + HPWL of bottom die  
+**Evaluation score = HPWL of top die + HPWL of bottom die**  
   
 ## Compile  
 type 'make'  
