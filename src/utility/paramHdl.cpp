@@ -45,6 +45,13 @@ ParamHdl::ParamHdl(int argc, char** argv){
 }
 
 bool ParamHdl::ok(){
+    if(check_exist("help") || check_exist("h")){
+        print_help();
+    }
+    else if(!_isOK){
+        cout << BLUE << "[ParamHdl]" << RESET << " - Invalid argvs\n";
+        cout << "Usage: " << BOLDYELLOW << "bin/3d-placer <input.txt> <output.txt>" << RESET << "\n\n";
+    }
     return _isOK;
 }
 
@@ -66,6 +73,18 @@ void ParamHdl::print_help(){
     for(auto it : m_otherFlag){
         cout << "  -" << setw(20) << left << it.first + " <...>" << ": " << it.second << "\n";
     }
+}
+
+string ParamHdl::get_input_fileName(){
+    return get_para("input");
+}
+
+string ParamHdl::get_output_fileName(){
+    return get_para("output");
+}
+
+string ParamHdl::get_para(string flag){
+    return m_paras[flag];
 }
 
 bool ParamHdl::check_is_single_flag(string flag){
