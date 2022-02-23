@@ -27,7 +27,7 @@ ParamHdl::ParamHdl(int argc, char** argv){
                 m_paras.emplace("input", item);
                 ++countNoFlagItem;
             }
-            else if(countNoFlagItem == 0){ // output
+            else if(countNoFlagItem == 1){ // output
                 m_paras.emplace("output", item);
                 ++countNoFlagItem;
             }
