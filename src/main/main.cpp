@@ -7,21 +7,17 @@
 using namespace std;
 
 #include "../utility/paramHdl.h"
+#include "../parser/parser.h"
 
 int main(int argc, char** argv){
     // parameter handler
-    ParamHdl* paramHdl = new ParamHdl(argc, argv);
-    if(paramHdl->check_exist("help") || paramHdl->check_exist("h")){
-        paramHdl->print_help();
+    ParamHdl paramHdl = ParamHdl(argc, argv);
+    if(!paramHdl.ok())
         return 0;
-    }
-    else if(!paramHdl->ok()){
-        cout << "\033[94m[ParamHdl]\033[0m - Invalid argvs\n";
-        paramHdl->print_help();
+    // parser
+    Parser parser;
+    if(!parser.read_file(paramHdl.get_input_fileName()))
         return 0;
-    }
-    // start
-
 
     return 0;
 }
