@@ -1,4 +1,4 @@
-#include "parahdl.h"
+#include "paraHdl.h"
 
 ParamHdl::ParamHdl(){
     
