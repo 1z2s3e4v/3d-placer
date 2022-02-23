@@ -1,0 +1,35 @@
+NumInstances 2
+Inst C1 MC1
+Inst C2 MC3
+NumNets 1
+Net N1 2
+Pin C1/P2
+Pin C2/P1
+
+DieSize 0 0 500 450
+
+TopDieMaxUtil 75
+BottomDieMaxUtil 80
+
+TopDieRows 0 0 500 10 45
+BottomDieRows 0 0 500 15 30
+
+NumTechnologies 2
+Tech TA 2
+LibCell MC1 5 10 1
+Pin P1 2 7
+LibCell MC2 7 10 2
+Pin P1 5 3
+Pin P2 3 6
+Tech TB 2
+LibCell MC1 5 15 1
+Pin P1 2 11
+LibCell MC2 7 15 2
+Pin P1 2 12
+Pin P2 3 3
+
+TopDieTech TA
+BottomDieTech TB
+
+TerminalSize 20 20
+TerminalSpacing 15
