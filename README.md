@@ -3,7 +3,11 @@ iccad contest 2022 problem B
   
 ## Example  
 ![image](img/image1.png)![image](img/image2.png)  
-  
+<p float="left">
+  <img src="img/image1.png" width="100" />
+  <img src="img/image2.png" width="100" /> 
+</p>
+
 ## Evaluation  
 • Max placement utilization constraint must be satisfied  
 • All the given instances must be placed on either top die or bottom die  
