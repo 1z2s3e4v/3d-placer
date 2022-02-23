@@ -18,13 +18,57 @@ struct Pin{
     string libPinName;
 };
 struct Inst{
-    string instName;
+    string name;
     string libCellName;
 };
 struct Net{
-    string netName;
+    string name;
     int numPins;
     vector<Pin> v_pin;
+};
+
+struct Die{
+    // die size (top and bot are same)
+    int ll_x; // LowerLeft
+    int ll_y;
+    int ur_x; // UpperRight
+    int ur_y;
+    // die max utility
+    int maxUtil;
+    // die rows
+    int rowStartX;
+    int rowStartY;
+    int rowLength;
+    int rowHeight;
+    int rowRepeatCount;
+    // die technology
+    string dieTech;
+};
+
+struct LibPin{
+    string name;
+    int locationX;
+    int locationY;
+};
+
+struct LibCell{
+    string name;
+    int sizeX;
+    int sizeY;
+    int numLibPin;
+    vector<LibPin> v_libPin;
+};
+
+struct Tech{
+    string name;
+    int numLibCell;
+    vector<LibCell> v_libCell;
+};
+
+struct Terminal{
+    int sizeX;
+    int sizeY;
+    int spacing;
 };
 class Parser{
 public:
@@ -38,10 +82,16 @@ private:
     bool _isOK = true;
     int countReadInfo = 0;
 
-    int numInstance;
+    int numInst;
     int numNet;
     vector<Inst> v_inst;
     vector<Net> v_net;
+    Die topDie;
+    Die botDie;
+    Terminal terminal;
+
+    int numTech;
+    vector<Tech> v_tech;
 };
 
 #endif

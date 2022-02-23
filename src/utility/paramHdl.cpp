@@ -87,6 +87,6 @@ string ParamHdl::get_para(string flag){
     return m_paras[flag];
 }
 
-bool ParamHdl::check_is_single_flag(string flag){
+bool ParamHdl::check_is_single_flag(string& flag){
     return (m_singleFlag.find(flag) != m_singleFlag.end());
 }

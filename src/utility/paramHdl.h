@@ -2,7 +2,6 @@
 #define PARAMHDL_H
 
 #include "color.h"
-
 #include <iostream>
 #include <string>
 #include <vector>
@@ -23,7 +22,7 @@ public:
     string get_output_fileName();
     string get_para(string);
 private:
-    bool check_is_single_flag(string);
+    bool check_is_single_flag(string&);
 
     map<string, string> m_paras;
     bool _isOK = true;
