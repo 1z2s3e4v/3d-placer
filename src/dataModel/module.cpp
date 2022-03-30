@@ -7,6 +7,7 @@
 CellLib_C::CellLib_C(){}
 CellLib_C::CellLib_C(string name, int pin_num, int tech_num){
     _name = name;
+    _numTech = tech_num;
     _techW.resize(tech_num, 0);
     _techH.resize(tech_num, 0);
     _vTechLibPinOffset.resize(tech_num, vector<Pos>(pin_num));
@@ -34,6 +35,12 @@ void CellLib_C::set_size(int tech_id, int sizeX, int sizeY){
     _techW[tech_id] = sizeX;
     _techH[tech_id] = sizeY;
 }
+string CellLib_C::get_name(){
+    return _name;
+}
+int CellLib_C::get_tech_num(){
+    return _numTech;
+}
 int CellLib_C::get_pin_num(){
     return _vPinName.size();
 }
@@ -54,23 +61,57 @@ Pos CellLib_C::get_pin_offset(int techId,int pinId){
 }
 //-----------------------------------------------------------------------------------------------------//
 Row_C::Row_C(){}
+Row_C::Row_C(int id,int width,int height){
+    _id=id;
+    _width = width;
+    _height = height;
+}
+Row_C::Row_C(int id,int width,int height, Die_C* die){
+    _id=id;
+    _width = width;
+    _height = height;
+    _die = die;
+}
 //-----------------------------------------------------------------------------------------------------//
 Die_C::Die_C(){}
 Die_C::Die_C(int sizeX, int sizeY, int maxUtil, int techId, int rowHeight){
+    _id = -1;
     _techId = techId;
     _sizeX = sizeX;
     _sizeY = sizeY;
     _maxUtil = maxUtil;
     _rowHeight = rowHeight;
+    _vRows.resize(_sizeY/rowHeight);
+    for(int i=0;i<_vRows.size();++i){
+        _vRows[i] = new Row_C(i, sizeX, sizeY, this);
+    }
+}
+Die_C::Die_C(int id, int sizeX, int sizeY, int maxUtil, int techId, int rowHeight){
+    _id = id;
+    _techId = techId;
+    _sizeX = sizeX;
+    _sizeY = sizeY;
+    _maxUtil = maxUtil;
+    _rowHeight = rowHeight;
+    _vRows.resize(_sizeY/rowHeight);
+    for(int i=0;i<_vRows.size();++i){
+        _vRows[i] = new Row_C(i, sizeX, sizeY, this);
+    }
+}
+int Die_C::get_id(){
+    return _id;
 }
 int Die_C::get_techId(){
     return _techId;
 }
-int Die_C::get_cell_width(Cell_C* cell){
-    return cell->get_width(_techId);
+int Die_C::get_max_util(){
+    return _maxUtil;
 }
-int Die_C::get_cell_height(Cell_C* cell){
-    return cell->get_height(_techId);
+int Die_C::get_row_height(){
+    return _rowHeight;
+}
+int Die_C::get_row_num(){
+    return _vRows.size();
 }
 //-----------------------------------------------------------------------------------------------------//
 Pin_C::Pin_C(int id, Cell_C *cell){
@@ -79,6 +120,12 @@ Pin_C::Pin_C(int id, Cell_C *cell){
 }
 void Pin_C::add_net(Net_C * net){
     _vNets.emplace_back(net);
+}
+int Pin_C::get_id(){
+    return _id;
+}
+string Pin_C::get_name(){
+    return _cell->get_master_cell()->get_pin_name(_id);
 }
 Pos Pin_C::get_pos(){
     Pos cellPos = _cell->get_pos();
@@ -153,6 +200,14 @@ void Cell_C::set_id(int id){
 void Cell_C::set_pos(Pos pos){
     _pos = pos;
 }
+void Cell_C::set_xy(Pos pos){
+    _pos.x = pos.x;
+    _pos.y = pos.y;
+}
+void Cell_C::set_die(Die_C* die){
+    _dieId = die->get_id();
+    _die = die;
+}
 string Cell_C::get_name(){
     return _name;
 }
@@ -160,10 +215,12 @@ int Cell_C::get_id(){
     return _id;
 }
 int Cell_C::get_width(){
+    assert(_die != nullptr);
     return _masterCell->get_cell_width(_die->get_techId());
 }
 int Cell_C::get_height(){
-    return _masterCell->get_cell_width(_die->get_techId()); 
+    assert(_die != nullptr);
+    return _masterCell->get_cell_height(_die->get_techId()); 
 }
 int Cell_C::get_width(int techId){
     return _masterCell->get_cell_width(techId);
@@ -199,31 +256,48 @@ CellLib_C* Cell_C::get_master_cell(){
     return _masterCell;
 }
 int Cell_C::get_die_techId(){
+    assert(_die != nullptr);
     return _die->get_techId();
 }
 //-----------------------------------------------------------------------------------------------------//
 Chip_C::Chip_C(){}
-Chip_C::Chip_C(int sizeX, int sizeY){
+Chip_C::Chip_C(int sizeX, int sizeY, int dieNum){
     _sizeX = sizeX;
     _sizeY = sizeY;
+    _vDie.resize(dieNum);
 }
 void Chip_C::set_chip_size(int sizeX, int sizeY){
     _sizeX = sizeX;
     _sizeY = sizeY;
 }
-void Chip_C::set_top_die(int maxUtil, int techId, int rowHeight){
-    topDie = new Die_C(_sizeX, _sizeY, maxUtil, techId, rowHeight);
-}
-void Chip_C::set_bot_die(int maxUtil, int techId, int rowHeight){
-    botDie = new Die_C(_sizeX, _sizeY, maxUtil, techId, rowHeight);
+void Chip_C::set_die(int dieId, int maxUtil, int techId, int rowHeight){
+    _vDie[dieId] = new Die_C(dieId, _sizeX, _sizeY, maxUtil, techId, rowHeight);
 }
 void Chip_C::set_ball(int ballSizeX, int ballSizeY, int ballSpace){
     _ballSizeX = ballSizeX;
     _ballSizeY = ballSizeY;
     _ballSpace = ballSpace;
 }
+int Chip_C::get_die_num(){
+    return _vDie.size();
+}
 Die_C* Chip_C::get_die(int dieId){
-    return (dieId==0)? topDie : botDie;
+    return _vDie[dieId];
+}
+int Chip_C::get_width(){
+    return _sizeX;
+}
+int Chip_C::get_height(){
+    return _sizeY;
+}
+int Chip_C::get_ball_width(){
+    return _ballSizeX;
+}
+int Chip_C::get_ball_height(){
+    return _ballSizeY;
+}
+int Chip_C::get_ball_spacing(){
+    return _ballSpace;
 }
 //-----------------------------------------------------------------------------------------------------//
 Design_C::Design_C(){}
@@ -236,6 +310,12 @@ void Design_C::add_net(Net_C* net){
     net->set_id(_vNets.size());
     _mNets.emplace(net->get_name(),net);
     _vNets.emplace_back(net);
+}
+int Design_C::get_cell_num(){
+    return _vCells.size();
+}
+int Design_C::get_net_num(){
+    return _vNets.size();
 }
 Cell_C* Design_C::get_cell(string cellName){
     return _mCells[cellName];

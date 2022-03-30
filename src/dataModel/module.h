@@ -1,5 +1,6 @@
 #ifndef MODULE_H
 #define MODULE_H
+#include <iostream>
 #include <tuple>
 #include <string>
 #include <vector>
@@ -53,6 +54,7 @@ struct Pos{
 
 class CellLib_C{
     string _name;
+    int _numTech;
     vector<int> _techW; // sizeX in each tech
     vector<int> _techH; // sizeY in each tech
     vector< vector<Pos> > _vTechLibPinOffset; // pin_offset XY in each tech
@@ -64,6 +66,8 @@ public:
     void add_pin(int, string, Pos); // tech_id, Pos(offsetX, offsetY)
     void add_pin(int, string, int, int); // tech_id, offsetX, offsetY
     void set_size(int, int, int); // tech_id, sizeX, sizeY
+    string get_name();
+    int get_tech_num();
     int get_pin_num();
     string get_pin_name(int); // pinId
     int get_pin_id(string); // get pin id with pinName
@@ -76,11 +80,17 @@ class Row_C{
     list<RowFragment> _vFragments;
     vector<Cell_C*> _vCells;
     int _id; // y = height*_id
+    int _width;
+    int _height;
+    Die_C* _die;
 public:
     Row_C();
+    Row_C(int,int,int); // id, width, height
+    Row_C(int,int,int, Die_C*); // id, width, height, die
 };
 
 class Die_C{
+    int _id;
     int _techId;
     int _sizeX;
     int _sizeY;
@@ -93,9 +103,12 @@ class Die_C{
 public:
     Die_C();
     Die_C(int, int, int, int, int); // sizeX, sizeY, maxUtil, techId, rowHeight
+    Die_C(int, int, int, int, int, int); // id, sizeX, sizeY, maxUtil, techId, rowHeight
+    int get_id();
     int get_techId();
-    int get_cell_width(Cell_C*);
-    int get_cell_height(Cell_C*);
+    int get_max_util();
+    int get_row_height();
+    int get_row_num();
 };
 
 class Pin_C{
@@ -106,6 +119,8 @@ public:
     Pin_C();
     Pin_C(int id, Cell_C *cell); // for cell_pin
     void add_net(Net_C*);
+    int get_id();
+    string get_name();
     Pos get_pos(); // real pos
     int get_x(); // real coordinate
     int get_y(); // real coordinate
@@ -140,6 +155,7 @@ class Cell_C{
     Pos _pos = Pos(0,0,0);
 	CellLib_C* _masterCell;
 	vector<Pin_C*> _vPins;
+    int _dieId;
     Die_C* _die;
     Row_C* _row;
 public:
@@ -147,6 +163,8 @@ public:
 	Cell_C(string name, CellLib_C* master_cell);
     void set_id(int);
     void set_pos(Pos);
+    void set_xy(Pos);
+    void set_die(Die_C*);
     string get_name();
     int get_id();
     int get_width();
@@ -167,8 +185,7 @@ public:
 };
 
 class Chip_C{
-    Die_C* topDie;
-    Die_C* botDie;
+    vector<Die_C*> _vDie;
     // die size (top and bot are same)
     int _sizeX;
     int _sizeY;
@@ -178,12 +195,17 @@ class Chip_C{
     int _ballSpace;
 public:
     Chip_C();
-    Chip_C(int, int); // sizeX, sizeY
+    Chip_C(int, int, int); // sizeX, sizeY, dieNum
     void set_chip_size(int, int); // sizeX, sizeY
-    void set_top_die(int, int, int); // maxUtil, techId, rowHeight
-    void set_bot_die(int, int, int); // maxUtil, techId, rowHeight
+    void set_die(int, int, int, int); // dieId, maxUtil, techId, rowHeight
     void set_ball(int,int,int); // ballSizeX, ballSizeY, ballSpace
+    int get_die_num();
     Die_C* get_die(int);
+    int get_width();
+    int get_height();
+    int get_ball_width();
+    int get_ball_height();
+    int get_ball_spacing();
 };
 
 class Design_C{
@@ -196,6 +218,8 @@ public:
     Design_C();
     void add_net(Net_C* net);
     void add_cell(Cell_C* cell);
+    int get_cell_num();
+    int get_net_num();
     Cell_C* get_cell(string); // get cell with cellName
     Cell_C* get_cell(int); // get cell with cellId
     Net_C* get_net(string); // get net with netName

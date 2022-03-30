@@ -28,7 +28,7 @@ Pin C5/P1
 DieSize 0 0 80 40
 
 TopDieMaxUtil 80
-BottomDieMaxUtil 80
+BottomDieMaxUtil 75
 
 TopDieRows 0 0 80 8 5
 BottomDieRows 0 0 80 10 4

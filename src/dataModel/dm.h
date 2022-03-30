@@ -36,9 +36,10 @@ public:
     DmMgr_C();
     DmMgr_C(Parser_C&, ParamHdl_C&, clock_t);
     void init();
+    void run();
     void print_info();
     void dump_info();
-    void output_result(char*);
+    void output_result(string fileName);
 };
 
 #endif
