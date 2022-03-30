@@ -10,13 +10,13 @@
 #include <iomanip>
 using namespace std;
 
-class ParamHdl{
+class ParamHdl_C{
 public:
-    ParamHdl();
-    ParamHdl(int, char**);
+    ParamHdl_C();
+    ParamHdl_C(int, char**);
 
     bool ok();
-    bool check_exist(string);
+    bool check_flag_exist(string);
     void print_help();
     string get_input_fileName();
     string get_output_fileName();

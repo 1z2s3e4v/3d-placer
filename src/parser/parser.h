@@ -4,6 +4,7 @@
 #include "../utility/color.h"
 
 #include <iostream>
+#include <boost/format.hpp>
 #include <fstream>
 #include <string>
 #include <sstream>
@@ -70,11 +71,17 @@ struct Terminal{
     int sizeY;
     int spacing;
 };
-class Parser{
+class Parser_C{
 public:
-    Parser();
-    Parser(string); // input fileName
+    Parser_C();
+    Parser_C(string); // input fileName
     bool read_file(string); // input fileName
+    vector<Inst>& get_insts();
+    vector<Net>& get_nets();
+    vector<Tech>& get_techs();
+    Die get_top_die_info();
+    Die get_bot_die_info();
+    Terminal get_terminal_info();
 
     bool ok();
     void print_info();

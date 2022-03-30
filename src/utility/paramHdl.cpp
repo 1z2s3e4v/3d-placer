@@ -1,7 +1,7 @@
 #include "paramHdl.h"
 
-ParamHdl::ParamHdl(){}
-ParamHdl::ParamHdl(int argc, char** argv){
+ParamHdl_C::ParamHdl_C(){}
+ParamHdl_C::ParamHdl_C(int argc, char** argv){
     string lastflag = "";
     int countNoFlagItem = 0;
     for(int i=1;i<argc;++i){
@@ -38,14 +38,14 @@ ParamHdl::ParamHdl(int argc, char** argv){
         }
     }
     // check input and output is saved
-    if(!check_exist("input") || !check_exist("output")){
+    if(!check_flag_exist("input") || !check_flag_exist("output")){
         _isOK = false;
         return;
     }
 }
 
-bool ParamHdl::ok(){
-    if(check_exist("help") || check_exist("h")){
+bool ParamHdl_C::ok(){
+    if(check_flag_exist("help") || check_flag_exist("h")){
         print_help();
     }
     else if(!_isOK){
@@ -55,7 +55,7 @@ bool ParamHdl::ok(){
     return _isOK;
 }
 
-bool ParamHdl::check_exist(string flag){
+bool ParamHdl_C::check_flag_exist(string flag){
     if(m_paras.find(flag) != m_paras.end()){
         if(m_paras[flag] != ""){
             return true;
@@ -64,7 +64,7 @@ bool ParamHdl::check_exist(string flag){
     return false;
 }
 
-void ParamHdl::print_help(){
+void ParamHdl_C::print_help(){
     cout << "Usage: " << BOLDYELLOW << "bin/3d-placer <input.txt> <output.txt>" << RESET << "\n\n";
     cout << "Suporting Flags:\n";
     for(auto it : m_singleFlag){
@@ -75,18 +75,18 @@ void ParamHdl::print_help(){
     }
 }
 
-string ParamHdl::get_input_fileName(){
+string ParamHdl_C::get_input_fileName(){
     return get_para("input");
 }
 
-string ParamHdl::get_output_fileName(){
+string ParamHdl_C::get_output_fileName(){
     return get_para("output");
 }
 
-string ParamHdl::get_para(string flag){
+string ParamHdl_C::get_para(string flag){
     return m_paras[flag];
 }
 
-bool ParamHdl::check_is_single_flag(string& flag){
+bool ParamHdl_C::check_is_single_flag(string& flag){
     return (m_singleFlag.find(flag) != m_singleFlag.end());
 }

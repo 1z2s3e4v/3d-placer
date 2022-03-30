@@ -1,0 +1,58 @@
+# Simple case of the figure in problem pdf
+NumInstances 5
+Inst C1 MC1
+Inst C2 MC2
+Inst C3 MC1
+Inst C4 MC1
+Inst C5 MC2
+
+NumNets 4
+Net N1 3
+Pin C1/P1
+Pin C2/P2
+Pin C4/P2
+Net N2 4
+Pin C2/P1
+Pin C3/P3
+Pin C4/P1
+Pin C5/P2
+Net N3 2
+Pin C1/P2
+Pin C3/P2
+Net N4 4
+Pin C1/P3
+Pin C3/P1
+Pin C4/P3
+Pin C5/P1
+
+DieSize 0 0 80 40
+
+TopDieMaxUtil 80
+BottomDieMaxUtil 80
+
+TopDieRows 0 0 80 8 5
+BottomDieRows 0 0 80 10 4
+
+NumTechnologies 2
+Tech TA 2
+LibCell MC1 16 8 3
+Pin P1 4 7
+Pin P2 7 2
+Pin P3 13 4
+LibCell MC2 14 8 2
+Pin P1 4 3
+Pin P2 9 5
+Tech TB 2
+LibCell MC1 16 10 3
+Pin P1 4 8
+Pin P2 7 2
+Pin P3 13 5
+LibCell MC2 14 10 2
+Pin P1 4 4
+Pin P2 9 6
+
+TopDieTech TA
+BottomDieTech TB
+
+TerminalSize 4 4
+TerminalSpacing 4

@@ -1,18 +1,18 @@
 #include "parser.h"
 
-Parser::Parser(){}
-Parser::Parser(string filaName){
+Parser_C::Parser_C(){}
+Parser_C::Parser_C(string filaName){
     read_file(filaName);
 }
 
-bool Parser::read_file(string fileName){
+bool Parser_C::read_file(string fileName){
     _isOK = true;
     countReadInfo = 0;
     cout << BLUE << "[Parser]" << RESET << " - Parsing \"" << fileName << "\"...\n";
     ifstream file(fileName);
     string line, label;
     while(getline(file, line)){
-        if(line=="") continue;
+        if(line=="" || line[0]=='#') continue;
         stringstream ss(line);
         ss >> label;
         if(label == "NumInstances"){ // Netlist (Insts)
@@ -127,11 +127,30 @@ bool Parser::read_file(string fileName){
     return _isOK;
 }
 
-bool Parser::ok(){
+vector<Inst>& Parser_C::get_insts(){
+    return v_inst;
+}
+vector<Net>& Parser_C::get_nets(){
+    return v_net;
+}
+vector<Tech>& Parser_C::get_techs(){
+    return v_tech;
+}
+Die Parser_C::get_top_die_info(){
+    return topDie;
+}
+Die Parser_C::get_bot_die_info(){
+    return botDie;
+}
+Terminal Parser_C::get_terminal_info(){
+    return terminal;
+}
+
+bool Parser_C::ok(){
     return _isOK;
 }
 
-void Parser::print_info(){
+void Parser_C::print_info(){
     cout << "numInst = " << numInst << "\n";
     cout << "numNet  = " << numNet << "\n";
     cout << "numTech = " << numTech << "\n";
