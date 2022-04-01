@@ -4,22 +4,40 @@
 
 AUX::AUX(){}
 AUX::AUX(string name){
-    set_circuit_name(name);
+    numTerminals = 0;
+    numPins = 0;
+    set_dir_and_circuit_name("./", name);
+}
+AUX::AUX(string dir, string name){
+    numTerminals = 0;
+    numPins = 0;
+    set_dir_and_circuit_name(dir, name);
 }
 void AUX::set_circuit_name(string name){
+    numTerminals = 0;
+    numPins = 0;
     _circuit_name = name;
+}
+void AUX::set_dir_and_circuit_name(string dir, string name){
+    if(dir[dir.size()-1] != '/')
+        dir = dir + "/";
+    _dir = dir;
+    _circuit_name = name;
+}
+bool AUX::check_net_exist(string netName){
+    return (_mNets.find(netName) != _mNets.end());
 }
 
 void AUX::write_files(){
-    void write_aux();
-    void write_nets();
-    void write_nodes();
-    void write_pl();
-    void write_scl();
-    void write_wts();
+    write_aux();
+    write_nets();
+    write_nodes();
+    write_pl();
+    write_scl();
+    write_wts();
 }
 void AUX::write_aux(){
-    string fileName = _circuit_name + ".aux";
+    string fileName = _dir + _circuit_name + ".aux";
     ofstream fout(fileName);
     fout << "RowBasedPlacement :  " 
         << _circuit_name << ".nodes  "
@@ -31,7 +49,7 @@ void AUX::write_aux(){
     fout.close();
 }
 void AUX::write_nodes(){
-    string fileName = _circuit_name + ".nodes";
+    string fileName = _dir + _circuit_name + ".nodes";
     ofstream fout(fileName);
     time_t ttime = time(0);
     char* dt = ctime(&ttime);
@@ -41,13 +59,13 @@ void AUX::write_nodes(){
     fout << "\n";
     fout << "NumNodes :\t\t" << _vNodes.size() << "\n";
     fout << "NumTerminals :\t" << numTerminals << "\n";
-    for(Node& node : _vNodes){
+    for(AuxNode& node : _vNodes){
         fout << "\t" << node.name << "\t" << node.width << "\t" << node.height << "\n";
     }
     fout.close();
 }
 void AUX::write_nets(){
-    string fileName = _circuit_name + ".nodes";
+    string fileName = _dir + _circuit_name + ".nets";
     ofstream fout(fileName);
     time_t ttime = time(0);
     char* dt = ctime(&ttime);
@@ -60,14 +78,14 @@ void AUX::write_nets(){
     fout << "\n";
     for(auto& net : _mNets){
         fout << "NetDegree : " << net.second.degree << "\t" << net.second.name << "\n";
-        for(Pin& pin : net.second.vPins){
+        for(AuxPin& pin : net.second.vPins){
             fout << "\t" << pin.cellName << "\t" << pin.IO << " : " << pin.x_offset << "\t" << pin.y_offset << "\n";
         }
     }
     fout.close();
 }
 void AUX::write_wts(){
-    string fileName = _circuit_name + ".nodes";
+    string fileName = _dir + _circuit_name + ".wts";
     ofstream fout(fileName);
     time_t ttime = time(0);
     char* dt = ctime(&ttime);
@@ -78,7 +96,7 @@ void AUX::write_wts(){
     fout.close();
 }
 void AUX::write_pl(){
-    string fileName = _circuit_name + ".nodes";
+    string fileName = _dir + _circuit_name + ".pl";
     ofstream fout(fileName);
     time_t ttime = time(0);
     char* dt = ctime(&ttime);
@@ -86,7 +104,7 @@ void AUX::write_pl(){
     fout << "# Created\t:\t" << dt << "\n";
     fout << "# User\t\t:\t" << getenv("USER") << "\n";
     fout << "\n";
-    for(Node& node : _vNodes){
+    for(AuxNode& node : _vNodes){
         fout << node.name << "\t" << node.x << "\t" << node.y << "\t: N";
         if(node.fixed) fout << " /FIXED";
         fout << "\n";
@@ -94,7 +112,7 @@ void AUX::write_pl(){
     fout.close();
 }
 void AUX::write_scl(){
-    string fileName = _circuit_name + ".nodes";
+    string fileName = _dir + _circuit_name + ".scl";
     ofstream fout(fileName);
     time_t ttime = time(0);
     char* dt = ctime(&ttime);
@@ -104,10 +122,10 @@ void AUX::write_scl(){
     fout << "\n";
     fout << "NumRows : " << _vRows.size();
     int count_row = 0;
-    for(Row& row : _vRows){
+    for(AuxRow& row : _vRows){
         int coord = row.height * count_row;
         fout << "CoreRow Horizontal" << "\n";
-        fout << " Coordinate     :   " << coord << "\n";
+        fout << "  Coordinate     :   " << coord << "\n";
         fout << "  Height         :   " << row.height << "\n";
         fout << "  Sitewidth      :   " << 1 << "\n";
         fout << "  Sitespacing    :   " << 1 << "\n";
@@ -121,7 +139,7 @@ void AUX::write_scl(){
 }
 
 void AUX::add_node(string name, int w, int h, int x, int y, int isTerminl){
-    Node node;
+    AuxNode node;
     node.name = name;
     node.width = w;
     node.height = h;
@@ -131,26 +149,27 @@ void AUX::add_node(string name, int w, int h, int x, int y, int isTerminl){
     if(isTerminl) ++numTerminals;
     _vNodes.emplace_back(node);
 }
-void AUX::add_net(string name, int degree){
-    Net net;
+void AUX::add_net(string name){
+    AuxNet net;
+    net.degree = 0;
     net.name = name;
-    net.degree = degree;
     _mNets.emplace(name, net);
 }
 void AUX::add_pin(string netName, string cellName, char IO, int x_offset, int y_offset){
     add_pin(netName, cellName, IO, float(x_offset), float(y_offset));
 }
 void AUX::add_pin(string netName, string cellName, char IO, float x_offset, float y_offset){
-    Pin pin;
+    AuxPin pin;
     pin.cellName = cellName;
     pin.x_offset = x_offset;
     pin.y_offset = y_offset;
     pin.IO = IO;
     _mNets[netName].vPins.emplace_back(pin);
+    _mNets[netName].degree++;
     ++numPins;
 }
 void AUX::add_row(int w, int h){
-    Row row;
+    AuxRow row;
     row.width = w;
     row.height = h;
     _vRows.emplace_back(row);
@@ -160,11 +179,11 @@ void AUX::set_default_rows(int w, int h, int n){
         add_row(w,h);
     }
 }
-void AUX::read_pl(vector<Node>& vPlacedNode){
+void AUX::read_pl(vector<AuxNode>& vPlacedNode){
     string fileName = _circuit_name + ".out.lg.pl";
     read_pl(fileName, vPlacedNode);
 }
-void AUX::read_pl(string fileName, vector<Node>& vPlacedNode){
+void AUX::read_pl(string fileName, vector<AuxNode>& vPlacedNode){
     ifstream fin(fileName);
     string line;
     int count_line = 0;
@@ -174,7 +193,7 @@ void AUX::read_pl(string fileName, vector<Node>& vPlacedNode){
         string name;
         int x,y;
         ss >> name >> x >> y;
-        Node node;
+        AuxNode node;
         node.name = name;
         node.x = x;
         node.y = y;

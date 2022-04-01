@@ -42,6 +42,7 @@ int main(int argc, char** argv){
         dmMgr->print_info();
     }
     //dmMgr->dump_info();
+    dmMgr->output_result(paramHdl.get_output_fileName());
 
     return 0;
 }

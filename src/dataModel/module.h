@@ -91,42 +91,40 @@ public:
 
 class Die_C{
     int _id;
-    int _techId;
+    int _techId; // die technology
     int _sizeX;
     int _sizeY;
-    // die max utility
-    int _maxUtil;
-    // die rows
-    int _rowHeight;
-    vector<Row_C*> _vRows;
-    // die technology
+    int _maxUtil; // die max utility
+    int _rowHeight; 
+    vector<Row_C*> _vRows; // die rows
+    vector<Cell_C*> _vCells;
 public:
     Die_C();
     Die_C(int, int, int, int, int); // sizeX, sizeY, maxUtil, techId, rowHeight
     Die_C(int, int, int, int, int, int); // id, sizeX, sizeY, maxUtil, techId, rowHeight
+    void add_cell(Cell_C*);
     int get_id();
     int get_techId();
     int get_max_util();
     int get_row_height();
     int get_row_num();
+    vector<Cell_C*>& get_cells();
 };
 
 class Pin_C{
     int _id; // pinId in _masterCell
 	Cell_C* _cell;
-	vector<Net_C*> _vNets;
+	Net_C* _net;
 public:
     Pin_C();
     Pin_C(int id, Cell_C *cell); // for cell_pin
-    void add_net(Net_C*);
+    void set_net(Net_C*);
     int get_id();
     string get_name();
     Pos get_pos(); // real pos
     int get_x(); // real coordinate
     int get_y(); // real coordinate
-    int get_net_num();
-    Net_C* get_net(int);
-    vector<Net_C*>& get_nets();
+    Net_C* get_net();
     Cell_C* get_cell();
 };
 
@@ -134,12 +132,15 @@ class Net_C{
     string _name;
     int _id;
 	int _HPWL;
+    Pos _ballPos;
+    //vector<int> _vPinNumInEachDie;
     
 	vector<Pin_C*> _vPins;
 public:
     Net_C();
 	Net_C(string name);
     void set_id(int);
+    void set_ball_xy(Pos);
     void add_pin(Pin_C*); // cellName, pinName
     string get_name() const;
     int get_id();
@@ -147,6 +148,7 @@ public:
     int get_pin_num();
     Pin_C* get_pin(int);
     vector<Pin_C*>& get_pins();
+    Pos get_ball_pos();
 };
 
 class Cell_C{
@@ -193,6 +195,7 @@ class Chip_C{
     int _ballSizeX;
     int _ballSizeY;
     int _ballSpace;
+    vector<Net_C*> _vD2DNets; // inter-tier vias
 public:
     Chip_C();
     Chip_C(int, int, int); // sizeX, sizeY, dieNum
@@ -206,6 +209,7 @@ public:
     int get_ball_width();
     int get_ball_height();
     int get_ball_spacing();
+    vector<Net_C*>& get_d2d_nets();
 };
 
 class Design_C{

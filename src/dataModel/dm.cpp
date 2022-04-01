@@ -6,6 +6,7 @@
 DmMgr_C::DmMgr_C(){};
 DmMgr_C::DmMgr_C(Parser_C& parser, ParamHdl_C& paramHdl, clock_t tStart){
     cout << BLUE << "[DM]" << RESET << " - Construct Data Structure...\n";
+    _paramHdl = paramHdl;
     vector<Tech>& v_tech = parser.get_techs();
     vector<Inst>& v_inst = parser.get_insts();
     vector<Net>& v_net = parser.get_nets();
@@ -83,6 +84,12 @@ void DmMgr_C::run(){
         cell->set_xy(Pos(0,0));
         cell->set_die(_pChip->get_die(0));
     }
+    for(int i=0;i<_pDesign->get_net_num();++i){
+        Net_C* net = _pDesign->get_net(i);
+        net->set_ball_xy(Pos(0,0));
+    }
+    // output aux
+    output_aux_form(0);
     cout << BLUE << "[DM]" << RESET << " - Finish!\n";
 }
 
@@ -122,11 +129,12 @@ void DmMgr_C::print_info(){
 void DmMgr_C::dump_info(){
     system("mkdir -p dump");
     ofstream fout("dump/data_info.txt");
+    fout << BLUE << "[DM]" << RESET << " - Print information: --------------------------------------------------------------------------------------\n";
     fout << "numCell=" << _pDesign->get_cell_num() << ", numNet=" << _pDesign->get_net_num() << ", , numTech=" << _vTechName.size() << "\n";
     // Cell
     for(int i=0;i<_pDesign->get_cell_num();++i){
         Cell_C* cell = _pDesign->get_cell(i);
-        fout << "Cell " << cell->get_name() << "(" << cell->get_master_cell()->get_name() << "), pos(" << cell->get_pos().to_str() << ", size = " <<cell->get_width() << "*" << cell->get_height()
+        fout << "Cell " << cell->get_name() << "(" << cell->get_master_cell()->get_name() << "), pos(" << cell->get_pos().to_str() << ", size=" <<cell->get_width() << "*" << cell->get_height()
             << ", Pins=[";
         for(int j=0;j<cell->get_pin_num();++j){
             Pin_C* pin = cell->get_pin(j);
@@ -146,12 +154,68 @@ void DmMgr_C::dump_info(){
     }
     // Dies
     fout << "Chip size = " << _pChip->get_width() << "*" << _pChip->get_height() << "\n";
-    for(int i=0;i<1;++i){
-        fout << "Die[" << i << "]: maxUtil=" << _pChip->get_die(i)->get_max_util() << ", tech=" << _vTechName[_pChip->get_die(i)->get_techId()] << ", rowNum=" << _pChip->get_die(i)->get_row_num() << "\n";
+    for(int i=0;i<_pChip->get_die_num();++i){
+        fout << "Die[" << i << "]: " << "tech=" << _vTechName[_pChip->get_die(i)->get_techId()] << ", maxUtil=" << _pChip->get_die(i)->get_max_util() << ", rowHeight=" << _pChip->get_die(i)->get_row_height() << ", rowNum=" << _pChip->get_die(i)->get_row_num() << "\n";
     }
     // Ball
     fout << "Ball: " << _pChip->get_ball_width() << "*" << _pChip->get_ball_height() << ", spacing=" << _pChip->get_ball_spacing() << "\n";
+    fout << "-------------------------------------------------------------------------------------------------------------------\n";
+    fout.close();
 }
 void DmMgr_C::output_result(string fileName){
+    ofstream fout(fileName);
+    Die_C* topDie = _pChip->get_die(0);
+    vector<Cell_C*>& v_topCells = topDie->get_cells();
+    fout << "TopDiePlacement " << v_topCells.size() << "\n";
+    for(Cell_C* cell : v_topCells){
+        fout << "Inst " << cell->get_name() << " " << cell->get_posX() << " " << cell->get_posY() << "\n";
+    }
+    Die_C* botDie = _pChip->get_die(1);
+    vector<Cell_C*>& v_botCells = botDie->get_cells();
+    fout << "BottomDiePlacement " << v_botCells.size() << "\n";
+    for(Cell_C* cell : v_botCells){
+        fout << "Inst " << cell->get_name() << " " << cell->get_posX() << " " << cell->get_posY() << "\n";
+    }
+    vector<Net_C*>& v_d2dNets = _pChip->get_d2d_nets();
+    fout << "NumTerminals " << v_d2dNets.size() << "\n";
+    for(Net_C* net : v_d2dNets){
+        fout << "Terminal " << net->get_name() << " " << net->get_ball_pos().x << net->get_ball_pos().y << "\n";
+    }
+    fout.close();
+}
 
+void DmMgr_C::output_aux_form(int dieId){  // output in dir "./aux/<case-name>/"
+    string caseName = _paramHdl.get_case_name();
+    string aux_dir = "./aux/" + caseName + "/";
+    string cmd = "mkdir -p " + aux_dir;
+    system(cmd.c_str());
+    AUX aux(aux_dir, caseName);
+    // nodes
+    vector<Cell_C*>& v_cells = _pChip->get_die(dieId)->get_cells();
+    for(Cell_C* cell : v_cells){
+        aux.add_node(cell->get_name(), cell->get_width(), cell->get_height(), cell->get_posX(), cell->get_posY(),0);
+        for(int i=0;i<cell->get_pin_num();++i){
+            Pin_C* pin = cell->get_pin(i);
+            Net_C* net = pin->get_net();
+            char IO = 'I';
+            if(!aux.check_net_exist(net->get_name())){
+                aux.add_net(net->get_name());
+                IO='O';
+            }
+            Pos pin_offset = cell->get_master_cell()->get_pin_offset(_pChip->get_die(dieId)->get_techId() ,pin->get_id());
+            aux.add_pin(net->get_name(), pin->get_cell()->get_name(), IO, pin_offset.x, pin_offset.y);
+        }
+    }
+    // rows
+    aux.set_default_rows(_pChip->get_width(), _pChip->get_die(dieId)->get_row_height(), _pChip->get_die(dieId)->get_row_num());
+
+    // write
+    aux.write_files();
+    cout << BLUE << "[DM]" << RESET << " - Output aux format in \'" << aux_dir << "\'.\n";
+}
+void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
+    string outFile = "./draw/" + _paramHdl.get_case_name() + ".html";
+    system("mkdir -p ./draw/");
+
+    cout << BLUE << "[DM]" << RESET << " - Visualize the layout in \'" << outFile << "\'.\n";
 }

@@ -20,6 +20,7 @@ public:
     void print_help();
     string get_input_fileName();
     string get_output_fileName();
+    string get_case_name();
     string get_para(string);
 private:
     bool check_is_single_flag(string&);

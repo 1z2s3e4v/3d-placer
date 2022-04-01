@@ -83,6 +83,27 @@ string ParamHdl_C::get_output_fileName(){
     return get_para("output");
 }
 
+string ParamHdl_C::get_case_name(){
+    string caseName;
+    string fileName;
+    string inFileName = get_para("input");
+    char sep = '/'; 
+    size_t i = inFileName.rfind(sep, inFileName.length());
+    if (i != string::npos) {
+        fileName = inFileName.substr(i+1, inFileName.length() - i);
+    } else {
+        fileName = inFileName;
+    }
+    char sep2 = '.';
+    i = fileName.rfind(sep2, fileName.length());
+    if (i != string::npos) {
+        caseName = fileName.substr(0, i);
+    } else{
+        caseName = fileName;
+    }
+    return caseName; 
+}
+
 string ParamHdl_C::get_para(string flag){
     return m_paras[flag];
 }

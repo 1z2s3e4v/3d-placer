@@ -98,6 +98,9 @@ Die_C::Die_C(int id, int sizeX, int sizeY, int maxUtil, int techId, int rowHeigh
         _vRows[i] = new Row_C(i, sizeX, sizeY, this);
     }
 }
+void Die_C::add_cell(Cell_C* cell){
+    _vCells.emplace_back(cell);
+}
 int Die_C::get_id(){
     return _id;
 }
@@ -113,13 +116,16 @@ int Die_C::get_row_height(){
 int Die_C::get_row_num(){
     return _vRows.size();
 }
+vector<Cell_C*>& Die_C::get_cells(){
+    return _vCells;
+}
 //-----------------------------------------------------------------------------------------------------//
 Pin_C::Pin_C(int id, Cell_C *cell){
     _id = id;
     _cell = cell;
 }
-void Pin_C::add_net(Net_C * net){
-    _vNets.emplace_back(net);
+void Pin_C::set_net(Net_C * net){
+    _net = net;
 }
 int Pin_C::get_id(){
     return _id;
@@ -142,14 +148,8 @@ int Pin_C::get_y(){
     Pos pinOffset = _cell->get_master_cell()->get_pin_offset(_cell->get_die_techId(), _id);
     return cellPos.y+pinOffset.y;
 }
-int Pin_C::get_net_num(){
-    return _vNets.size();
-}
-Net_C* Pin_C::get_net(int i){
-    return _vNets[i];
-}
-vector<Net_C*>& Pin_C::get_nets(){
-    return _vNets;
+Net_C* Pin_C::get_net(){
+    return _net;
 }
 Cell_C* Pin_C::get_cell(){
     return _cell;
@@ -163,8 +163,12 @@ Net_C::Net_C(string name){
 void Net_C::set_id(int id){
     _id = id;
 }
+void Net_C::set_ball_xy(Pos pos){
+    _ballPos = pos;
+}
 void Net_C::add_pin(Pin_C* pin){
     _vPins.emplace_back(pin);
+    pin->set_net(this);
 }
 string Net_C::get_name() const{
     return _name;
@@ -184,6 +188,9 @@ Pin_C* Net_C::get_pin(int i){
 vector<Pin_C*>& Net_C::get_pins(){
     return _vPins;
 }
+Pos Net_C::get_ball_pos(){
+    return _ballPos;
+}
 //-----------------------------------------------------------------------------------------------------//
 Cell_C::Cell_C(){}
 Cell_C::Cell_C(string name, CellLib_C* masterCell){
@@ -199,6 +206,7 @@ void Cell_C::set_id(int id){
 }
 void Cell_C::set_pos(Pos pos){
     _pos = pos;
+    _dieId = pos.z;
 }
 void Cell_C::set_xy(Pos pos){
     _pos.x = pos.x;
@@ -207,6 +215,7 @@ void Cell_C::set_xy(Pos pos){
 void Cell_C::set_die(Die_C* die){
     _dieId = die->get_id();
     _die = die;
+    _die->add_cell(this);
 }
 string Cell_C::get_name(){
     return _name;
@@ -298,6 +307,9 @@ int Chip_C::get_ball_height(){
 }
 int Chip_C::get_ball_spacing(){
     return _ballSpace;
+}
+vector<Net_C*>& Chip_C::get_d2d_nets(){
+    return _vD2DNets;
 }
 //-----------------------------------------------------------------------------------------------------//
 Design_C::Design_C(){}

@@ -18,10 +18,12 @@
 #include <math.h>
 #include "module.h"
 #include "../utility/paramHdl.h"
+#include "../utility/aux.h"
 #include "../parser/parser.h"
 #include "../placer/placer.h"
+
 class DmMgr_C{
-    ParamHdl_C paramHdl;
+    ParamHdl_C _paramHdl;
 
     vector<string> _vTechName; // Tech Name Table: _vTech[Techid]=TechName
     unordered_map<string, int> _mTechName2Id; // Tech Name Table: _mTechName2Id[TechName]=TechId
@@ -39,6 +41,8 @@ public:
     void run();
     void print_info();
     void dump_info();
+    void output_aux_form(int dieId); // output in dir "./aux/<case-name>/"
+    void draw_layout_result(); // output in dir "./draw/<case-name>.html"
     void output_result(string fileName);
 };
 
