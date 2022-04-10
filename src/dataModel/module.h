@@ -228,6 +228,8 @@ public:
     Cell_C* get_cell(int); // get cell with cellId
     Net_C* get_net(string); // get net with netName
     Net_C* get_net(int); // get net with netId
+    vector<Cell_C*>& get_cells();
+    vector<Net_C*>& get_nets();
 };
 
 

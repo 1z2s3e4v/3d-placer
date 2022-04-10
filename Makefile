@@ -15,12 +15,8 @@ bin/$(EXECUTABLE): $(OBJECTS)
 	$(CC) $(LDFLAGS) $< -c -o $@
 
 t:
-	bin/$(EXECUTABLE) testcase/toycase.txt output/toycase_output.txt
-d:
-	bin/$(EXECUTABLE) -d testcase/toycase.txt output/toycase_output.txt
-t2:
 	bin/$(EXECUTABLE) testcase/toycase2.txt output/toycase2_output.txt
-d2:
+d:
 	bin/$(EXECUTABLE) -d testcase/toycase2.txt output/toycase2_output.txt
 c1:
 	bin/$(EXECUTABLE) testcase/case1.txt output/case1_output.txt

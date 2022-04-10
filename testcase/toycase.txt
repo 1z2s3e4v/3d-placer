@@ -1,6 +1,7 @@
+# Simple case in the problem pdf
 NumInstances 2
 Inst C1 MC1
-Inst C2 MC3
+Inst C2 MC2
 NumNets 1
 Net N1 2
 Pin C1/P2

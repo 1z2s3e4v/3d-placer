@@ -200,6 +200,7 @@ Cell_C::Cell_C(string name, CellLib_C* masterCell){
         Pin_C* pin = new Pin_C(i,this);
         _vPins.emplace_back(pin);
     }
+    _pos = Pos(0,0,0);
 }
 void Cell_C::set_id(int id){
     _id = id;
@@ -214,6 +215,7 @@ void Cell_C::set_xy(Pos pos){
 }
 void Cell_C::set_die(Die_C* die){
     _dieId = die->get_id();
+    _pos.z = _dieId;
     _die = die;
     _die->add_cell(this);
 }
@@ -250,6 +252,7 @@ vector<Pin_C*>& Cell_C::get_pins(){
     return _vPins;
 }
 Pos Cell_C::get_pos(){
+    _pos.z = _dieId;
     return _pos;
 }
 int Cell_C::get_posX(){
@@ -259,6 +262,7 @@ int Cell_C::get_posY(){
     return _pos.y;
 }
 int Cell_C::get_posZ(){
+    _pos.z = _dieId;
     return _pos.z;
 }
 CellLib_C* Cell_C::get_master_cell(){
@@ -267,6 +271,9 @@ CellLib_C* Cell_C::get_master_cell(){
 int Cell_C::get_die_techId(){
     assert(_die != nullptr);
     return _die->get_techId();
+}
+int Cell_C::get_dieId(){
+    return _dieId;
 }
 //-----------------------------------------------------------------------------------------------------//
 Chip_C::Chip_C(){}
@@ -340,4 +347,10 @@ Net_C* Design_C::get_net(string netName){
 }
 Net_C* Design_C::get_net(int netId){
     return _vNets[netId];
+}
+vector<Cell_C*>& Design_C::get_cells(){
+    return _vCells;
+}
+vector<Net_C*>& Design_C::get_nets(){
+    return _vNets;
 }

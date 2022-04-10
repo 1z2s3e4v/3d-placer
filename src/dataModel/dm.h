@@ -19,6 +19,7 @@
 #include "module.h"
 #include "../utility/paramHdl.h"
 #include "../utility/aux.h"
+#include "../utility/drawHtml.h"
 #include "../parser/parser.h"
 #include "../placer/placer.h"
 
@@ -44,6 +45,7 @@ public:
     void output_aux_form(int dieId); // output in dir "./aux/<case-name>/"
     void draw_layout_result(); // output in dir "./draw/<case-name>.html"
     void output_result(string fileName);
+    void output_result(); // output the final result with given output name
 };
 
 #endif

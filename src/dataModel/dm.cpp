@@ -79,17 +79,14 @@ void DmMgr_C::init(){
 void DmMgr_C::run(){
     cout << BLUE << "[DM]" << RESET << " - Start\n";
     // init place
-    for(int i=0;i<_pDesign->get_cell_num();++i){
-        Cell_C* cell = _pDesign->get_cell(i);
-        cell->set_xy(Pos(0,0));
-        cell->set_die(_pChip->get_die(0));
-    }
-    for(int i=0;i<_pDesign->get_net_num();++i){
-        Net_C* net = _pDesign->get_net(i);
-        net->set_ball_xy(Pos(0,0));
-    }
+    _pPlacer = new Placer_C(_pChip, _pDesign, _tStart);
+    _pPlacer->run();
     // output aux
     output_aux_form(0);
+    // output result
+    output_result(); 
+    // visualization (output svg.html)
+    draw_layout_result();
     cout << BLUE << "[DM]" << RESET << " - Finish!\n";
 }
 
@@ -163,7 +160,7 @@ void DmMgr_C::dump_info(){
     fout.close();
 }
 void DmMgr_C::output_result(string fileName){
-    ofstream fout(fileName);
+    ofstream fout(_paramHdl.get_output_fileName());
     Die_C* topDie = _pChip->get_die(0);
     vector<Cell_C*>& v_topCells = topDie->get_cells();
     fout << "TopDiePlacement " << v_topCells.size() << "\n";
@@ -182,6 +179,9 @@ void DmMgr_C::output_result(string fileName){
         fout << "Terminal " << net->get_name() << " " << net->get_ball_pos().x << net->get_ball_pos().y << "\n";
     }
     fout.close();
+}
+void DmMgr_C::output_result(){
+    output_result(_paramHdl.get_output_fileName());
 }
 
 void DmMgr_C::output_aux_form(int dieId){  // output in dir "./aux/<case-name>/"
@@ -216,6 +216,38 @@ void DmMgr_C::output_aux_form(int dieId){  // output in dir "./aux/<case-name>/"
 void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
     string outFile = "./draw/" + _paramHdl.get_case_name() + ".html";
     system("mkdir -p ./draw/");
+    Drawer_C* draw_svg = new Drawer_C(outFile);
+    double scaling = 1500.0 / (_pChip->get_width()*2+_pChip->get_width()/10.0);
+    draw_svg->setting(_pChip->get_width()*2+_pChip->get_width()/10.0,_pChip->get_height(),scaling,0,0); // outline_x, outline_y, scaling, offset_x, offset_y
+    draw_svg->start_svg();
+    vector<Pos> diePos;
+    // Draw Die
+    diePos.push_back(Pos(0,0));
+    draw_svg->drawRect("Die0", drawBox(drawPos(diePos[0].x,diePos[0].y),drawPos(_pChip->get_width(),_pChip->get_height())), "black");
+    // draw rows
+    Die_C* die = _pChip->get_die(0);
+    for(int i=0;i<die->get_row_num();++i){
+        die->get_row_height();
+        draw_svg->drawRect("Die0_Row"+to_string(i), drawBox(drawPos(diePos[0].x,diePos[0].y+i*die->get_row_height()),drawPos(diePos[0].x+_pChip->get_width(),diePos[0].y+i*die->get_row_height()+die->get_row_height())), "gray");
+    }
+    // Draw Die
+    diePos.push_back(Pos(diePos[0].x+_pChip->get_width()+_pChip->get_width()/10.0,0));
+    draw_svg->drawRect("Die1", drawBox(drawPos(diePos[1].x,diePos[1].y),drawPos(_pChip->get_width(),_pChip->get_height())), "black");
+    // draw rows
+    die = _pChip->get_die(1);
+    for(int i=0;i<die->get_row_num();++i){
+        die->get_row_height();
+        draw_svg->drawRect("Row"+to_string(i), drawBox(drawPos(diePos[1].x,diePos[1].y+i*die->get_row_height()),drawPos(diePos[1].x+_pChip->get_width(),diePos[1].y+i*die->get_row_height()+die->get_row_height())), "gray");
+    }
 
+    // Draw Cells
+    for(int i=0;i<_pDesign->get_cell_num();++i){
+        Cell_C* cell = _pDesign->get_cell(i);
+        int dieX = diePos[cell->get_dieId()].x;
+        draw_svg->drawRect(cell->get_name(), drawBox(drawPos(dieX+cell->get_posX(),cell->get_posY()),drawPos(dieX+cell->get_posX()+cell->get_width(),cell->get_posY()+cell->get_height())), "yellow");
+        draw_svg->drawText(cell->get_name()+"_label", drawPos(dieX+cell->get_posX()+cell->get_width()/2.0, cell->get_posY()+cell->get_height()/2.0), cell->get_name());
+    }
+
+    draw_svg->end_svg();
     cout << BLUE << "[DM]" << RESET << " - Visualize the layout in \'" << outFile << "\'.\n";
 }

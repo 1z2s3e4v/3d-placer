@@ -73,7 +73,7 @@ void AUX::write_nets(){
     fout << "# Created\t:\t" << dt << "\n";
     fout << "# User\t\t:\t" << getenv("USER") << "\n";
     fout << "\n";
-    fout << "NumNets :\t\t" << _mNets.size() << "\n";
+    fout << "NumNets :\t" << _mNets.size() << "\n";
     fout << "NumPins :\t" << numPins << "\n";
     fout << "\n";
     for(auto& net : _mNets){
@@ -120,7 +120,7 @@ void AUX::write_scl(){
     fout << "# Created\t:\t" << dt << "\n";
     fout << "# User\t\t:\t" << getenv("USER") << "\n";
     fout << "\n";
-    fout << "NumRows : " << _vRows.size();
+    fout << "NumRows : " << _vRows.size() << "\n\n";
     int count_row = 0;
     for(AuxRow& row : _vRows){
         int coord = row.height * count_row;
