@@ -197,13 +197,15 @@ void DmMgr_C::output_aux_form(int dieId){  // output in dir "./aux/<case-name>/"
         for(int i=0;i<cell->get_pin_num();++i){
             Pin_C* pin = cell->get_pin(i);
             Net_C* net = pin->get_net();
-            char IO = 'I';
-            if(!aux.check_net_exist(net->get_name())){
-                aux.add_net(net->get_name());
-                IO='O';
+            if(net != nullptr){
+                char IO = 'I';
+                if(!aux.check_net_exist(net->get_name())){
+                    aux.add_net(net->get_name());
+                    IO='O';
+                }
+                Pos pin_offset = cell->get_master_cell()->get_pin_offset(_pChip->get_die(dieId)->get_techId() ,pin->get_id());
+                aux.add_pin(net->get_name(), pin->get_cell()->get_name(), IO, pin_offset.x, pin_offset.y);
             }
-            Pos pin_offset = cell->get_master_cell()->get_pin_offset(_pChip->get_die(dieId)->get_techId() ,pin->get_id());
-            aux.add_pin(net->get_name(), pin->get_cell()->get_name(), IO, pin_offset.x, pin_offset.y);
         }
     }
     // rows

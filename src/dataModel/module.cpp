@@ -123,6 +123,7 @@ vector<Cell_C*>& Die_C::get_cells(){
 Pin_C::Pin_C(int id, Cell_C *cell){
     _id = id;
     _cell = cell;
+    _net = nullptr;
 }
 void Pin_C::set_net(Net_C * net){
     _net = net;
