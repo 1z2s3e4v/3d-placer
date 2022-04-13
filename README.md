@@ -28,6 +28,7 @@ type 'bin/3d-placer <input.txt> <output.txt>'
 ## Example
 make  
 bin/3d-placer testcase/case1.txt output/case1_output.txt  
+### result:  
 <p float="left">
   <img src="img/case1_result" width="200" />
   <img src="img/case1_result_draw.jpg" width="600" /> 
