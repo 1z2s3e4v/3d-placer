@@ -103,6 +103,7 @@ public:
     Die_C(int, int, int, int, int); // sizeX, sizeY, maxUtil, techId, rowHeight
     Die_C(int, int, int, int, int, int); // id, sizeX, sizeY, maxUtil, techId, rowHeight
     void add_cell(Cell_C*);
+    void remove_cell(Cell_C*);
     int get_id();
     int get_techId();
     int get_max_util();
@@ -230,6 +231,8 @@ public:
     Net_C* get_net(int); // get net with netId
     vector<Cell_C*>& get_cells();
     vector<Net_C*>& get_nets();
+    map<string,Cell_C*>& get_cells_map();
+    map<string,Net_C*>& get_nets_map();
 };
 
 

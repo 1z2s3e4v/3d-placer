@@ -101,6 +101,9 @@ Die_C::Die_C(int id, int sizeX, int sizeY, int maxUtil, int techId, int rowHeigh
 void Die_C::add_cell(Cell_C* cell){
     _vCells.emplace_back(cell);
 }
+void Die_C::remove_cell(Cell_C * cell){
+    _vCells.erase(std::remove(_vCells.begin(), _vCells.end(), cell), _vCells.end());
+}
 int Die_C::get_id(){
     return _id;
 }
@@ -202,6 +205,7 @@ Cell_C::Cell_C(string name, CellLib_C* masterCell){
         _vPins.emplace_back(pin);
     }
     _pos = Pos(0,0,0);
+    _die = nullptr;
 }
 void Cell_C::set_id(int id){
     _id = id;
@@ -215,10 +219,15 @@ void Cell_C::set_xy(Pos pos){
     _pos.y = pos.y;
 }
 void Cell_C::set_die(Die_C* die){
+    if(_die != nullptr && _die->get_id() != die->get_id()){
+        _die->remove_cell(this);
+        die->add_cell(this);
+    } else if(_die == nullptr){
+        die->add_cell(this);
+    }
     _dieId = die->get_id();
     _pos.z = _dieId;
     _die = die;
-    _die->add_cell(this);
 }
 string Cell_C::get_name(){
     return _name;
@@ -354,4 +363,10 @@ vector<Cell_C*>& Design_C::get_cells(){
 }
 vector<Net_C*>& Design_C::get_nets(){
     return _vNets;
+}
+map<string,Cell_C*>& Design_C::get_cells_map(){
+    return _mCells;
+}
+map<string,Net_C*>& Design_C::get_nets_map(){
+    return _mNets;
 }

@@ -62,7 +62,7 @@ DmMgr_C::DmMgr_C(Parser_C& parser, ParamHdl_C& paramHdl, clock_t tStart){
                        botDie.rowHeight);
     Terminal t = parser.get_terminal_info();
     _pChip->set_ball(t.sizeX, t.sizeY, t.spacing);
-    cout << BLUE << "[DM]" << RESET << " - Construct Data Structure "<< GREEN <<" successfully!" << RESET << "\n";
+    cout << BLUE << "[DM]" << RESET << " - Construct Data Structure"<< GREEN <<" successfully!" << RESET << "\n";
 }
 
 void DmMgr_C::init(){
@@ -215,6 +215,14 @@ void DmMgr_C::output_aux_form(int dieId){  // output in dir "./aux/<case-name>/"
     aux.write_files();
     cout << BLUE << "[DM]" << RESET << " - Output aux format in \'" << aux_dir << "\'.\n";
 }
+
+int* getRandRGB(){
+    int* color = new int(3);
+    color[0] = rand()%256;
+    color[1] = rand()%256;
+    color[2] = rand()%256;
+    return color;
+}
 void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
     string outFile = "./draw/" + _paramHdl.get_case_name() + ".html";
     system("mkdir -p ./draw/");
@@ -225,29 +233,48 @@ void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
     vector<Pos> diePos;
     // Draw Die
     diePos.push_back(Pos(0,0));
-    draw_svg->drawRect("Die0", drawBox(drawPos(diePos[0].x,diePos[0].y),drawPos(_pChip->get_width(),_pChip->get_height())), "black");
+    draw_svg->drawRect("Die0", drawBox(drawPos(diePos[0].x,diePos[0].y),drawPos(_pChip->get_width(),_pChip->get_height())), "white");
     // draw rows
     Die_C* die = _pChip->get_die(0);
     for(int i=0;i<die->get_row_num();++i){
         die->get_row_height();
-        draw_svg->drawRect("Die0_Row"+to_string(i), drawBox(drawPos(diePos[0].x,diePos[0].y+i*die->get_row_height()),drawPos(diePos[0].x+_pChip->get_width(),diePos[0].y+i*die->get_row_height()+die->get_row_height())), "gray");
+        draw_svg->drawRect("Die0_Row"+to_string(i), drawBox(drawPos(diePos[0].x,diePos[0].y+i*die->get_row_height()),drawPos(diePos[0].x+_pChip->get_width(),diePos[0].y+i*die->get_row_height()+die->get_row_height())), "gainsboro");
     }
     // Draw Die
     diePos.push_back(Pos(diePos[0].x+_pChip->get_width()+_pChip->get_width()/10.0,0));
-    draw_svg->drawRect("Die1", drawBox(drawPos(diePos[1].x,diePos[1].y),drawPos(_pChip->get_width(),_pChip->get_height())), "black");
+    draw_svg->drawRect("Die1", drawBox(drawPos(diePos[1].x,diePos[1].y),drawPos(_pChip->get_width(),_pChip->get_height())), "white");
     // draw rows
     die = _pChip->get_die(1);
     for(int i=0;i<die->get_row_num();++i){
         die->get_row_height();
-        draw_svg->drawRect("Row"+to_string(i), drawBox(drawPos(diePos[1].x,diePos[1].y+i*die->get_row_height()),drawPos(diePos[1].x+_pChip->get_width(),diePos[1].y+i*die->get_row_height()+die->get_row_height())), "gray");
+        draw_svg->drawRect("Row"+to_string(i), drawBox(drawPos(diePos[1].x,diePos[1].y+i*die->get_row_height()),drawPos(diePos[1].x+_pChip->get_width(),diePos[1].y+i*die->get_row_height()+die->get_row_height())), "gainsboro");
     }
 
+    // set net color
+    vector<int*> v_netColor(_pDesign->get_net_num());
+    for(int i=0;i<_pDesign->get_net_num();++i){
+        v_netColor[i] = getRandRGB();
+    }
     // Draw Cells
     for(int i=0;i<_pDesign->get_cell_num();++i){
         Cell_C* cell = _pDesign->get_cell(i);
+        //cout << "Draw: " << cell->get_name() << " " << cell->get_pos().pos3d2str() << "\n";
         int dieX = diePos[cell->get_dieId()].x;
         draw_svg->drawRect(cell->get_name(), drawBox(drawPos(dieX+cell->get_posX(),cell->get_posY()),drawPos(dieX+cell->get_posX()+cell->get_width(),cell->get_posY()+cell->get_height())), "yellow");
+        // cell name lable
         draw_svg->drawText(cell->get_name()+"_label", drawPos(dieX+cell->get_posX()+cell->get_width()/2.0, cell->get_posY()+cell->get_height()/2.0), cell->get_name());
+        // draw pins
+        for(int j=0;j<cell->get_pin_num();++j){
+            Pin_C* pin = cell->get_pin(j);
+            if(pin->get_net() != nullptr){
+                map<string,string> m_para{{"cell",pin->get_cell()->get_name()}, {"net",pin->get_net()->get_name()}};
+                draw_svg->drawRect(cell->get_name()+"_"+pin->get_name(), drawBox(drawPos(dieX+pin->get_x()-0.5,pin->get_y()-0.5),drawPos(dieX+pin->get_x()+0.5,pin->get_y()+0.5)), v_netColor[pin->get_net()->get_id()], 0.6, m_para);
+            }
+            else{
+                map<string,string> m_para{{"cell",pin->get_cell()->get_name()}};
+                draw_svg->drawRect(cell->get_name()+"_"+pin->get_name(), drawBox(drawPos(dieX+pin->get_x()-0.5,pin->get_y()-0.5),drawPos(dieX+pin->get_x()+0.5,pin->get_y()+0.5)), "black", 1, m_para);
+            }
+        }
     }
 
     draw_svg->end_svg();

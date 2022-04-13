@@ -6,6 +6,7 @@
 #include <sstream>
 #include <iostream>
 #include <fstream>
+#include <map>
 #include <stdlib.h>
 
 using namespace std;
@@ -24,6 +25,11 @@ public:
     void end_svg();
     void setting(double,double,double,double,double); // outline_x outline_y scaling offset_x offset_y
     void drawRect(string name, drawBox, string color);
+    void drawRect(string name, drawBox, int* color);
+    void drawRect(string name, drawBox, int* color, double opacity);
+    void drawRect(string name, drawBox, string color, double opacity);
+    void drawRect(string name, drawBox, int* color, double opacity, map<string,string> m_para);
+    void drawRect(string name, drawBox, string color, double opacity, map<string,string> m_para);
     void drawLine(string name, drawPos, drawPos, string color,double width);
     void drawLine(string name, drawPos, drawPos, int* color,double width);
     void drawLine(string name, drawPos, drawPos, string color,double width,double opacity);

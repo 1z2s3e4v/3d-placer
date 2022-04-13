@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 
+
 AUX::AUX(){}
 AUX::AUX(string name){
     numTerminals = 0;
@@ -26,6 +27,17 @@ void AUX::set_dir_and_circuit_name(string dir, string name){
 }
 bool AUX::check_net_exist(string netName){
     return (_mNets.find(netName) != _mNets.end());
+}
+void AUX::remove_open_net(){
+    auto it = _mNets.begin();
+    for(; it != _mNets.end(); ) {
+        if (it->second.vPins.size() == 1) {
+            it = _mNets.erase(it);
+            numPins--;
+        } else {
+            ++it;
+        }
+    }
 }
 
 void AUX::write_files(){
@@ -188,7 +200,8 @@ void AUX::read_pl(string fileName, vector<AuxNode>& vPlacedNode){
     string line;
     int count_line = 0;
     while(getline(fin, line)){
-        if(line[0] == '#' || line == "" || count_line == 0) continue;
+        count_line++;
+        if(count_line == 1 || line[0] == '#' || line == "") continue;
         stringstream ss(line);
         string name;
         int x,y;
@@ -197,7 +210,8 @@ void AUX::read_pl(string fileName, vector<AuxNode>& vPlacedNode){
         node.name = name;
         node.x = x;
         node.y = y;
-        vPlacedNode.emplace_back(node);
+        vPlacedNode.emplace_back(node);      
+        //cout << "AUX: " << vPlacedNode.size() << " - " << node.name << " (" << node.x << "," <<node.y << ")\n";
     }
     fin.close();
 }
