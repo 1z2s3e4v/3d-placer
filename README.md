@@ -1,7 +1,7 @@
 # 3d-placer  
 iccad contest 2022 problem B  
   
-## Example  
+## Problem  
 <p float="left">
   <img src="img/image1.png" width="400" />
   <img src="img/image2.png" width="400" /> 
@@ -25,3 +25,10 @@ type 'make'
 ## Execution  
 type 'bin/3d-placer <input.txt> <output.txt>'  
 
+## Example
+make  
+bin/3d-placer testcase/case1.txt output/case1_output.txt  
+<p float="left">
+  <img src="img/case1_result" width="200" />
+  <img src="img/case1_result_draw.jpg" width="600" /> 
+</p>
