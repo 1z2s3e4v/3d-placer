@@ -46,6 +46,7 @@ public:
     void draw_layout_result(); // output in dir "./draw/<case-name>.html"
     void output_result(string fileName);
     void output_result(); // output the final result with given output name
+    void print_result(); // print HPWL result
 };
 
 #endif

@@ -38,6 +38,7 @@ int main(int argc, char** argv){
     // control centor
     DmMgr_C* dmMgr = new DmMgr_C(parser, paramHdl, tStart);
     dmMgr->run();
+    dmMgr->print_result();
     if(paramHdl.check_flag_exist("debug") || paramHdl.check_flag_exist("d")){ // debug_mode
         dmMgr->print_info();
     }

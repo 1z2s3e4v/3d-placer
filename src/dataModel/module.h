@@ -109,6 +109,8 @@ public:
     int get_max_util();
     int get_row_height();
     int get_row_num();
+    int get_width();
+    int get_height();
     vector<Cell_C*>& get_cells();
 };
 
@@ -132,7 +134,8 @@ public:
 class Net_C{
     string _name;
     int _id;
-	int _HPWL;
+    vector<Pos> _vll; // (min_x,min_y) of bounding box
+    vector<Pos> _vur; // (max_x,max_y) of bounding box
     Pos _ballPos;
     //vector<int> _vPinNumInEachDie;
     
@@ -140,12 +143,14 @@ class Net_C{
 public:
     Net_C();
 	Net_C(string name);
+    void update_HPWL();
     void set_id(int);
     void set_ball_xy(Pos);
     void add_pin(Pin_C*); // cellName, pinName
-    string get_name() const;
+    string get_name();
     int get_id();
-    int get_HPWL() const;
+    int get_HPWL(int);
+    int get_total_HPWL();
     int get_pin_num();
     Pin_C* get_pin(int);
     vector<Pin_C*>& get_pins();
@@ -185,6 +190,8 @@ public:
     CellLib_C* get_master_cell();
     int get_die_techId();
     int get_dieId();
+
+    bool check_drc(); // check if the position is satisfied for the constraints. (no overlap with rows and in die)
 };
 
 class Chip_C{

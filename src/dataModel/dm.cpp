@@ -81,13 +81,26 @@ void DmMgr_C::run(){
     // init place
     _pPlacer = new Placer_C(_pChip, _pDesign, _tStart);
     _pPlacer->run();
-    // output aux
-    output_aux_form(0);
     // output result
     output_result(); 
     // visualization (output svg.html)
     draw_layout_result();
     cout << BLUE << "[DM]" << RESET << " - Finish!\n";
+}
+
+void DmMgr_C::print_result(){
+    vector<int> vHPWL(2,0);
+    int totalHPWL = 0;
+    for(int i=0;i<_pDesign->get_net_num();++i){
+        Net_C* net = _pDesign->get_net(i);
+        vHPWL[0] += net->get_HPWL(0);
+        vHPWL[1] += net->get_HPWL(1);
+        totalHPWL += net->get_HPWL(0) + net->get_HPWL(1);
+    }
+    cout << "------------------------ HPWL Result ------------------------\n";
+    cout << "Top-Die HPWL = " << vHPWL[0] << "\n";
+    cout << "Bot-Die HPWL = " << vHPWL[1] << "\n";
+    cout << "Total   HPWL = " << totalHPWL << "\n";
 }
 
 void DmMgr_C::print_info(){
@@ -228,7 +241,7 @@ void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
     system("mkdir -p ./draw/");
     Drawer_C* draw_svg = new Drawer_C(outFile);
     double scaling = 1500.0 / (_pChip->get_width()*2+_pChip->get_width()/10.0);
-    draw_svg->setting(_pChip->get_width()*2+_pChip->get_width()/10.0,_pChip->get_height(),scaling,0,0); // outline_x, outline_y, scaling, offset_x, offset_y
+    draw_svg->setting(_pChip->get_width()*2+_pChip->get_width()/10.0,_pChip->get_height(),scaling,0,50); // outline_x, outline_y, scaling, offset_x, offset_y
     draw_svg->start_svg();
     vector<Pos> diePos;
     // Draw Die
@@ -276,6 +289,18 @@ void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
             }
         }
     }
+    // Output HPWL Result Text
+    vector<int> vHPWL(2,0);
+    int totalHPWL = 0;
+    for(int i=0;i<_pDesign->get_net_num();++i){
+        Net_C* net = _pDesign->get_net(i);
+        vHPWL[0] += net->get_HPWL(0);
+        vHPWL[1] += net->get_HPWL(1);
+        totalHPWL += net->get_HPWL(0) + net->get_HPWL(1);
+    }
+    draw_svg->drawText("Die0_HPWL_result", drawPos((diePos[0].x+_pChip->get_width()/3.0), diePos[0].y), "Top_Die HPWL = " + to_string(vHPWL[0]), 0, -25);
+    draw_svg->drawText("Die1_HPWL_result", drawPos((diePos[1].x+_pChip->get_width()/3.0), diePos[1].y), "Bot_Die HPWL = " + to_string(vHPWL[1]), 0, -25);
+    draw_svg->drawText("Total_HPWL_result", drawPos(diePos[0].x, diePos[0].y), "Total HPWL = " + to_string(totalHPWL), 0, -50);
 
     draw_svg->end_svg();
     cout << BLUE << "[DM]" << RESET << " - Visualize the layout in \'" << outFile << "\'.\n";

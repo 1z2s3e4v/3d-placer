@@ -35,6 +35,7 @@ public:
     void drawLine(string name, drawPos, drawPos, string color,double width,double opacity);
     void drawLine(string name, drawPos, drawPos, int* color,double width,double opacity);
     void drawText(string name, drawPos, string);
+    void drawText(string name, drawPos, string, double, double); // offset_x offset_y
 private:
     string fileName;
     ofstream fout;

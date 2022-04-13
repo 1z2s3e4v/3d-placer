@@ -116,6 +116,12 @@ int Die_C::get_max_util(){
 int Die_C::get_row_height(){
     return _rowHeight;
 }
+int Die_C::get_width(){
+    return _sizeX;
+}
+int Die_C::get_height(){
+    return _sizeY;
+}
 int Die_C::get_row_num(){
     return _vRows.size();
 }
@@ -162,7 +168,19 @@ Cell_C* Pin_C::get_cell(){
 Net_C::Net_C(){}
 Net_C::Net_C(string name){
     _name = name;
-    _HPWL = 0;
+    _vll.resize(2,Pos(0,0));
+    _vur.resize(2,Pos(0,0));
+}
+void Net_C::update_HPWL(){
+    _vll.resize(2,Pos(0,0));
+    _vur.resize(2,Pos(0,0));
+    for(Pin_C* pin : _vPins){
+        int dieId = pin->get_cell()->get_dieId();
+        _vll[dieId].x = min(_vll[dieId].x, pin->get_x());
+        _vll[dieId].y = min(_vll[dieId].y, pin->get_y());
+        _vur[dieId].x = max(_vur[dieId].x, pin->get_x());
+        _vur[dieId].y = max(_vur[dieId].y, pin->get_y());
+    }
 }
 void Net_C::set_id(int id){
     _id = id;
@@ -174,14 +192,17 @@ void Net_C::add_pin(Pin_C* pin){
     _vPins.emplace_back(pin);
     pin->set_net(this);
 }
-string Net_C::get_name() const{
+string Net_C::get_name(){
     return _name;
 }
 int Net_C::get_id(){
     return _id;
 }
-int Net_C::get_HPWL() const{
-    return _HPWL;
+int Net_C::get_HPWL(int dieId){
+    return abs(_vur[dieId].x - _vll[dieId].x) + abs(_vur[dieId].y - _vll[dieId].y);
+}
+int Net_C::get_total_HPWL(){
+    return get_HPWL(0) + get_HPWL(1);
 }
 int Net_C::get_pin_num(){
     return _vPins.size();
@@ -284,6 +305,18 @@ int Cell_C::get_die_techId(){
 }
 int Cell_C::get_dieId(){
     return _dieId;
+}
+bool Cell_C::check_drc(){
+    // check die assignment
+    if(_die == nullptr || (_dieId != 1 && _dieId != 0))
+        return false;
+    // check row overlaping
+    if(_pos.y % _die->get_row_height() != 0)
+        return false;
+    // check if in die
+    if(_pos.x < 0 || _pos.x+get_width() > _die->get_width() || _pos.y < 0 || _pos.y+get_height() > _die->get_height())
+        return false;
+    return true;
 }
 //-----------------------------------------------------------------------------------------------------//
 Chip_C::Chip_C(){}

@@ -95,6 +95,10 @@ void Placer_C::ntu_d2dplace(){
         run_ntuplace3("die1");
         read_pl_and_set_pos(_RUNDIR+"die1.ntup.pl");
     }
+    // update the HPWL
+    for(Net_C* net : _vNet){
+        net->update_HPWL();
+    }
     //string cmd_clean = "rm -rf *.pl *.plt *.log " + _RUNDIR;
     //system(cmd_clean.c_str());
 }
@@ -116,8 +120,12 @@ void Placer_C::read_pl_and_set_pos(string fileName){
     vector<AuxNode> v_auxNode;
     aux.read_pl(fileName, v_auxNode);
     for(AuxNode node : v_auxNode){
-        _mCell[node.name]->set_xy(Pos(node.x,node.y));
+        Cell_C* cell = _mCell[node.name];
+        cell->set_xy(Pos(node.x,node.y));
         //cout << "Place: " << _mCell[node.name]->get_name() << " " << _mCell[node.name]->get_pos().pos3d2str() << "\n";
+        if(!cell->check_drc()){
+            cout << BLUE << "[Placer]" << RESET << " - " << YELLOW << "Warning! " << RESET << "NTUplaced Cell \'" << cell->get_name() << "\' at " + cell->get_pos().pos3d2str() +" position not valid.\n";
+        }
     }
 }
 void Placer_C::run_ntuplace3(string caseName){
@@ -157,7 +165,6 @@ void Placer_C::output_aux_form(int dieId, string caseName){  // output in dir ".
 
     // write
     aux.write_files();
-    cout << BLUE << "[Place]" << RESET << " - Output aux format in \'" << aux_dir << "\'.\n";
 }
 void Placer_C::clear(){
     _pChip = nullptr;

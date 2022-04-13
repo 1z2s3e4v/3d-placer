@@ -20,8 +20,8 @@ void Drawer_C::end_svg(){
 }
 
 void Drawer_C::setting(double p_outline_x,double p_outline_y,double p_scaling,double p_offset_x,double p_offset_y){
-    outline_x = p_outline_x * p_scaling;
-    outline_y = p_outline_y * p_scaling;
+    outline_x = p_outline_x * p_scaling + p_offset_x;
+    outline_y = p_outline_y * p_scaling + p_offset_y;
     scaling = p_scaling;
     offset_x = p_offset_x;
     offset_y = p_offset_y;
@@ -109,4 +109,9 @@ void Drawer_C::drawText(string name, drawPos pos, string str){
     double x = get<0>(pos) * scaling + offset_x;
     double y = outline_y - (get<1>(pos) * scaling + offset_y);
     fout << "   <text name=\""<< name << "\" x=\"" << x << "\" y=\"" << y << "\" fill=\"black\">" << str << "</text>\n";
-}  
+} 
+void Drawer_C::drawText(string name, drawPos pos, string str, double offx, double offy){
+    double x = get<0>(pos) * scaling + offx + offset_x;
+    double y = outline_y - (get<1>(pos) * scaling + offy + offset_y);
+    fout << "   <text name=\""<< name << "\" x=\"" << x << "\" y=\"" << y << "\" fill=\"black\">" << str << "</text>\n";
+} 
