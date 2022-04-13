@@ -31,6 +31,6 @@ make
 bin/3d-placer testcase/case1.txt output/case1_output.txt  
 **Result:**  
 <p float="left">
-  <img src="img/case1_result" width="200" />
+  <img src="img/case1_result.jpg" width="200" />
   <img src="img/case1_result_draw.jpg" width="600" /> 
 </p>
