@@ -1,5 +1,6 @@
 #ifndef MODULE_H
 #define MODULE_H
+#include <climits>
 #include <iostream>
 #include <tuple>
 #include <string>
@@ -8,6 +9,7 @@
 #include <set>
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 #include <algorithm>
 #include <assert.h>
 using namespace std;
@@ -137,13 +139,14 @@ class Net_C{
     vector<Pos> _vll; // (min_x,min_y) of bounding box
     vector<Pos> _vur; // (max_x,max_y) of bounding box
     Pos _ballPos;
-    //vector<int> _vPinNumInEachDie;
+    vector<unordered_set<Pin_C*> > _vPinInEachDie;
     
 	vector<Pin_C*> _vPins;
 public:
     Net_C();
 	Net_C(string name);
-    void update_HPWL();
+    void update_bbox();
+    void update_pin_die(Pin_C*, int, int);
     void set_id(int);
     void set_ball_xy(Pos);
     void add_pin(Pin_C*); // cellName, pinName
@@ -151,10 +154,13 @@ public:
     int get_id();
     int get_HPWL(int);
     int get_total_HPWL();
+    Pos get_ll(int);
+    Pos get_ur(int);
     int get_pin_num();
     Pin_C* get_pin(int);
     vector<Pin_C*>& get_pins();
     Pos get_ball_pos();
+    bool is_cross_net(); // crossing die
 };
 
 class Cell_C{

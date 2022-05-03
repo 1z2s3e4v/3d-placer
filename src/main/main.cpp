@@ -22,7 +22,8 @@ int main(int argc, char** argv){
     cout << endl;
     //variable declaration
     clock_t tStart = clock();
-    srand( time(NULL) );
+    //srand( time(NULL) );
+    srand( 0 );
 
     // parameter handler
     ParamHdl_C paramHdl = ParamHdl_C(argc, argv);

@@ -34,6 +34,8 @@ public:
     void drawLine(string name, drawPos, drawPos, int* color,double width);
     void drawLine(string name, drawPos, drawPos, string color,double width,double opacity);
     void drawLine(string name, drawPos, drawPos, int* color,double width,double opacity);
+    void drawLine(string name, drawPos, drawPos, string color,double width,double opacity, map<string,string> m_para);
+    void drawLine(string name, drawPos, drawPos, int* color,double width,double opacity, map<string,string> m_para);
     void drawText(string name, drawPos, string);
     void drawText(string name, drawPos, string, double, double); // offset_x offset_y
 private:

@@ -73,13 +73,41 @@ void Drawer_C::drawRect(string name, drawBox box, string color, double opacity, 
     // styles
     fout << " style=\"fill:"<< color << ";stroke:red;stroke-width:1;fill-opacity:" << opacity << ";stroke-opacity:0.9\" />\n";
 }
+void Drawer_C::drawLine(string name, drawPos p1, drawPos p2, string color, double width, double opacity, map<string,string> m_para){
+    double x1 = get<0>(p1) * scaling + offset_x;
+    double y1 = outline_y - (get<1>(p1) * scaling + offset_y);
+    double x2 = get<0>(p2) * scaling + offset_x;
+    double y2 = outline_y - (get<1>(p2) * scaling + offset_y);
+    double w = width * scaling;
+    fout << "<line name=\""<< name << "\" x1=\"" << x1 << "\" y1=\"" << y1 << "\" x2=\"" << x2 << "\" y2=\"" << y2 << "\"";
+    // other para
+    for(auto para : m_para){
+        fout << " " << para.first << "=\"" << para.second << "\"";
+    }
+    // styles
+    fout << " style=\"stroke:" << color << ";stroke-width:" << w << ";stroke-opacity:" << opacity << "\" />\n";
+}
+void Drawer_C::drawLine(string name, drawPos p1, drawPos p2, int* rgb, double width, double opacity, map<string,string> m_para){
+    double x1 = get<0>(p1) * scaling + offset_x;
+    double y1 = outline_y - (get<1>(p1) * scaling + offset_y);
+    double x2 = get<0>(p2) * scaling + offset_x;
+    double y2 = outline_y - (get<1>(p2) * scaling + offset_y);
+    double w = width * scaling;
+    fout << "<line name=\""<< name << "\" x1=\"" << x1 << "\" y1=\"" << y1 << "\" x2=\"" << x2 << "\" y2=\"" << y2 << "\"";
+    // other para
+    for(auto para : m_para){
+        fout << " " << para.first << "=\"" << para.second << "\"";
+    }
+    // styles
+    fout << " style=\"stroke:rgb(" << rgb[0] <<","<< rgb[1] <<"," << rgb[2] << ");stroke-width:" << w << ";stroke-opacity:" << opacity << "\" />\n";
+}
 void Drawer_C::drawLine(string name, drawPos p1, drawPos p2, string color, double width, double opacity){
     double x1 = get<0>(p1) * scaling + offset_x;
     double y1 = outline_y - (get<1>(p1) * scaling + offset_y);
     double x2 = get<0>(p2) * scaling + offset_x;
     double y2 = outline_y - (get<1>(p2) * scaling + offset_y);
     double w = width * scaling;
-    fout << "<line x1=\"" << x1 << "\" y1=\"" << y1 << "\" x2=\"" << x2 << "\" y2=\"" << y2 << "\" style=\"stroke:" << color << ";stroke-width:" << w << ";stroke-opacity:" << opacity << "\" />\n";
+    fout << "<line name=\""<< name << "\" x1=\"" << x1 << "\" y1=\"" << y1 << "\" x2=\"" << x2 << "\" y2=\"" << y2 << "\" style=\"stroke:" << color << ";stroke-width:" << w << ";stroke-opacity:" << opacity << "\" />\n";
 }
 void Drawer_C::drawLine(string name, drawPos p1, drawPos p2, int* rgb, double width, double opacity){
     double x1 = get<0>(p1) * scaling + offset_x;
@@ -95,7 +123,7 @@ void Drawer_C::drawLine(string name, drawPos p1, drawPos p2, string color, doubl
     double x2 = get<0>(p2) * scaling + offset_x;
     double y2 = outline_y - (get<1>(p2) * scaling + offset_y);
     double w = width * scaling;
-    fout << "<line x1=\"" << x1 << "\" y1=\"" << y1 << "\" x2=\"" << x2 << "\" y2=\"" << y2 << "\" style=\"stroke:" << color << ";stroke-width:" << w << "\" />\n";
+    fout << "<line name=\""<< name << "\" x1=\"" << x1 << "\" y1=\"" << y1 << "\" x2=\"" << x2 << "\" y2=\"" << y2 << "\" style=\"stroke:" << color << ";stroke-width:" << w << "\" />\n";
 }
 void Drawer_C::drawLine(string name, drawPos p1, drawPos p2, int* rgb, double width){
     double x1 = get<0>(p1) * scaling + offset_x;
@@ -103,7 +131,7 @@ void Drawer_C::drawLine(string name, drawPos p1, drawPos p2, int* rgb, double wi
     double x2 = get<0>(p2) * scaling + offset_x;
     double y2 = outline_y - (get<1>(p2) * scaling + offset_y);
     double w = width * scaling;
-    fout << "<line x1=\"" << x1 << "\" y1=\"" << y1 << "\" x2=\"" << x2 << "\" y2=\"" << y2 << "\" style=\"stroke:rgb(" << rgb[0] <<","<< rgb[1] <<"," << rgb[2] << ");stroke-width:" << w << "\" />\n";
+    fout << "<line name=\""<< name << "\" x1=\"" << x1 << "\" y1=\"" << y1 << "\" x2=\"" << x2 << "\" y2=\"" << y2 << "\" style=\"stroke:rgb(" << rgb[0] <<","<< rgb[1] <<"," << rgb[2] << ");stroke-width:" << w << "\" />\n";
 }
 void Drawer_C::drawText(string name, drawPos pos, string str){
     double x = get<0>(pos) * scaling + offset_x;

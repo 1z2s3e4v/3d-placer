@@ -18,7 +18,12 @@ void Placer_C::run(){
     // init place
     //init_place();
     ntu_d2dplace();
+	//order_place();
 
+    // update the HPWL
+    for(Net_C* net : _vNet){
+        net->update_bbox();
+    }
     cout << BLUE << "[Placer]" << RESET << " - Finish!\n";
 }
 void Placer_C::init_place(){
@@ -61,17 +66,19 @@ void Placer_C::order_place(){
     int ball_curX = _pChip->get_ball_spacing();
     int ball_curY = _pChip->get_ball_spacing();
     for(Net_C* net : _vNet){
-        if(ball_curX + _pChip->get_ball_width() <= _pChip->get_width()-_pChip->get_ball_spacing() && ball_curY + _pChip->get_ball_height() <= _pChip->get_height()-_pChip->get_ball_spacing()){
-            net->set_ball_xy(Pos(ball_curX, ball_curY));
-            ball_curX += _pChip->get_ball_width() + _pChip->get_ball_spacing();
-        } else if(ball_curX + _pChip->get_ball_width() <= _pChip->get_width()-_pChip->get_ball_spacing() && ball_curY+_pChip->get_ball_height() > _pChip->get_height()-_pChip->get_ball_spacing()){
-            ball_curX = 0;
-            ball_curY += _pChip->get_ball_height() + _pChip->get_ball_spacing();
-            net->set_ball_xy(Pos(ball_curX, ball_curY));
-            ball_curX += _pChip->get_ball_width() + _pChip->get_ball_spacing();
-        } else{
-            cout << BLUE << "[Placer]" << RESET << " - " << YELLOW << "Warning! " << RESET << "No more space to place for tarminal of net \'" << net->get_name() << "\', the terminal is placed at (0,0).\n";
-            net->set_ball_xy(Pos(0,0));
+        if(net->is_cross_net()){
+            if(ball_curX + _pChip->get_ball_width()/2.0 <= _pChip->get_width() && ball_curY + _pChip->get_ball_height()/2.0 <= _pChip->get_height()){
+                net->set_ball_xy(Pos(ball_curX, ball_curY));
+                ball_curX += _pChip->get_ball_width() + _pChip->get_ball_spacing();
+            } else if(ball_curY + 3*_pChip->get_ball_height()/2.0 <= _pChip->get_height()){
+                ball_curX = 0;
+                ball_curY += _pChip->get_ball_height() + _pChip->get_ball_spacing();
+                net->set_ball_xy(Pos(ball_curX, ball_curY));
+                ball_curX += _pChip->get_ball_width() + _pChip->get_ball_spacing();
+            } else{
+                cout << BLUE << "[Placer]" << RESET << " - " << YELLOW << "Warning! " << RESET << "No more space to place for tarminal of net \'" << net->get_name() << "\', the terminal is placed at (0,0).\n";
+                net->set_ball_xy(Pos(0,0));
+            }
         }
     }
 }
@@ -94,10 +101,6 @@ void Placer_C::ntu_d2dplace(){
         output_aux_form(1, "die1");
         run_ntuplace3("die1");
         read_pl_and_set_pos(_RUNDIR+"die1.ntup.pl");
-    }
-    // update the HPWL
-    for(Net_C* net : _vNet){
-        net->update_HPWL();
     }
     //string cmd_clean = "rm -rf *.pl *.plt *.log " + _RUNDIR;
     //system(cmd_clean.c_str());

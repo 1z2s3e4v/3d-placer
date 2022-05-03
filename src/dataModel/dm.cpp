@@ -82,7 +82,7 @@ void DmMgr_C::run(){
     _pPlacer = new Placer_C(_pChip, _pDesign, _tStart);
     _pPlacer->run();
     // output result
-    output_result(); 
+    //output_result(); 
     // visualization (output svg.html)
     draw_layout_result();
     cout << BLUE << "[DM]" << RESET << " - Finish!\n";
@@ -231,9 +231,9 @@ void DmMgr_C::output_aux_form(int dieId){  // output in dir "./aux/<case-name>/"
 
 int* getRandRGB(){
     int* color = new int(3);
-    color[0] = rand()%256;
-    color[1] = rand()%256;
-    color[2] = rand()%256;
+    color[0] = rand()%250;
+    color[1] = rand()%250;
+    color[2] = rand()%250;
     return color;
 }
 void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
@@ -241,10 +241,10 @@ void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
     system("mkdir -p ./draw/");
     Drawer_C* draw_svg = new Drawer_C(outFile);
     double scaling = 1500.0 / (_pChip->get_width()*2+_pChip->get_width()/10.0);
-    draw_svg->setting(_pChip->get_width()*2+_pChip->get_width()/10.0,_pChip->get_height(),scaling,0,50); // outline_x, outline_y, scaling, offset_x, offset_y
+    draw_svg->setting(_pChip->get_width()*2+_pChip->get_width()/10.0,_pChip->get_height(),scaling,50,50); // outline_x, outline_y, scaling, offset_x, offset_y
     draw_svg->start_svg();
     vector<Pos> diePos;
-    // Draw Die
+    // Draw Die0
     diePos.push_back(Pos(0,0));
     draw_svg->drawRect("Die0", drawBox(drawPos(diePos[0].x,diePos[0].y),drawPos(_pChip->get_width(),_pChip->get_height())), "white");
     // draw rows
@@ -253,7 +253,7 @@ void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
         die->get_row_height();
         draw_svg->drawRect("Die0_Row"+to_string(i), drawBox(drawPos(diePos[0].x,diePos[0].y+i*die->get_row_height()),drawPos(diePos[0].x+_pChip->get_width(),diePos[0].y+i*die->get_row_height()+die->get_row_height())), "gainsboro");
     }
-    // Draw Die
+    // Draw Die1
     diePos.push_back(Pos(diePos[0].x+_pChip->get_width()+_pChip->get_width()/10.0,0));
     draw_svg->drawRect("Die1", drawBox(drawPos(diePos[1].x,diePos[1].y),drawPos(_pChip->get_width(),_pChip->get_height())), "white");
     // draw rows
@@ -287,6 +287,30 @@ void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
                 map<string,string> m_para{{"cell",pin->get_cell()->get_name()}};
                 draw_svg->drawRect(cell->get_name()+"_"+pin->get_name(), drawBox(drawPos(dieX+pin->get_x()-0.5,pin->get_y()-0.5),drawPos(dieX+pin->get_x()+0.5,pin->get_y()+0.5)), "black", 1, m_para);
             }
+        }
+    }
+    // Draw Balls (Terminals)
+    for(int i=0;i<_pDesign->get_net_num();++i){
+        Net_C* net = _pDesign->get_net(i);
+        if(net->is_cross_net()){
+            for(int dieId=0;dieId<2;++dieId){
+                double dieX = diePos[dieId].x;
+                map<string,string> m_para{{"net",net->get_name()}};
+                draw_svg->drawRect(net->get_name()+"_Timinal", drawBox(drawPos(dieX+net->get_ball_pos().x-_pChip->get_ball_width()/2.0,net->get_ball_pos().y-_pChip->get_ball_height()/2.0),drawPos(dieX+net->get_ball_pos().x+_pChip->get_ball_width()/2.0,net->get_ball_pos().y+_pChip->get_ball_height()/2.0)), v_netColor[net->get_id()], 0.6, m_para);
+            }
+        }
+    }
+    // Draw HPWL
+    for(int i=0;i<_pDesign->get_net_num();++i){
+        Net_C* net = _pDesign->get_net(i);
+        map<string,string> m_para{{"net",net->get_name()}};
+        for(int dieId=0;dieId<2;++dieId){
+            double dieX = diePos[dieId].x;
+            //draw_svg->drawRect(net->get_name()+"_HPWL", drawBox(drawPos(dieX+net->get_ll(dieX).x,net->get_ll(dieX).y),drawPos(dieX+net->get_ur(dieX).x,net->get_ur(dieX).y)), "none", 0.6, m_para);
+            draw_svg->drawLine(net->get_name()+"_HPWL"+to_string(dieId)+"_l", drawPos(dieX+net->get_ll(dieId).x,net->get_ll(dieId).y),drawPos(dieX+net->get_ll(dieId).x,net->get_ur(dieId).y), v_netColor[net->get_id()], 0.5, 0.6, m_para);
+            draw_svg->drawLine(net->get_name()+"_HPWL"+to_string(dieId)+"_b", drawPos(dieX+net->get_ll(dieId).x,net->get_ll(dieId).y),drawPos(dieX+net->get_ur(dieId).x,net->get_ll(dieId).y), v_netColor[net->get_id()], 0.5, 0.6, m_para);
+            draw_svg->drawLine(net->get_name()+"_HPWL"+to_string(dieId)+"_t", drawPos(dieX+net->get_ur(dieId).x,net->get_ur(dieId).y),drawPos(dieX+net->get_ll(dieId).x,net->get_ur(dieId).y), v_netColor[net->get_id()], 0.5, 0.6, m_para);
+            draw_svg->drawLine(net->get_name()+"_HPWL"+to_string(dieId)+"_r", drawPos(dieX+net->get_ur(dieId).x,net->get_ur(dieId).y),drawPos(dieX+net->get_ur(dieId).x,net->get_ll(dieId).y), v_netColor[net->get_id()], 0.5, 0.6, m_para);
         }
     }
     // Output HPWL Result Text

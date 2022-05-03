@@ -1,4 +1,6 @@
 #include "module.h"
+#include <string>
+#include <unordered_set>
 
 //string pos3d2str(Pos pos) {return "("+to_string(get<0>(pos))+","+to_string(get<1>(pos))+","+to_string(get<2>(pos))+")";}
 //string pos2d2str(Pos pos) {return "("+to_string(get<1>(pos))+","+to_string(get<2>(pos))+")";}
@@ -170,10 +172,30 @@ Net_C::Net_C(string name){
     _name = name;
     _vll.resize(2,Pos(0,0));
     _vur.resize(2,Pos(0,0));
+    _vPinInEachDie.resize(2,unordered_set<Pin_C*>());
+    _ballPos = Pos(0,0);
 }
-void Net_C::update_HPWL(){
-    _vll.resize(2,Pos(0,0));
+void Net_C::update_bbox(){
+    _vll.clear();
+    _vur.clear();
+    _vll.resize(2,Pos(INT_MAX,INT_MAX));
     _vur.resize(2,Pos(0,0));
+    if(is_cross_net()){
+        for(int dieId=0;dieId<2;++dieId){
+            _vll[dieId].x = min(_vll[dieId].x, _ballPos.x);
+            _vll[dieId].y = min(_vll[dieId].y, _ballPos.y);
+            _vur[dieId].x = max(_vur[dieId].x, _ballPos.x);
+            _vur[dieId].y = max(_vur[dieId].y, _ballPos.y);
+        }
+    }
+    else{
+        for(int dieId=0;dieId<2;++dieId){
+            if(_vPinInEachDie[dieId].size()==0){
+                _vll[dieId] = Pos(0,0);
+                _vur[dieId] = Pos(0,0);
+            }
+        }
+    }
     for(Pin_C* pin : _vPins){
         int dieId = pin->get_cell()->get_dieId();
         _vll[dieId].x = min(_vll[dieId].x, pin->get_x());
@@ -191,6 +213,7 @@ void Net_C::set_ball_xy(Pos pos){
 void Net_C::add_pin(Pin_C* pin){
     _vPins.emplace_back(pin);
     pin->set_net(this);
+    _vPinInEachDie[pin->get_cell()->get_dieId()].insert(pin);
 }
 string Net_C::get_name(){
     return _name;
@@ -204,6 +227,12 @@ int Net_C::get_HPWL(int dieId){
 int Net_C::get_total_HPWL(){
     return get_HPWL(0) + get_HPWL(1);
 }
+Pos Net_C::get_ll(int dieId){
+    return _vll[dieId];
+}
+Pos Net_C::get_ur(int dieId){
+    return _vur[dieId];
+}
 int Net_C::get_pin_num(){
     return _vPins.size();
 }
@@ -215,6 +244,13 @@ vector<Pin_C*>& Net_C::get_pins(){
 }
 Pos Net_C::get_ball_pos(){
     return _ballPos;
+}
+void Net_C::update_pin_die(Pin_C* pin, int from, int to){
+    _vPinInEachDie[from].erase(pin);
+    _vPinInEachDie[to].insert(pin);
+}
+bool Net_C::is_cross_net(){
+    return (_vPinInEachDie[0].size() != 0 && _vPinInEachDie[1].size() != 0);
 }
 //-----------------------------------------------------------------------------------------------------//
 Cell_C::Cell_C(){}
@@ -232,6 +268,14 @@ void Cell_C::set_id(int id){
     _id = id;
 }
 void Cell_C::set_pos(Pos pos){
+    if(_pos.z != pos.z){ // change die
+        for(Pin_C* pin : _vPins){ // change pin_die in net
+            Net_C* net = pin->get_net();
+            if(net != nullptr){
+                net->update_pin_die(pin, _pos.z, pos.z);
+            }
+        }
+    }
     _pos = pos;
     _dieId = pos.z;
 }
@@ -240,14 +284,14 @@ void Cell_C::set_xy(Pos pos){
     _pos.y = pos.y;
 }
 void Cell_C::set_die(Die_C* die){
-    if(_die != nullptr && _die->get_id() != die->get_id()){
+    if(_die != nullptr && _die->get_id() != die->get_id()){// change die
         _die->remove_cell(this);
         die->add_cell(this);
     } else if(_die == nullptr){
         die->add_cell(this);
     }
     _dieId = die->get_id();
-    _pos.z = _dieId;
+    set_pos(Pos(_dieId, _pos.x, _pos.y));
     _die = die;
 }
 string Cell_C::get_name(){
