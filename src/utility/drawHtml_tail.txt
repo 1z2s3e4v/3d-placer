@@ -1,0 +1,19 @@
+<div class="switch-container">
+<div>
+   <!-- Rounded switch -->
+   <label class="switch" onclick="show_all_terminal()">
+     <div class="switch-text">Terminals</div>
+     <input id="terminalChecker" type="checkbox" checked>
+     <span class="slider round"></span>
+   </label>
+</div>
+<br>
+<div>
+   <!-- Rounded switch -->
+   <label class="switch" onclick="show_all_net()">
+     <div class="switch-text">Nets Bounding Box</div>
+     <input id="NetChecker" type="checkbox" checked>
+     <span class="slider round"></span>
+   </label>
+</div>
+</div>
