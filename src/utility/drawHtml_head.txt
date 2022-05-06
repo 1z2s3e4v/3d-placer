@@ -198,7 +198,11 @@ $(document).ready(function(){
     });
   });
   $("[type=cell]").each(function(i, layout) {
-    $(this).click(function(){ // click, show and fix nets
+    $(this).mouseenter(function(){ // mouse in, show
+      $(this).css("stroke-width",parseFloat($(this).css("stroke-width"))+4);
+    }).mouseleave(function(){ // mouse out, disappear
+      $(this).css("stroke-width",parseFloat($(this).css("stroke-width"))-4);
+    }).click(function(){ // click, show and fix nets
       $("[cell="+$(this).attr("name")+"]").each(function(j, layout) {
         fixedNets[$(this).attr("net")] = 1;
         showNet($(this).attr("net"));
