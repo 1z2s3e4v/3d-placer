@@ -82,14 +82,26 @@ void Placer_C::order_place(){
         }
     }
 }
+void Placer_C::rand_place(int dieId){
+    for(Cell_C* cell : _vCell){
+        if(cell->get_dieId() == dieId){
+            int x = rand()%(_pChip->get_width()-cell->get_width());
+            int y = rand()%(_pChip->get_height()-cell->get_height());
+            cell->set_xy(Pos(x,y));
+        }
+    }
+}
 void Placer_C::ntu_d2dplace(){
+    string cmd_clean = "rm -rf " + _RUNDIR + "; mkdir -p " + _RUNDIR;
+    system(cmd_clean.c_str());
     // init_place or partition
-    order_place();
-    //mincut_partition(); // set_die() for each cell
+    //order_place();
+    mincut_partition(); // set_die() for each cell
+    rand_place(0);
+    rand_place(1);
+    init_place_ball();
 
     // Run NTUplace3
-    string cmd_clean = "rm -rf " + _RUNDIR;
-    system(cmd_clean.c_str());
     // run ntuplace3 for die0
     if(_pChip->get_die(0)->get_cells().size() > 0){
         output_aux_form(0, "die0");
@@ -107,17 +119,43 @@ void Placer_C::ntu_d2dplace(){
 }
 
 void Placer_C::mincut_partition(){
-    for(int i=0;i<_vCell.size();++i){
-        if(i<6){
-            _vCell[i]->set_die(_pChip->get_die(0));
-            _vCell[i]->set_xy(Pos(0,0));
+    HGR hgr(_RUNDIR, "circuit");
+    for(Net_C* net : _vNet){
+        hgr.add_net(net->get_name());
+        for(int i=0;i<net->get_pin_num();++i){
+            hgr.add_node(net->get_name(), net->get_pin(i)->get_cell()->get_name());
         }
-        else{
-            _vCell[i]->set_die(_pChip->get_die(1));
-            _vCell[i]->set_xy(Pos(0,0));
+    }
+    hgr.write_hgr();
+    run_hmetis(2, 0.7, "circuit");
+    hgr.read_part_result(2);
+    for(Cell_C* cell : _vCell){
+        int part = (hgr.get_part_size(0) >= hgr.get_part_size(1))? 
+            hgr.get_part_result(cell->get_name()) : (hgr.get_part_result(cell->get_name())+1)%2;
+        cell->set_die(_pChip->get_die(part));
+    }
+}
+void Placer_C::init_place_ball(){
+    int ball_curX = _pChip->get_ball_spacing();
+    int ball_curY = _pChip->get_ball_spacing();
+    for(Net_C* net : _vNet){
+        if(net->is_cross_net()){
+            if(ball_curX + _pChip->get_ball_width()/2.0 <= _pChip->get_width() && ball_curY + _pChip->get_ball_height()/2.0 <= _pChip->get_height()){
+                net->set_ball_xy(Pos(ball_curX, ball_curY));
+                ball_curX += _pChip->get_ball_width() + _pChip->get_ball_spacing();
+            } else if(ball_curY + 3*_pChip->get_ball_height()/2.0 <= _pChip->get_height()){
+                ball_curX = 0;
+                ball_curY += _pChip->get_ball_height() + _pChip->get_ball_spacing();
+                net->set_ball_xy(Pos(ball_curX, ball_curY));
+                ball_curX += _pChip->get_ball_width() + _pChip->get_ball_spacing();
+            } else{
+                cout << BLUE << "[Placer]" << RESET << " - " << YELLOW << "Warning! " << RESET << "No more space to place for tarminal of net \'" << net->get_name() << "\', the terminal is placed at (0,0).\n";
+                net->set_ball_xy(Pos(0,0));
+            }
         }
     }
 }
+
 void Placer_C::read_pl_and_set_pos(string fileName){
     AUX aux;
     vector<AuxNode> v_auxNode;
@@ -137,6 +175,13 @@ void Placer_C::run_ntuplace3(string caseName){
     string cmd = "./bin/ntuplace-r -aux " + _RUNDIR + caseName + "/" + caseName + ".aux -out " + _RUNDIR + caseName + " > " + _RUNDIR + caseName + "-ntuplace.log";
     system(cmd.c_str());
     cout << BLUE << "[Place]" << RESET << " - Running ntuplace3 for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
+}
+void Placer_C::run_hmetis(int k, double ufactor, string caseName){
+    cout << BLUE << "[Place]" << RESET << " - Running hmetis for \'" << caseName << "\'...\n";
+    string fileName = _RUNDIR + caseName + ".hgr";
+    string cmd = "bin/hmetis -ufactor=" + to_string(ufactor) + " " + fileName + " " + to_string(k) + " > " + _RUNDIR + caseName + "-hmetis.log";
+    system(cmd.c_str());
+    cout << BLUE << "[Place]" << RESET << " - Running hmetis for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
 }
 void Placer_C::output_aux_form(int dieId, string caseName){  // output in dir "./aux/<case-name>/"
     string aux_dir = _RUNDIR + caseName + "/";

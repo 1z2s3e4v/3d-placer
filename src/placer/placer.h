@@ -11,6 +11,7 @@
 #include <numeric>
 #include "../utility/color.h"
 #include "../utility/aux.h"
+#include "../utility/hgr.h"
 #include "../dataModel/module.h"
 
 using namespace std;
@@ -31,14 +32,17 @@ public:
     void run();
     void init_place();
     void order_place();
+    void rand_place(int); // die_by_die
     void clear();
 
     /* partition + die-by-die NTUplace3 */
     string _RUNDIR = "./run_tmp/";
     void ntu_d2dplace();
     void mincut_partition();
+    void init_place_ball();
     void output_aux_form(int dieId, string caseName);
     void run_ntuplace3(string caseName);
+    void run_hmetis(int k, double ufactor, string caseName); // (k-way part)
     void read_pl_and_set_pos(string fileName);
 };
 
