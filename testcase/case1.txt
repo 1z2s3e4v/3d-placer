@@ -1,3 +1,25 @@
+NumTechnologies 2
+Tech TA 3
+LibCell MC1 7 10 1
+Pin P1 5 7
+LibCell MC2 14 10 2
+Pin P1 10 3
+Pin P2 3 6
+LibCell MC3 16 10 3
+Pin P1 5 3
+Pin P2 3 6
+Pin P3 10 8
+Tech TB 3
+LibCell MC1 7 15 1
+Pin P1 2 11
+LibCell MC2 12 15 2
+Pin P1 5 12
+Pin P2 8 3
+LibCell MC3 16 15 3
+Pin P1 2 12
+Pin P2 3 3
+Pin P3 15 7
+
 DieSize 0 0 30 30
 
 TopDieMaxUtil 80
@@ -9,30 +31,8 @@ BottomDieRows 0 0 30 15 2
 TopDieTech TA
 BottomDieTech TB
 
-TerminalSize 5 5
+TerminalSize 6 6
 TerminalSpacing 5
-
-NumTechnologies 2
-Tech TA 3
-LibCell MC1 7 10 1
-Pin P1 5 7
-LibCell MC2 14 10 2
-Pin P1 10 3
-Pin P2 3 6
-LibCell MC3 16 10 3
-Pin P1 6 3
-Pin P2 3 6
-Pin P3 10 8
-Tech TB 3
-LibCell MC1 7 15 1
-Pin P1 2 11
-LibCell MC2 12 15 2
-Pin P1 5 12
-Pin P2 8 3
-LibCell MC3 16 15 3
-Pin P1 2 12
-Pin P2 7 3
-Pin P3 15 7
 
 NumInstances 8
 Inst C1 MC1
