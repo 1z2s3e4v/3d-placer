@@ -1,9 +1,9 @@
 CC=g++
 LDFLAGS=-std=c++11 -lm -g
-SOURCES=src/main/main.cpp src/parser/parser.cpp src/dataModel/dm.cpp src/dataModel/module.cpp src/utility/paramHdl.cpp src/utility/message.cpp src/utility/drawHtml.cpp src/utility/aux.cpp src/placer/D2Dplacer.cpp src/placer/placer.cpp
+SOURCES=src/main/main.cpp src/parser/parser.cpp src/dataModel/dm.cpp src/dataModel/module.cpp src/utility/paramHdl.cpp src/utility/message.cpp src/utility/drawHtml.cpp src/utility/aux.cpp src/utility/hgr.cpp src/placer/D2Dplacer.cpp src/placer/placer.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 EXECUTABLE=3d-placer
-INCLUDES=src/parser/parser.h src/dataModel/dm.h src/dataModel/module.h src/utility/paramHdl.h src/utility/message.h src/utility/drawHtml.h src/utility/aux.h src/utility/color.h src/placer/D2Dplacer.h src/placer/placer.h
+INCLUDES=src/parser/parser.h src/dataModel/dm.h src/dataModel/module.h src/utility/paramHdl.h src/utility/message.h src/utility/drawHtml.h src/utility/aux.h src/utility/hgr.h src/utility/color.h src/placer/D2Dplacer.h src/placer/placer.h
 
 all: $(SOURCES) bin/$(EXECUTABLE)
 
