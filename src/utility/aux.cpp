@@ -72,7 +72,10 @@ void AUX::write_nodes(){
     fout << "NumNodes :\t\t" << _vNodes.size() << "\n";
     fout << "NumTerminals :\t" << numTerminals << "\n";
     for(AuxNode& node : _vNodes){
-        fout << "\t" << node.name << "\t" << node.width << "\t" << node.height << "\n";
+        fout << "\t" << node.name << "\t" << node.width << "\t" << node.height;
+        if(node.type == 1) fout << "\tterminal";
+        else if(node.type == 2) fout << "\tterminal_NI";
+        fout << "\n";
     }
     fout.close();
 }
@@ -118,7 +121,8 @@ void AUX::write_pl(){
     fout << "\n";
     for(AuxNode& node : _vNodes){
         fout << node.name << "\t" << node.x << "\t" << node.y << "\t: N";
-        if(node.fixed) fout << " /FIXED";
+        if(node.type == 1) fout << " /FIXED";
+        if(node.type == 2) fout << " /FIXED_NI";
         fout << "\n";
     }
     fout.close();
@@ -133,32 +137,29 @@ void AUX::write_scl(){
     fout << "# User\t\t:\t" << getenv("USER") << "\n";
     fout << "\n";
     fout << "NumRows : " << _vRows.size() << "\n\n";
-    int count_row = 0;
     for(AuxRow& row : _vRows){
-        int coord = row.height * count_row;
         fout << "CoreRow Horizontal" << "\n";
-        fout << "  Coordinate     :   " << coord << "\n";
-        fout << "  Height         :   " << row.height << "\n";
-        fout << "  Sitewidth      :   " << 1 << "\n";
-        fout << "  Sitespacing    :   " << 1 << "\n";
-        fout << "  Siteorient     :   " << 0 << "\n";
-        fout << "  Sitesymmetry   :   " << 0 << "\n";
-        fout << "  SubrowOrigin   :   " << 0 << "\tNumSites  :  " << row.width << "\n";
+        fout << "  Coordinate     :   " << row.Coordinate << "\n";
+        fout << "  Height         :   " << row.Height << "\n";
+        fout << "  Sitewidth      :   " << row.Sitewidth << "\n";
+        fout << "  Sitespacing    :   " << row.Sitespacing << "\n";
+        fout << "  Siteorient     :   " << row.Siteorient << "\n";
+        fout << "  Sitesymmetry   :   " << row.Sitesymmetry << "\n";
+        fout << "  SubrowOrigin   :   " << row.SubrowOrigin << "\tNumSites  :  " << row.NumSites << "\n";
         fout << "End\n";
-        ++count_row;
     }
     fout.close();
 }
 
-void AUX::add_node(string name, int w, int h, int x, int y, int isTerminl){
+void AUX::add_node(string name, int w, int h, int x, int y, int type){
     AuxNode node;
     node.name = name;
     node.width = w;
     node.height = h;
     node.x = x;
     node.y = y;
-    node.fixed = isTerminl;
-    if(isTerminl) ++numTerminals;
+    node.type = type;
+    if(type >= 1) ++numTerminals;
     _vNodes.emplace_back(node);
 }
 void AUX::add_net(string name){
@@ -180,38 +181,55 @@ void AUX::add_pin(string netName, string cellName, char IO, float x_offset, floa
     _mNets[netName].degree++;
     ++numPins;
 }
-void AUX::add_row(int w, int h){
+void AUX::add_row(int Coordinate, int Height, int Sitewidth, int Sitespacing, int Siteorient, int Sitesymmetry, int SubrowOrigin, int NumSites){
     AuxRow row;
-    row.width = w;
-    row.height = h;
+    row.Coordinate = Coordinate;
+    row.Height = Height;
+    row.Sitewidth = Sitewidth;
+    row.Sitespacing = Sitespacing;
+    row.Siteorient = Siteorient;
+    row.Sitesymmetry = Sitesymmetry;
+    row.SubrowOrigin = SubrowOrigin;
+    row.NumSites = NumSites;
     _vRows.emplace_back(row);
 }
 void AUX::set_default_rows(int w, int h, int n){
     for(int i=0;i<n;++i){
-        add_row(w,h);
+        int coord = h * i;
+        add_row(coord, h, 1, 1, 0, 0, 0, w);
     }
 }
-void AUX::read_pl(vector<AuxNode>& vPlacedNode){
+bool AUX::read_pl(vector<AuxNode>& vPlacedNode){
     string fileName = _circuit_name + ".out.lg.pl";
-    read_pl(fileName, vPlacedNode);
+    return read_pl(fileName, vPlacedNode);
 }
-void AUX::read_pl(string fileName, vector<AuxNode>& vPlacedNode){
+bool AUX::read_pl(string fileName, vector<AuxNode>& vPlacedNode){
     ifstream fin(fileName);
+    if(!fin.good()){
+        return false;
+    }
     string line;
     int count_line = 0;
     while(getline(fin, line)){
         count_line++;
         if(count_line == 1 || line[0] == '#' || line == "") continue;
         stringstream ss(line);
-        string name;
+        string name, tmp;
         int x,y;
         ss >> name >> x >> y;
+        bool fixed = false;
+        if(ss >> tmp >> tmp >> tmp){
+            fixed = true;
+        }
         AuxNode node;
         node.name = name;
         node.x = x;
         node.y = y;
-        vPlacedNode.emplace_back(node);      
+        if(!fixed){
+            vPlacedNode.emplace_back(node);
+        }
         //cout << "AUX: " << vPlacedNode.size() << " - " << node.name << " (" << node.x << "," <<node.y << ")\n";
     }
     fin.close();
+    return true;
 }

@@ -305,7 +305,11 @@ void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
             int dieX = diePos[dieId].x;
             int dieY = diePos[dieId].y;
             map<string,string> m_para{{"net",net->get_name()}, {"type","BoundingBox"},{"HPWL",to_string(net->get_HPWL(dieId))}};
-            draw_svg->drawBBox(net->get_name()+"_HPWL"+to_string(dieId), drawBox(drawPos(dieX+net->get_ll(dieId).x,dieY+net->get_ll(dieId).y),drawPos(dieX+net->get_ur(dieId).x,dieY+net->get_ur(dieId).y)), v_netColor[net->get_id()], 0.5, 0.6, m_para);
+            
+            double ll_x = net->get_ll(dieId).x, ll_y = net->get_ll(dieId).y, ur_x = net->get_ur(dieId).x, ur_y = net->get_ur(dieId).y;
+            if(ll_x == ur_x && ll_x != 0) { ll_x -= 0.5; ur_x += 0.5; }
+            if(ll_y == ur_y && ll_y != 0) { ll_y -= 0.5; ur_y += 0.5; }
+            draw_svg->drawBBox(net->get_name()+"_HPWL"+to_string(dieId), drawBox(drawPos(dieX+ll_x,dieY+ll_y),drawPos(dieX+ur_x,dieY+ur_y)), v_netColor[net->get_id()], 0.5, 0.6, m_para);
         }
     }
     // Output HPWL Result Text
