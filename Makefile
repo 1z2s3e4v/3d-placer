@@ -22,10 +22,18 @@ c1:
 	bin/$(EXECUTABLE) testcase/case1.txt output/case1_output.txt
 c2: 
 	bin/$(EXECUTABLE) testcase/case2.txt output/case2_output.txt
+c3: 
+	bin/$(EXECUTABLE) testcase/case3.txt output/case3_output.txt
+c4: 
+	bin/$(EXECUTABLE) testcase/case4.txt output/case4_output.txt
 e1:
-	evaluator/evaluator testcase/case1.txt output/case1_output.txt |& tee output/case1_eva.txt
+	evaluator/evaluator testcase/case1.txt output/case1_output.txt |& tee evaluator/case1_eva.log
 e2:
-	evaluator/evaluator testcase/case2.txt output/case2_output.txt |& tee output/case2_eva.txt
+	evaluator/evaluator testcase/case2.txt output/case2_output.txt |& tee evaluator/case2_eva.log
+e3:
+	evaluator/evaluator testcase/case3.txt output/case3_output.txt |& tee evaluator/case3_eva.log
+e2:
+	evaluator/evaluator testcase/case4.txt output/case4_output.txt |& tee evaluator/case4_eva.log
 
 clean:
 	rm -rf *.o src/*/*.o bin/$(EXECUTABLE) *.out bin/*.out log
