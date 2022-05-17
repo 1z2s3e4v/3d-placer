@@ -37,9 +37,10 @@ public:
     void drawLine(string name, drawPos, drawPos, string color,double width,double opacity, map<string,string> m_para);
     void drawLine(string name, drawPos, drawPos, int* color,double width,double opacity, map<string,string> m_para);
     void drawBBox(string name, drawBox, int* color,double width,double opacity, map<string,string> m_para);
+    void drawBBox(string name, drawBox, int* color,double width,double opacity, double minW, map<string,string> m_para);
 
-    void drawText(string name, drawPos, string);
-    void drawText(string name, drawPos, string, double, double); // offset_x offset_y
+    void drawText(string name, drawPos, double, string);
+    void drawText(string name, drawPos, double, string, double, double); // offset_x offset_y
 private:
     string fileName;
     ofstream fout;

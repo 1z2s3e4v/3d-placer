@@ -32,7 +32,7 @@ e2:
 	evaluator/evaluator testcase/case2.txt output/case2_output.txt |& tee evaluator/case2_eva.log
 e3:
 	evaluator/evaluator testcase/case3.txt output/case3_output.txt |& tee evaluator/case3_eva.log
-e2:
+e4:
 	evaluator/evaluator testcase/case4.txt output/case4_output.txt |& tee evaluator/case4_eva.log
 
 clean:

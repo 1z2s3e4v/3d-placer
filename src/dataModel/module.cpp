@@ -263,6 +263,7 @@ Cell_C::Cell_C(string name, CellLib_C* masterCell){
     }
     _pos = Pos(0,0,0);
     _die = nullptr;
+    _dieId = 0;
 }
 void Cell_C::set_id(int id){
     _id = id;

@@ -13,10 +13,13 @@
 #include "../utility/aux.h"
 #include "../utility/hgr.h"
 #include "../dataModel/module.h"
+#include "../utility/paramHdl.h"
 
 using namespace std;
 
 class Placer_C{
+    ParamHdl_C _paramHdl;
+    
     Chip_C* _pChip;
     Design_C* _pDesign;
     vector<Pos> _vCellBestPos;
@@ -28,13 +31,14 @@ class Placer_C{
     string _RUNDIR = "./run_tmp/";
 public:
     //Place_C();
-    Placer_C(Chip_C*, Design_C*, clock_t);
+    Placer_C(Chip_C*, Design_C*, ParamHdl_C&, clock_t);
     
     void run();
     void init_place();
     void order_place();
     void rand_place(int); // die_by_die
     void rand_ball_place();
+    void init_run_dir();
     void clear();
 
     /* partition + die-by-die NTUplace3 */

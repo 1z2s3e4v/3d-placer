@@ -2,15 +2,18 @@
 
 using namespace std;
 
-Placer_C::Placer_C(Chip_C* p_pChip, Design_C* p_pDesign, clock_t p_start)
+Placer_C::Placer_C(Chip_C* p_pChip, Design_C* p_pDesign, ParamHdl_C& paramHdl, clock_t p_start)
 :_vCell(p_pDesign->get_cells()), _vNet(p_pDesign->get_nets()), _mCell(p_pDesign->get_cells_map()), _mNet(p_pDesign->get_nets_map())
 {
     _pDesign = p_pDesign;
     _pChip = p_pChip;
+    _paramHdl = paramHdl;
     _tStart = p_start;
     _vCell = p_pDesign->get_cells();
     _vNet = p_pDesign->get_nets();
     _vCellBestPos.resize(_vCell.size(),Pos(0,0,0));
+
+    _RUNDIR = "./run_tmp/" + _paramHdl.get_case_name() + "/";
 }
 
 void Placer_C::run(){
@@ -102,8 +105,7 @@ void Placer_C::rand_ball_place(){
     }
 }
 void Placer_C::pin3d_ntuplace(){
-    string cmd_clean = "rm -rf " + _RUNDIR + "; mkdir -p " + _RUNDIR;
-    system(cmd_clean.c_str());
+    init_run_dir();
     // 0. Init place with hmetis and NTUplace
     // partition
     mincut_partition(); // set_die() for each cell
@@ -218,8 +220,7 @@ void Placer_C::pin3d_ntuplace(){
     }
 }
 void Placer_C::ntu_d2dplace(){
-    string cmd_clean = "rm -rf " + _RUNDIR + "; mkdir -p " + _RUNDIR;
-    system(cmd_clean.c_str());
+    init_run_dir();
     // init_place or partition
     //order_place();
     mincut_partition(); // set_die() for each cell
@@ -467,6 +468,10 @@ int Placer_C::cal_ball_num(){
         }
     }
     return countTerminal;
+}
+void Placer_C::init_run_dir(){
+    string cmd_clean = "rm -rf " + _RUNDIR + "; mkdir -p " + _RUNDIR;
+    system(cmd_clean.c_str());
 }
 void Placer_C::clear(){
     _pChip = nullptr;

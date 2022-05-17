@@ -1,7 +1,4 @@
 #include "dm.h"
-#include <bits/types/clock_t.h>
-#include <fstream>
-#include <type_traits>
 
 DmMgr_C::DmMgr_C(){};
 DmMgr_C::DmMgr_C(Parser_C& parser, ParamHdl_C& paramHdl, clock_t tStart){
@@ -79,7 +76,7 @@ void DmMgr_C::init(){
 void DmMgr_C::run(){
     cout << BLUE << "[DM]" << RESET << " - Start\n";
     // init place
-    _pPlacer = new Placer_C(_pChip, _pDesign, _tStart);
+    _pPlacer = new Placer_C(_pChip, _pDesign, _paramHdl, _tStart);
     _pPlacer->run();
     // output result
     //output_result(); 
@@ -264,6 +261,8 @@ void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
         v_netColor[i] = getRandRGB();
     }
     // Draw Cells
+    double cellFontSize = min(_pChip->get_die(0)->get_row_height(),_pChip->get_die(1)->get_row_height())/4.0;
+    double pinSize = min(_pChip->get_die(0)->get_row_height(),_pChip->get_die(1)->get_row_height())/8.0;
     for(int i=0;i<_pDesign->get_cell_num();++i){
         Cell_C* cell = _pDesign->get_cell(i);
         //cout << "Draw: " << cell->get_name() << " " << cell->get_pos().pos3d2str() << "\n";
@@ -272,17 +271,17 @@ void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
         map<string,string> m_para{{"type","cell"}};
         draw_svg->drawRect(cell->get_name(), drawBox(drawPos(dieX+cell->get_posX(),dieY+cell->get_posY()),drawPos(dieX+cell->get_posX()+cell->get_width(),dieY+cell->get_posY()+cell->get_height())), "yellow", 0.1, m_para);
         // cell name lable
-        draw_svg->drawText(cell->get_name()+"_label", drawPos(dieX+cell->get_posX()+cell->get_width()/2.0, dieY+cell->get_posY()+cell->get_height()/2.0), cell->get_name());
+        draw_svg->drawText(cell->get_name()+"_label", drawPos(dieX+cell->get_posX()+cell->get_width()/2.0, dieY+cell->get_posY()+cell->get_height()/2.0), cellFontSize, cell->get_name());
         // draw pins
         for(int j=0;j<cell->get_pin_num();++j){
             Pin_C* pin = cell->get_pin(j);
             if(pin->get_net() != nullptr){
                 map<string,string> m_para{{"type","pin"},{"cell",pin->get_cell()->get_name()}, {"net",pin->get_net()->get_name()}};
-                draw_svg->drawRect(cell->get_name()+"_"+pin->get_name(), drawBox(drawPos(dieX+pin->get_x()-0.5,dieY+pin->get_y()-0.5),drawPos(dieX+pin->get_x()+0.5,dieY+pin->get_y()+0.5)), v_netColor[pin->get_net()->get_id()], 0.6, m_para);
+                draw_svg->drawRect(cell->get_name()+"_"+pin->get_name(), drawBox(drawPos(dieX+pin->get_x()-pinSize/2,dieY+pin->get_y()-pinSize/2),drawPos(dieX+pin->get_x()+pinSize/2,dieY+pin->get_y()+pinSize/2)), v_netColor[pin->get_net()->get_id()], 0.6, m_para);
             }
             else{
                 map<string,string> m_para{{"type","pin"},{"cell",pin->get_cell()->get_name()}};
-                draw_svg->drawRect(cell->get_name()+"_"+pin->get_name(), drawBox(drawPos(dieX+pin->get_x()-0.5,dieY+pin->get_y()-0.5),drawPos(dieX+pin->get_x()+0.5,dieY+pin->get_y()+0.5)), "black", 1, m_para);
+                draw_svg->drawRect(cell->get_name()+"_"+pin->get_name(), drawBox(drawPos(dieX+pin->get_x()-pinSize/2,dieY+pin->get_y()-pinSize/2),drawPos(dieX+pin->get_x()+pinSize/2,dieY+pin->get_y()+pinSize/2)), "black", 1, m_para);
             }
         }
     }
@@ -307,9 +306,9 @@ void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
             map<string,string> m_para{{"net",net->get_name()}, {"type","BoundingBox"},{"HPWL",to_string(net->get_HPWL(dieId))}};
             
             double ll_x = net->get_ll(dieId).x, ll_y = net->get_ll(dieId).y, ur_x = net->get_ur(dieId).x, ur_y = net->get_ur(dieId).y;
-            if(ll_x == ur_x && ll_x != 0) { ll_x -= 0.5; ur_x += 0.5; }
-            if(ll_y == ur_y && ll_y != 0) { ll_y -= 0.5; ur_y += 0.5; }
-            draw_svg->drawBBox(net->get_name()+"_HPWL"+to_string(dieId), drawBox(drawPos(dieX+ll_x,dieY+ll_y),drawPos(dieX+ur_x,dieY+ur_y)), v_netColor[net->get_id()], 0.5, 0.6, m_para);
+            if(ll_x == ur_x && ll_x != 0) { ll_x -= pinSize/2; ur_x += pinSize/2; }
+            if(ll_y == ur_y && ll_y != 0) { ll_y -= pinSize/2; ur_y += pinSize/2; }
+            draw_svg->drawBBox(net->get_name()+"_HPWL"+to_string(dieId), drawBox(drawPos(dieX+ll_x,dieY+ll_y),drawPos(dieX+ur_x,dieY+ur_y)), v_netColor[net->get_id()], 0.5, 0.6, 0.2, m_para);
         }
     }
     // Output HPWL Result Text
@@ -321,9 +320,10 @@ void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
         vHPWL[1] += net->get_HPWL(1);
         totalHPWL += net->get_HPWL(0) + net->get_HPWL(1);
     }
-    draw_svg->drawText("Die0_HPWL_result", drawPos((diePos[0].x+_pChip->get_width()/3.0), diePos[0].y), "Top_Die HPWL = " + to_string(vHPWL[0]), 0, -25);
-    draw_svg->drawText("Die1_HPWL_result", drawPos((diePos[1].x+_pChip->get_width()/3.0), diePos[1].y), "Bot_Die HPWL = " + to_string(vHPWL[1]), 0, -25);
-    draw_svg->drawText("Total_HPWL_result", drawPos(diePos[0].x, diePos[0].y), "Total HPWL = " + to_string(totalHPWL), 0, -50);
+    double fontSize = 20;
+    draw_svg->drawText("Die0_HPWL_result", drawPos((diePos[0].x+_pChip->get_width()/3.0), diePos[0].y), fontSize, "Top_Die HPWL = " + to_string(vHPWL[0]), 0, -25);
+    draw_svg->drawText("Die1_HPWL_result", drawPos((diePos[1].x+_pChip->get_width()/3.0), diePos[1].y), fontSize, "Bot_Die HPWL = " + to_string(vHPWL[1]), 0, -25);
+    draw_svg->drawText("Total_HPWL_result", drawPos(diePos[0].x, diePos[0].y), fontSize, "Total HPWL = " + to_string(totalHPWL), 0, -50);
 
     draw_svg->end_svg();
     cout << BLUE << "[DM]" << RESET << " - Visualize the layout in \'" << outFile << "\'.\n";

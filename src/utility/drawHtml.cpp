@@ -98,6 +98,24 @@ void Drawer_C::drawBBox(string name, drawBox box, int* rgb, double width, double
     // styles
     fout << " style=\"fill:none;stroke:rgb(" << rgb[0] <<","<< rgb[1] <<"," << rgb[2] << ");stroke-width:"<< width << ";fill-opacity:" << opacity << ";stroke-opacity:" << opacity << "\" />\n";
 }
+void Drawer_C::drawBBox(string name, drawBox box, int* rgb, double width, double opacity, double minW, map<string,string> m_para){
+    double w_ori = get<0>(get<1>(box)) - get<0>(get<0>(box));
+    double h_ori = get<1>(get<1>(box)) - get<1>(get<0>(box));
+    
+    double w = w_ori*scaling;
+    double h = h_ori*scaling;
+    double x = get<0>(get<0>(box)) * scaling + offset_x;
+    double y = outline_y - (get<1>(get<0>(box)) * scaling + offset_y) - h;
+    width = max(width*scaling, minW);
+    fout << "   <rect name=\""<< name << "\" x=\"" << x << "\" y=\"" << y 
+        << "\" width=\"" << w << "\" height=\"" << h << "\"";
+    // other para
+    for(auto para : m_para){
+        fout << " " << para.first << "=\"" << para.second << "\"";
+    }
+    // styles
+    fout << " style=\"fill:none;stroke:rgb(" << rgb[0] <<","<< rgb[1] <<"," << rgb[2] << ");stroke-width:"<< width << ";fill-opacity:" << opacity << ";stroke-opacity:" << opacity << "\" />\n";
+}
 void Drawer_C::drawLine(string name, drawPos p1, drawPos p2, string color, double width, double opacity, map<string,string> m_para){
     double x1 = get<0>(p1) * scaling + offset_x;
     double y1 = outline_y - (get<1>(p1) * scaling + offset_y);
@@ -158,13 +176,15 @@ void Drawer_C::drawLine(string name, drawPos p1, drawPos p2, int* rgb, double wi
     double w = width * scaling;
     fout << "<line name=\""<< name << "\" x1=\"" << x1 << "\" y1=\"" << y1 << "\" x2=\"" << x2 << "\" y2=\"" << y2 << "\" style=\"stroke:rgb(" << rgb[0] <<","<< rgb[1] <<"," << rgb[2] << ");stroke-width:" << w << "\" />\n";
 }
-void Drawer_C::drawText(string name, drawPos pos, string str){
+void Drawer_C::drawText(string name, drawPos pos, double size, string str){
     double x = get<0>(pos) * scaling + offset_x;
     double y = outline_y - (get<1>(pos) * scaling + offset_y);
-    fout << "   <text name=\""<< name << "\" x=\"" << x << "\" y=\"" << y << "\" fill=\"black\">" << str << "</text>\n";
+    size *= scaling;
+    fout << "   <text name=\""<< name << "\" x=\"" << x << "\" y=\"" << y << "\" font-size=\""<< size <<"px\" fill=\"black\">" << str << "</text>\n";
 } 
-void Drawer_C::drawText(string name, drawPos pos, string str, double offx, double offy){
+void Drawer_C::drawText(string name, drawPos pos, double size, string str, double offx, double offy){
     double x = get<0>(pos) * scaling + offx + offset_x;
     double y = outline_y - (get<1>(pos) * scaling + offy + offset_y);
-    fout << "   <text name=\""<< name << "\" x=\"" << x << "\" y=\"" << y << "\" fill=\"black\">" << str << "</text>\n";
+    //size *= scaling;
+    fout << "   <text name=\""<< name << "\" x=\"" << x << "\" y=\"" << y << "\" font-size=\""<< size <<"px\" fill=\"black\">" << str << "</text>\n";
 } 
