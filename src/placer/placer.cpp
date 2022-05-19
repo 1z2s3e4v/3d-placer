@@ -96,11 +96,14 @@ void Placer_C::rand_place(int dieId){
     }
 }
 void Placer_C::rand_ball_place(){
+    vector<Net_C*>& v_d2dNets = _pChip->get_d2d_nets();
+    v_d2dNets.clear();
     for(Net_C* net : _vNet){
         if(net->is_cross_net()){
             int x = rand()%(_pChip->get_width());
             int y = rand()%(_pChip->get_height());
             net->set_ball_xy(Pos(x,y));
+            v_d2dNets.emplace_back(net);
         }
     }
 }
@@ -112,7 +115,7 @@ void Placer_C::pin3d_ntuplace(){
         mincut_partition(); // set_die() for each cell
     else 
         mincut_k_partition(); // set_die() for each cell
-    cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell)num = " << _pChip->get_die(1)->get_cells().size() << "\n";
+    cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
     rand_place(0);
     rand_place(1);
     rand_ball_place();
@@ -174,7 +177,7 @@ void Placer_C::pin3d_ntuplace(){
     }
 
     // 2. Replace die1 with projected die0 and balls
-    if(_pChip->get_die(0)->get_cells().size() > 0){
+    if(_pChip->get_die(1)->get_cells().size() > 0){
         AUX aux;
         create_aux_form(aux, 1, "die1");
         add_project_pin(aux, 0);
@@ -301,8 +304,9 @@ void Placer_C::mincut_partition(){
 }
 void Placer_C::mincut_k_partition(){
     int row_sum = _pChip->get_die(0)->get_row_num()+_pChip->get_die(1)->get_row_num();
-    int k_part = min(row_sum, 10);
-    int slice = round((double)_pChip->get_die(1)->get_row_num() / (double)_pChip->get_die(0)->get_row_num()* k_part) ;
+    int k_part = min(row_sum, 20);
+    //int slice = round(((double)_pChip->get_die(1)->get_row_num()*_pChip->get_die(1)->get_max_util()) / ((double)_pChip->get_die(0)->get_row_num()*_pChip->get_die(0)->get_max_util()) * k_part) ;
+    int slice = round(((double)_pChip->get_die(1)->get_row_num()) / ((double)_pChip->get_die(0)->get_row_num()) * k_part) ;
     HGR hgr(_RUNDIR, "circuit");
     for(Net_C* net : _vNet){
         hgr.add_net(net->get_name());

@@ -81,7 +81,7 @@ Die_C::Die_C(int sizeX, int sizeY, int maxUtil, int techId, int rowHeight){
     _techId = techId;
     _sizeX = sizeX;
     _sizeY = sizeY;
-    _maxUtil = maxUtil;
+    _maxUtil = maxUtil / 100.0;
     _rowHeight = rowHeight;
     _vRows.resize(_sizeY/rowHeight);
     for(int i=0;i<_vRows.size();++i){
@@ -93,7 +93,7 @@ Die_C::Die_C(int id, int sizeX, int sizeY, int maxUtil, int techId, int rowHeigh
     _techId = techId;
     _sizeX = sizeX;
     _sizeY = sizeY;
-    _maxUtil = maxUtil;
+    _maxUtil = maxUtil / 100.0;
     _rowHeight = rowHeight;
     _vRows.resize(_sizeY/rowHeight);
     for(int i=0;i<_vRows.size();++i){
@@ -112,7 +112,7 @@ int Die_C::get_id(){
 int Die_C::get_techId(){
     return _techId;
 }
-int Die_C::get_max_util(){
+double Die_C::get_max_util(){
     return _maxUtil;
 }
 int Die_C::get_row_height(){

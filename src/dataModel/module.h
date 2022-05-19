@@ -96,7 +96,7 @@ class Die_C{
     int _techId; // die technology
     int _sizeX;
     int _sizeY;
-    int _maxUtil; // die max utility
+    double _maxUtil; // die max utility
     int _rowHeight; 
     vector<Row_C*> _vRows; // die rows
     vector<Cell_C*> _vCells;
@@ -108,7 +108,7 @@ public:
     void remove_cell(Cell_C*);
     int get_id();
     int get_techId();
-    int get_max_util();
+    double get_max_util();
     int get_row_height();
     int get_row_num();
     int get_width();
