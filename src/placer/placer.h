@@ -45,6 +45,7 @@ public:
     void ntu_d2dplace();
     void pin3d_ntuplace();
     void mincut_partition();
+    void mincut_k_partition();
     void init_place_ball();
     void run_ntuplace3(string caseName);
     void run_ntuplace4(string caseName);

@@ -25,7 +25,7 @@ void HGR::add_net(string netName){
         _numNet++;
     }
     else{
-        cout << BLUE << "[HGR]" << RESET << " - Warning: Net \'" << netName << "\' has been added.\n";
+        //cout << BLUE << "[HGR]" << RESET << " - Warning: Net \'" << netName << "\' has been added.\n";
     }
 }
 void HGR::add_node(string netName, string nodeName){
@@ -40,7 +40,7 @@ void HGR::add_node(string netName, string nodeName){
         _vNetNodes[netId].emplace_back(nodeId);
     }
     else{
-        cout << BLUE << "[HGR]" << RESET << " - Warning: Node \'" << nodeName << "\' has been added in Net \'" << netName << "\'.\n";
+        //cout << BLUE << "[HGR]" << RESET << " - Warning: Node \'" << nodeName << "\' has been added in Net \'" << netName << "\'.\n";
     }
 }
 

@@ -108,7 +108,11 @@ void Placer_C::pin3d_ntuplace(){
     init_run_dir();
     // 0. Init place with hmetis and NTUplace
     // partition
-    mincut_partition(); // set_die() for each cell
+    if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
+        mincut_partition(); // set_die() for each cell
+    else 
+        mincut_k_partition(); // set_die() for each cell
+    cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell)num = " << _pChip->get_die(1)->get_cells().size() << "\n";
     rand_place(0);
     rand_place(1);
     rand_ball_place();
@@ -287,11 +291,40 @@ void Placer_C::mincut_partition(){
     hgr.write_hgr();
     run_hmetis(2, 0.7, "circuit");
     hgr.read_part_result(2);
+    //cout << "hmetis partition result: " << max(hgr.get_part_size(0),hgr.get_part_size(1)) << " : " << min(hgr.get_part_size(0),hgr.get_part_size(1)) << "\n";
     for(Cell_C* cell : _vCell){
         int part = (hgr.get_part_size(0) >= hgr.get_part_size(1))? 
             hgr.get_part_result(cell->get_name()) : (hgr.get_part_result(cell->get_name())+1)%2;
         cell->set_die(_pChip->get_die(part));
     }
+    //cout << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell)num = " << _pChip->get_die(1)->get_cells().size() << "\n";
+}
+void Placer_C::mincut_k_partition(){
+    int row_sum = _pChip->get_die(0)->get_row_num()+_pChip->get_die(1)->get_row_num();
+    int k_part = min(row_sum, 10);
+    int slice = round((double)_pChip->get_die(1)->get_row_num() / (double)_pChip->get_die(0)->get_row_num()* k_part) ;
+    HGR hgr(_RUNDIR, "circuit");
+    for(Net_C* net : _vNet){
+        hgr.add_net(net->get_name());
+        for(int i=0;i<net->get_pin_num();++i){
+            hgr.add_node(net->get_name(), net->get_pin(i)->get_cell()->get_name());
+        }
+    }
+    hgr.write_hgr();
+    run_hmetis(k_part, 0.6, "circuit");
+    hgr.read_part_result(k_part);
+    //cout << "hmetis partition result: " << max(hgr.get_part_size(0),hgr.get_part_size(1)) << " : " << min(hgr.get_part_size(0),hgr.get_part_size(1)) << "\n";
+    for(Cell_C* cell : _vCell){
+        int part = (hgr.get_part_size(0) >= hgr.get_part_size(1))? 
+            hgr.get_part_result(cell->get_name()) : (hgr.get_part_result(cell->get_name())+1)%2;
+        if(part < slice){
+            cell->set_die(_pChip->get_die(0));
+        }
+        else{
+            cell->set_die(_pChip->get_die(1));
+        }
+    }
+    //cout << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell)num = " << _pChip->get_die(1)->get_cells().size() << "\n";
 }
 void Placer_C::init_place_ball(){
     int ball_curX = _pChip->get_ball_spacing();
@@ -354,25 +387,25 @@ void Placer_C::read_pl_and_set_pos_for_ball(string fileName){
     }
 }
 void Placer_C::run_ntuplace3(string caseName){
-    cout << BLUE << "[Place]" << RESET << " - Running ntuplace3 for \'" << caseName << "\'...\n";
+    cout << BLUE << "[Placer]" << RESET << " - Running ntuplace3 for \'" << caseName << "\'...\n";
     // ex: ./bin/ntuplace-r -aux ./run_tmp/die0/die0.aux -out ./run_tmp/die0 > ./run_tmp/die0-ntuplace.log
     string cmd = "./bin/ntuplace-r -aux " + _RUNDIR + caseName + "/" + caseName + ".aux -out " + _RUNDIR + caseName + " > " + _RUNDIR + caseName + "-ntuplace.log";
     system(cmd.c_str());
-    cout << BLUE << "[Place]" << RESET << " - Running ntuplace3 for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
+    cout << BLUE << "[Placer]" << RESET << " - Running ntuplace3 for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
 }
 void Placer_C::run_ntuplace4(string caseName){
-    cout << BLUE << "[Place]" << RESET << " - Running ntuplace4 for \'" << caseName << "\'...\n";
+    cout << BLUE << "[Placer]" << RESET << " - Running ntuplace4 for \'" << caseName << "\'...\n";
     // ex: ./bin/ntuplace-r -aux ./run_tmp/die0/die0.aux -out ./run_tmp/die0 > ./run_tmp/die0-ntuplace.log
     string cmd = "./bin/ntuplace4 -aux " + _RUNDIR + caseName + "/" + caseName + ".aux -out " + _RUNDIR + caseName + " -noCong -noCongLG -noPGAvoid > " + _RUNDIR + caseName + "-ntuplace.log";
     system(cmd.c_str());
-    cout << BLUE << "[Place]" << RESET << " - Running ntuplace4 for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
+    cout << BLUE << "[Placer]" << RESET << " - Running ntuplace4 for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
 }
 void Placer_C::run_hmetis(int k, double ufactor, string caseName){
-    cout << BLUE << "[Place]" << RESET << " - Running hmetis for \'" << caseName << "\'...\n";
+    cout << BLUE << "[Placer]" << RESET << " - Running hmetis for \'" << caseName << "\'...\n";
     string fileName = _RUNDIR + caseName + ".hgr";
     string cmd = "bin/hmetis -ufactor=" + to_string(ufactor) + " " + fileName + " " + to_string(k) + " > " + _RUNDIR + caseName + "-hmetis.log";
     system(cmd.c_str());
-    cout << BLUE << "[Place]" << RESET << " - Running hmetis for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
+    cout << BLUE << "[Placer]" << RESET << " - Running hmetis for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
 }
 void Placer_C::create_aux_form(AUX &aux, int dieId, string caseName){  // output in dir "./aux/<case-name>/"
     string aux_dir = _RUNDIR + caseName + "/";
