@@ -136,6 +136,23 @@ function disappearNet(netName){
     }
   });
 }
+function highlightNet(netName){
+  $("[net="+netName+"]").each(function(j, layout) {
+    if($(this).attr("type") == "BoundingBox" || $(this).attr("type") == "Terminal"){
+      $(this).css("stroke-width",(parseFloat($(this).css("stroke-width"))+2)*1.5);
+      showNet($(this).attr("net"));
+    }
+  });
+}
+function unhighlightNet(netName){
+  var terminalCheckBox = document.getElementById("terminalChecker");
+  var netCheckBox = document.getElementById("NetChecker");
+  $("[net="+netName+"]").each(function(j, layout) {
+    if($(this).attr("type") == "BoundingBox" || $(this).attr("type") == "Terminal"){
+      $(this).css("stroke-width",parseFloat($(this).css("stroke-width"))/1.5-2);
+    }
+  });
+}
 $(document).ready(function(){
   var terminalCheckBox = document.getElementById("terminalChecker");
   var netCheckBox = document.getElementById("NetChecker");
@@ -200,8 +217,20 @@ $(document).ready(function(){
   $("[type=cell]").each(function(i, layout) {
     $(this).mouseenter(function(){ // mouse in, show
       $(this).css("stroke-width",parseFloat($(this).css("stroke-width"))+4);
+      $("[cell="+$(this).attr("name")+"]").each(function(j, layout) {
+        if($(this).attr("type") == "pin"){
+          highlightNet($(this).attr("net"))
+        }
+      });
     }).mouseleave(function(){ // mouse out, disappear
       $(this).css("stroke-width",parseFloat($(this).css("stroke-width"))-4);
+      $("[cell="+$(this).attr("name")+"]").each(function(j, layout) {
+        if($(this).attr("type") == "pin"){
+          unhighlightNet($(this).attr("net"))
+          if(!($(this).attr("net") in fixedNets))
+            disappearNet($(this).attr("net"))
+        }
+      });
     }).click(function(){ // click, show and fix nets
       $("[cell="+$(this).attr("name")+"]").each(function(j, layout) {
         fixedNets[$(this).attr("net")] = 1;
