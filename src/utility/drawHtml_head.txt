@@ -180,10 +180,34 @@ $(document).ready(function(){
     $(this).mouseenter(function(){ // mouse in, show
       $(this).css("stroke-width",parseFloat($(this).css("stroke-width"))+4);
       showNet($(this).attr("net"));
+      highlightNet($(this).attr("net"))
+      var netName = $(this).attr("net");
+      $("[net="+netName+"]").each(function(j, layout) {
+        if($(this).attr("type") == "pin"){
+          var cellName = $(this).attr("cell");
+          $("[name="+cellName+"]").each(function(k, layout) {
+            if($(this).attr("type") == "cell"){
+              $(this).css("stroke-width",parseFloat($(this).css("stroke-width"))+4);
+            }
+          });
+        }
+      });
     }).mouseleave(function(){ // mouse out, disappear
       $(this).css("stroke-width",parseFloat($(this).css("stroke-width"))-4);
       if(!($(this).attr("net") in fixedNets))
         disappearNet($(this).attr("net"))
+      unhighlightNet($(this).attr("net"))
+      var netName = $(this).attr("net");
+      $("[net="+netName+"]").each(function(j, layout) {
+        if($(this).attr("type") == "pin"){
+          var cellName = $(this).attr("cell");
+          $("[name="+cellName+"]").each(function(k, layout) {
+            if($(this).attr("type") == "cell"){
+              $(this).css("stroke-width",parseFloat($(this).css("stroke-width"))-4);
+            }
+          });
+        }
+      });
     }).click(function(){ // click, fix
       if($(this).attr("net") in fixedNets){
         delete fixedNets[$(this).attr("net")];
@@ -199,10 +223,32 @@ $(document).ready(function(){
     $(this).mouseenter(function(){
       $(this).css("stroke-width",(parseFloat($(this).css("stroke-width"))+2)*1.5);
       showNet($(this).attr("net"));
+      var netName = $(this).attr("net");
+      $("[net="+netName+"]").each(function(j, layout) {
+        if($(this).attr("type") == "pin"){
+          var cellName = $(this).attr("cell");
+          $("[name="+cellName+"]").each(function(k, layout) {
+            if($(this).attr("type") == "cell"){
+              $(this).css("stroke-width",parseFloat($(this).css("stroke-width"))+4);
+            }
+          });
+        }
+      });
     }).mouseleave(function(){
       $(this).css("stroke-width",parseFloat($(this).css("stroke-width"))/1.5-2);
       if(!($(this).attr("net") in fixedNets))
         disappearNet($(this).attr("net"))
+      var netName = $(this).attr("net");
+      $("[net="+netName+"]").each(function(j, layout) {
+        if($(this).attr("type") == "pin"){
+          var cellName = $(this).attr("cell");
+          $("[name="+cellName+"]").each(function(k, layout) {
+            if($(this).attr("type") == "cell"){
+              $(this).css("stroke-width",parseFloat($(this).css("stroke-width"))-4);
+            }
+          });
+        }
+      });
     }).click(function(){ // click, fix
       if($(this).attr("net") in fixedNets){
         delete fixedNets[$(this).attr("net")];
