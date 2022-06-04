@@ -4,17 +4,17 @@ DmMgr_C::DmMgr_C(){};
 DmMgr_C::DmMgr_C(Parser_C& parser, ParamHdl_C& paramHdl, clock_t tStart){
     cout << BLUE << "[DM]" << RESET << " - Construct Data Structure...\n";
     _paramHdl = paramHdl;
-    vector<Tech>& v_tech = parser.get_techs();
-    vector<Inst>& v_inst = parser.get_insts();
-    vector<Net>& v_net = parser.get_nets();
+    vector<ParserTech>& v_tech = parser.get_techs();
+    vector<ParserInst>& v_inst = parser.get_insts();
+    vector<ParserNet>& v_net = parser.get_nets();
     _pChip = new Chip_C();
     _pDesign = new Design_C();
     // tech lib
     for(int tech_id=0;tech_id<v_tech.size();++tech_id){
-        Tech tech = v_tech[tech_id];
+        ParserTech tech = v_tech[tech_id];
         _vTechName.emplace_back(tech.name);
         _mTechName2Id[tech.name] = tech_id;
-        vector<LibCell>& v_libcell = tech.v_libCell;
+        vector<ParserLibCell>& v_libcell = tech.v_libCell;
         for(int i=0;i<v_libcell.size();++i){
             CellLib_C* cellLib;
             if(tech_id==0){ // init the CellLib list with the first tech
@@ -26,29 +26,29 @@ DmMgr_C::DmMgr_C(Parser_C& parser, ParamHdl_C& paramHdl, clock_t tStart){
                 cellLib = _mCellLib[v_libcell[i].name];
             }
             _vCellLib[i]->set_size(tech_id, v_libcell[i].sizeX, v_libcell[i].sizeY);
-            vector<LibPin>& v_libPin = v_libcell[i].v_libPin;
+            vector<ParserLibPin>& v_libPin = v_libcell[i].v_libPin;
             for(int j=0;j<v_libPin.size();++j){
                 _vCellLib[i]->add_pin(tech_id, v_libPin[j].name, Pos(v_libPin[j].locationX, v_libPin[j].locationY));
             }
         }
     }    
     // cells
-    for(Inst& inst : v_inst){
+    for(ParserInst& inst : v_inst){
         Cell_C* newCell = new Cell_C(inst.name, _mCellLib[inst.libCellName]);
         _pDesign->add_cell(newCell);
     }
     // nets
-    for(Net& net : v_net){
+    for(ParserNet& net : v_net){
         Net_C* newNet = new Net_C(net.name);
-        for(Pin& pin : net.v_pin){
+        for(ParserPin& pin : net.v_pin){
             Pin_C* p_Pin = _pDesign->get_cell(pin.instName)->get_pin(pin.libPinName);
             newNet->add_pin(p_Pin);
         }
         _pDesign->add_net(newNet);
     }
     // dies
-    Die topDie = parser.get_top_die_info();
-    Die botDie = parser.get_bot_die_info();
+    ParserDie topDie = parser.get_top_die_info();
+    ParserDie botDie = parser.get_bot_die_info();
     _pChip = new Chip_C(topDie.ur_x - topDie.ll_x, 
                        topDie.ur_y - topDie.ll_y, 2);
     _pChip->set_die(0, topDie.maxUtil,
@@ -86,8 +86,8 @@ void DmMgr_C::run(){
 }
 
 void DmMgr_C::print_result(){
-    vector<int> vHPWL(2,0);
-    int totalHPWL = 0;
+    vector<long long int> vHPWL(2,0);
+    long long int totalHPWL = 0;
     for(int i=0;i<_pDesign->get_net_num();++i){
         Net_C* net = _pDesign->get_net(i);
         vHPWL[0] += net->get_HPWL(0);
@@ -186,7 +186,7 @@ void DmMgr_C::output_result(string fileName){
     vector<Net_C*>& v_d2dNets = _pChip->get_d2d_nets();
     fout << "NumTerminals " << v_d2dNets.size() << "\n";
     for(Net_C* net : v_d2dNets){
-        fout << "Terminal " << net->get_name() << " " << net->get_ball_pos().x << net->get_ball_pos().y << "\n";
+        fout << "Terminal " << net->get_name() << " " << net->get_ball_pos().x << " " << net->get_ball_pos().y << "\n";
     }
     fout.close();
 }
@@ -312,8 +312,8 @@ void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
         }
     }
     // Output HPWL Result Text
-    vector<int> vHPWL(2,0);
-    int totalHPWL = 0;
+    vector<long long int> vHPWL(2,0);
+    long long int totalHPWL = 0;
     for(int i=0;i<_pDesign->get_net_num();++i){
         Net_C* net = _pDesign->get_net(i);
         vHPWL[0] += net->get_HPWL(0);
