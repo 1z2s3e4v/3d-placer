@@ -23,7 +23,7 @@ bool Parser_C::read_file(string fileName){
                 if(line=="") continue;
                 stringstream ss2(line);
                 // add inst
-                Inst inst;
+                ParserInst inst;
                 ss2 >> label >> inst.name >> inst.libCellName;
                 v_inst.emplace_back(inst);
                 countInst++;
@@ -37,7 +37,7 @@ bool Parser_C::read_file(string fileName){
                 if(line=="") continue;
                 stringstream ss2(line);
                 // add net
-                Net net;
+                ParserNet net;
                 ss2 >> label >> net.name >> net.numPins;
                 int countPin = 0;
                 while(countPin < net.numPins){ // get pins
@@ -46,7 +46,7 @@ bool Parser_C::read_file(string fileName){
                     replace(line.begin(), line.end(), '/', ' '); // replace '/' to ' '
                     stringstream ss3(line);
                     // add pin
-                    Pin pin;
+                    ParserPin pin;
                     ss3 >> label >> pin.instName >> pin.libPinName;
                     net.v_pin.emplace_back(pin);
                     countPin++;
@@ -82,7 +82,7 @@ bool Parser_C::read_file(string fileName){
                 if(line=="") continue;
                 stringstream ss2(line);
                 // add tech
-                Tech tech;
+                ParserTech tech;
                 ss2 >> label >> tech.name >> tech.numLibCell;
                 int countLibCell = 0;
                 while(countLibCell < tech.numLibCell){ // get libCells
@@ -90,7 +90,7 @@ bool Parser_C::read_file(string fileName){
                     if(line=="") continue;
                     stringstream ss3(line);
                     // add libCell
-                    LibCell libCell;
+                    ParserLibCell libCell;
                     ss3 >> label >> libCell.name >> libCell.sizeX >> libCell.sizeY >> libCell.numLibPin;
                     int countLibPin = 0;
                     while(countLibPin < libCell.numLibPin){ // get libCells
@@ -98,7 +98,7 @@ bool Parser_C::read_file(string fileName){
                         if(line=="") continue;
                         stringstream ss3(line);
                         // add libPin
-                        LibPin libPin;
+                        ParserLibPin libPin;
                         ss3 >> label >> libPin.name >> libPin.locationX >> libPin.locationY;
                         libCell.v_libPin.emplace_back(libPin);
                         countLibPin++;
@@ -127,19 +127,19 @@ bool Parser_C::read_file(string fileName){
     return _isOK;
 }
 
-vector<Inst>& Parser_C::get_insts(){
+vector<ParserInst>& Parser_C::get_insts(){
     return v_inst;
 }
-vector<Net>& Parser_C::get_nets(){
+vector<ParserNet>& Parser_C::get_nets(){
     return v_net;
 }
-vector<Tech>& Parser_C::get_techs(){
+vector<ParserTech>& Parser_C::get_techs(){
     return v_tech;
 }
-Die Parser_C::get_top_die_info(){
+ParserDie Parser_C::get_top_die_info(){
     return topDie;
 }
-Die Parser_C::get_bot_die_info(){
+ParserDie Parser_C::get_bot_die_info(){
     return botDie;
 }
 Terminal Parser_C::get_terminal_info(){
@@ -154,20 +154,20 @@ void Parser_C::print_info(){
     cout << "numInst = " << numInst << "\n";
     cout << "numNet  = " << numNet << "\n";
     cout << "numTech = " << numTech << "\n";
-    for(Inst inst : v_inst){
+    for(ParserInst inst : v_inst){
         cout << "Inst " << inst.name << "(" << inst.libCellName << ")\n";
     }
-    for(Net net : v_net){
+    for(ParserNet net : v_net){
         cout << "Net " << net.name << "\n";
-        for(Pin pin : net.v_pin){
+        for(ParserPin pin : net.v_pin){
             cout << "  Pin " << pin.instName << "/" << pin.libPinName << "\n";
         }
     }
-    for(Tech tech : v_tech){
+    for(ParserTech tech : v_tech){
         cout << "Tech " << tech.name << "\n";
-        for(LibCell libCell : tech.v_libCell){
+        for(ParserLibCell libCell : tech.v_libCell){
             cout << "  LibCell " << libCell.name << "(" << libCell.sizeX << "*" << libCell.sizeY << ")\n";
-            for(LibPin libPin : libCell.v_libPin){
+            for(ParserLibPin libPin : libCell.v_libPin){
                 cout << "    LibPin " << libPin.name << "(" << libPin.locationX << "," << libPin.locationY << ")\n";
             }
         }

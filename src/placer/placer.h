@@ -4,6 +4,7 @@
 #include <vector>
 #include <map>
 #include <unordered_map>
+#include <ctime>
 #include <cmath>
 #include <climits>
 #include <algorithm>
@@ -14,6 +15,10 @@
 #include "../utility/hgr.h"
 #include "../dataModel/module.h"
 #include "../utility/paramHdl.h"
+
+#include "ntuplace/PlaceDB/placedb.h"
+#include "ntuplace/NLPlace/mlnlp.h"
+#include "ntuplace/PlaceCommon/ParamPlacement.h"
 
 using namespace std;
 
@@ -48,16 +53,31 @@ public:
     void mincut_k_partition();
     void init_place_ball();
     void run_ntuplace3(string caseName);
+    void run_ntuplace3(string caseName, string otherPara);
     void run_ntuplace4(string caseName);
     void run_hmetis(int k, double ufactor, string caseName); // (k-way part)
     void read_pl_and_set_pos(string fileName, int dieId);
     void read_pl_and_set_pos_for_ball(string fileName);
+
+
+    /* connect to NTUplace Datebase */
+    void set_ntuplace_param(CPlaceDB&);
+    void create_placedb(CPlaceDB&, int dieId);
+    void load_from_placedb(CPlaceDB&);
+    /* GlobalPlace + Legal + DetailPlace*/
+    void true3d_placement();
+    void global_place(bool& isLegal, double& totalHPWL);
+    void legal_place();
+    void detail_place();
+    void ntu_d2d_global();
+    void ntu_d2d_legal_detail();
 
     void create_aux_form(AUX&, int dieId, string caseName);
     void create_aux_form_for_ball(AUX&, string caseName);
     void add_project_pin(AUX&, int dieID);
     void add_project_ball(AUX&);
     int cal_ball_num();
+    int cal_HPWL();
 };
 
 #endif

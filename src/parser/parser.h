@@ -14,21 +14,21 @@
 #include <iomanip>
 using namespace std;
 
-struct Pin{
+struct ParserPin{
     string instName;
     string libPinName;
 };
-struct Inst{
+struct ParserInst{
     string name;
     string libCellName;
 };
-struct Net{
+struct ParserNet{
     string name;
     int numPins;
-    vector<Pin> v_pin;
+    vector<ParserPin> v_pin;
 };
 
-struct Die{
+struct ParserDie{
     // die size (top and bot are same)
     int ll_x; // LowerLeft
     int ll_y;
@@ -46,24 +46,24 @@ struct Die{
     string dieTech;
 };
 
-struct LibPin{
+struct ParserLibPin{
     string name;
     int locationX;
     int locationY;
 };
 
-struct LibCell{
+struct ParserLibCell{
     string name;
     int sizeX;
     int sizeY;
     int numLibPin;
-    vector<LibPin> v_libPin;
+    vector<ParserLibPin> v_libPin;
 };
 
-struct Tech{
+struct ParserTech{
     string name;
     int numLibCell;
-    vector<LibCell> v_libCell;
+    vector<ParserLibCell> v_libCell;
 };
 
 struct Terminal{
@@ -76,11 +76,11 @@ public:
     Parser_C();
     Parser_C(string); // input fileName
     bool read_file(string); // input fileName
-    vector<Inst>& get_insts();
-    vector<Net>& get_nets();
-    vector<Tech>& get_techs();
-    Die get_top_die_info();
-    Die get_bot_die_info();
+    vector<ParserInst>& get_insts();
+    vector<ParserNet>& get_nets();
+    vector<ParserTech>& get_techs();
+    ParserDie get_top_die_info();
+    ParserDie get_bot_die_info();
     Terminal get_terminal_info();
 
     bool ok();
@@ -91,14 +91,14 @@ private:
 
     int numInst;
     int numNet;
-    vector<Inst> v_inst;
-    vector<Net> v_net;
-    Die topDie;
-    Die botDie;
+    vector<ParserInst> v_inst;
+    vector<ParserNet> v_net;
+    ParserDie topDie;
+    ParserDie botDie;
     Terminal terminal;
 
     int numTech;
-    vector<Tech> v_tech;
+    vector<ParserTech> v_tech;
 };
 
 #endif

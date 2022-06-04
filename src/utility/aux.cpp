@@ -1,6 +1,7 @@
 #include "aux.h"
 #include <fstream>
 #include <sstream>
+#include <unordered_map>
 
 
 AUX::AUX(){}
