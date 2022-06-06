@@ -129,20 +129,31 @@ void CPlaceDB::Init()
     //printf( "Pin # = %d\n", m_nPins );
     //---------------
 
+	m_back = 0;
+	m_front = 1;
+    if(param.b3d){
+		m_totalLayer = param.nlayer;
+	    m_front = m_totalLayer;
+    }
+
     // 2005-12-28, 2006-03-02 add movableModuleArea & freeSpace
     m_totalModuleArea = 0;
+	m_totalModuleVolumn = 0;
     m_totalMovableModuleArea = 0;
-    m_totalFreeSpace = (m_coreRgn.right - m_coreRgn.left) * (m_coreRgn.top - m_coreRgn.bottom);
+	m_totalMovableModuleVolumn = 0;
+    m_totalFreeSpace = (m_coreRgn.right - m_coreRgn.left) * (m_coreRgn.top - m_coreRgn.bottom) * (m_front - m_back);
     m_totalMovableModuleNumber = 0;
     m_totalMovableLargeMacroArea = 0;
     double avg_area;
+	double avg_volumn;
     for( int i=0; i<(int)m_modules.size(); i++ )
     {
 	//m_modules[i].m_isOutCore = false;
 	if( m_modules[i].m_isFixed )
 	{
 	   if( m_modules[i].m_cx < m_coreRgn.left || m_modules[i].m_cx > m_coreRgn.right ||
-	       m_modules[i].m_cy < m_coreRgn.bottom || m_modules[i].m_cy > m_coreRgn.top )
+	       m_modules[i].m_cy < m_coreRgn.bottom || m_modules[i].m_cy > m_coreRgn.top  ||
+	       m_modules[i].m_z < m_back || m_modules[i].m_z > m_front)
 	   {
 	       //m_modules[i].m_isOutCore = true;
 	       continue;
@@ -151,21 +162,25 @@ void CPlaceDB::Init()
 	   {
 		m_totalFreeSpace -= 
 		    getOverlap( m_coreRgn.left, m_coreRgn.right, m_modules[i].m_x, m_modules[i].m_x + m_modules[i].m_width ) *
-		    getOverlap( m_coreRgn.bottom, m_coreRgn.top, m_modules[i].m_y, m_modules[i].m_y + m_modules[i].m_height );
+		    getOverlap( m_coreRgn.bottom, m_coreRgn.top, m_modules[i].m_y, m_modules[i].m_y + m_modules[i].m_height ) *
+		    getOverlap( m_back, m_front, m_modules[i].m_z, m_modules[i].m_z + m_modules[i].m_thickness );
 	   }
 	}
 	else
 	{
 	    m_totalMovableModuleNumber ++;
 	    m_totalMovableModuleArea += m_modules[i].m_area;
+		m_totalMovableModuleVolumn += m_modules[i].m_area * m_modules[i].m_thickness;
 	    if( m_modules[i].m_height > m_rowHeight * 2 )
 	    {
 	    	m_totalMovableLargeMacroArea += m_modules[i].m_area;
 	    }
 	}
 	m_totalModuleArea += m_modules[i].m_area;
+	m_totalModuleVolumn += m_modules[i].m_area * m_modules[i].m_thickness;
     }
     avg_area = m_totalModuleArea / m_modules.size();
+	avg_volumn = m_totalModuleVolumn / m_modules.size();
    
     // 2005-12-27 (donnie) sort netsId in each block
     // 2007-01-02 (indark) add m_IsMacro;
@@ -227,6 +242,423 @@ double CPlaceDB::GetFixBlockArea( const double& left, const double& bottom,
     //return rgn_area - b;
 }
 
+//Added by kaie 3D ICs
+void CPlaceDB::Folding2()
+{
+	printf("Folding-2 ...\n");
+	double core_left = m_coreRgn.left;
+	double core_right = m_coreRgn.right;
+	double core_top = m_coreRgn.top;
+	double core_bottom = m_coreRgn.bottom;
+	double core_width = core_right - core_left;
+	double core_height = core_top - core_bottom;
+
+	double h_center = core_left + core_width * 0.5;
+	double v_center = core_bottom + core_height * 0.5;
+
+	// 1 FS	2 S
+	// 0 N  3 FN
+	
+	// Extend rows to 3D
+	/*m_sites3d.resize(4);
+	m_modules3d.resize(4);
+	m_sites3d[0] = m_sites;
+	for(unsigned int i = 0; i < m_sites3d[0].size(); i ++)
+	{
+		if(m_sites3d[0][i].m_bottom+m_sites3d[0][i].m_height > v_center)
+			m_sites3d[0][i].m_interval.resize(0);
+		for(unsigned int j = 1; j < m_sites3d[0][i].m_interval.size(); j++)
+		{
+			m_sites3d[0][i].m_interval[j] = m_sites3d[0][i].m_interval[j-1]
+				+ (m_sites3d[0][i].m_interval[j]-m_sites3d[0][i].m_interval[j-1])*0.5;
+		}
+	}
+	m_sites3d[1] = m_sites3d[0];
+	m_sites3d[2] = m_sites3d[0];
+	m_sites3d[3] = m_sites3d[0];
+
+	m_coreRgn.right /= 2;
+	m_coreRgn.top /= 2;*/
+	
+	for(unsigned int i = 0; i < m_modules.size(); i++)
+	{
+		if(m_modules[i].m_cx < h_center && m_modules[i].m_cy < v_center)  // 0
+		{
+			m_modules[i].m_z = 0;
+			//m_modules3d[0].push_back(i);
+		}
+		else if(m_modules[i].m_cx < h_center)    // 1
+		{
+			m_modules[i].m_z = 1;
+			SetModuleOrientation(i,
+					(m_modules[i].m_orient+6)%8);
+			SetModuleLocation(
+					i,
+					m_modules[i].m_x,
+					core_height-m_modules[i].m_y-m_modules[i].m_height
+					);
+			//m_modules3d[1].push_back(i);
+		}
+		else if(m_modules[i].m_cy < v_center)    // 3
+		{
+			m_modules[i].m_z = 3;
+			SetModuleOrientation(i,
+					(m_modules[i].m_orient+4)%8);
+			SetModuleLocation(
+					i,
+					core_width-m_modules[i].m_x-m_modules[i].m_width,
+					m_modules[i].m_y
+					);
+			//m_modules3d[3].push_back(i);
+		}
+		else    // 2
+		{
+			m_modules[i].m_z = 2;
+			if(m_modules[i].m_orient < 4)
+				SetModuleOrientation(i,
+					(m_modules[i].m_orient+2)%4);
+			else
+				SetModuleOrientation(i,
+					(m_modules[i].m_orient+2)%4+4);
+			SetModuleLocation(
+					i,
+					core_height-m_modules[i].m_x-m_modules[i].m_width,
+					core_width-m_modules[i].m_y-m_modules[i].m_height
+					);
+			//m_modules3d[2].push_back(i);
+		}
+	}
+	/*for(unsigned int i = 0; i < m_modules.size(); i++)
+	{
+		m_modules3d[0].push_back(m_modules[i]);
+		m_modules3d[1].push_back(m_modules[i]);
+		m_modules3d[2].push_back(m_modules[i]);
+		m_modules3d[3].push_back(m_modules[i]);	
+		
+		int layer = (int)m_modules[i].m_z;
+		m_modules3d[(layer+1)%4][i].m_width = 0;
+		m_modules3d[(layer+2)%4][i].m_width = 0;
+		m_modules3d[(layer+3)%4][i].m_width = 0;
+	}*/
+
+}
+
+
+void CPlaceDB::Folding4()
+{
+	printf("Folding-4 ...\n");
+	double core_left = m_coreRgn.left;
+	double core_right = m_coreRgn.right;
+	double core_top = m_coreRgn.top;
+	double core_bottom = m_coreRgn.bottom;
+	double core_width = core_right - core_left;
+	double core_height = core_top - core_bottom;
+
+	//double h_center = core_left + core_width * 0.5;
+	double h_1_4 = core_left + core_width * 0.25;
+	double h_3_4 = core_left + core_width * 0.75;
+	double v_center = core_bottom + core_height * 0.5;
+	double v_1_4 = core_bottom + core_height * 0.25;
+	double v_3_4 = core_bottom + core_height * 0.75;
+	
+	// Extend rows to 3D
+	m_sites3d.resize(4);
+	m_modules3d.resize(4);
+	m_sites3d[0] = m_sites;
+	for(unsigned int i = 0; i < m_sites3d[0].size(); i ++)
+	{
+		if(m_sites3d[0][i].m_bottom+m_sites3d[0][i].m_height > v_center)
+			m_sites3d[0][i].m_interval.resize(0);
+		for(unsigned int j = 1; j < m_sites3d[0][i].m_interval.size(); j++)
+		{
+			m_sites3d[0][i].m_interval[j] = m_sites3d[0][i].m_interval[j-1]
+				+ (m_sites3d[0][i].m_interval[j]-m_sites3d[0][i].m_interval[j-1])*0.5;
+		}
+	}
+	m_sites3d[1] = m_sites3d[0];
+	m_sites3d[2] = m_sites3d[0];
+	m_sites3d[3] = m_sites3d[0];
+
+	m_coreRgn.right /= 2;
+	m_coreRgn.top /= 2;
+
+        // 2  S    1 FS   2  S
+	// 3 FN    0  N   3 FN
+	// 2  S    1 FS   2  S
+	
+	for(unsigned int i = 0; i < m_modules.size(); i++)
+	{
+		if(m_modules[i].m_cx > h_1_4 && m_modules[i].m_cx < h_3_4
+			&& m_modules[i].m_cy > v_1_4 && m_modules[i].m_cy < v_3_4)  // 0
+		{
+			m_modules[i].m_z = 0;
+			SetModuleLocation(
+					i,
+					m_modules[i].m_x-h_1_4,
+					m_modules[i].m_y-v_1_4
+			);
+			m_modules3d[0].push_back(i);
+		}
+		else if(m_modules[i].m_cx > h_1_4 && m_modules[i].m_cx < h_3_4)    // 1
+		{
+			m_modules[i].m_z = 1;
+			SetModuleOrientation(i,
+					(m_modules[i].m_orient+6)%8);
+			if(m_modules[i].m_cy <= v_1_4)
+				SetModuleLocation(
+					i,
+					m_modules[i].m_x-h_1_4,
+					v_1_4-m_modules[i].m_y-m_modules[i].m_height
+				);
+			else
+				SetModuleLocation(
+					i,
+					m_modules[i].m_x-h_1_4,
+					core_height+v_1_4-m_modules[i].m_y-m_modules[i].m_height
+				);
+			m_modules3d[1].push_back(i);
+		}
+		else if(m_modules[i].m_cy > v_1_4 && m_modules[i].m_cy < v_3_4)    // 3
+		{
+			m_modules[i].m_z = 3;
+			SetModuleOrientation(i, (m_modules[i].m_orient+4)%8);
+			if(m_modules[i].m_cx <= h_1_4)
+				SetModuleLocation(
+					i,
+					h_1_4-m_modules[i].m_x-m_modules[i].m_width,
+					m_modules[i].m_y-v_1_4
+				);
+			else
+				SetModuleLocation(
+					i,
+					core_width+h_1_4-m_modules[i].m_x-m_modules[i].m_width,
+					m_modules[i].m_y-v_1_4
+				);
+			m_modules3d[3].push_back(i);
+		}
+		else if(m_modules[i].m_cy <= v_1_4) // 2 lower
+		{
+			m_modules[i].m_z = 2;
+			if(m_modules[i].m_orient < 4)
+				SetModuleOrientation(i, (m_modules[i].m_orient+2)%4);
+			else
+				SetModuleOrientation(i, (m_modules[i].m_orient+2)%4+4);
+			if(m_modules[i].m_cx <= h_1_4)
+				SetModuleLocation(
+					i,
+					h_1_4-m_modules[i].m_x-m_modules[i].m_width,
+					v_1_4-m_modules[i].m_y-m_modules[i].m_height
+				);
+			else
+				SetModuleLocation(
+					i,
+					core_width+h_1_4-m_modules[i].m_x-m_modules[i].m_width,
+					v_1_4-m_modules[i].m_y-m_modules[i].m_height
+				);
+			m_modules3d[2].push_back(i);
+		}else // 2 upper
+		{
+			m_modules[i].m_z = 2;
+			if(m_modules[i].m_orient < 4)
+				SetModuleOrientation(i, (m_modules[i].m_orient+2)%4);
+			else
+				SetModuleOrientation(i, (m_modules[i].m_orient+2)%4+4);
+			if(m_modules[i].m_cx <= h_1_4)
+				SetModuleLocation(
+					i,
+					h_1_4-m_modules[i].m_x-m_modules[i].m_width,
+					core_height+v_1_4-m_modules[i].m_y-m_modules[i].m_height
+				);
+			else
+				SetModuleLocation(
+					i,
+					core_width+h_1_4-m_modules[i].m_x-m_modules[i].m_width,
+					core_height+v_1_4-m_modules[i].m_y-m_modules[i].m_height
+				);
+			m_modules3d[2].push_back(i);
+		}
+	}
+}
+
+double CPlaceDB::CalcTSV()
+{
+	totalTSVcount = 0;
+	for(unsigned int netId = 0; netId < m_nets.size(); netId++)
+	{
+		double minZ, maxZ;
+		minZ = maxZ = 0;
+
+		bool firstPin = true;
+		for(unsigned int pinId = 0; pinId < m_nets[netId].size(); pinId++)
+		{
+			int pid = m_nets[netId][pinId];
+			double m_z = m_modules[m_pins[pid].moduleId].m_z;
+			if(firstPin)
+			{
+				minZ = maxZ = m_z;
+				firstPin = false;
+			}else
+			{
+				minZ = min(minZ, m_z);
+				maxZ = max(maxZ, m_z);
+			}
+		}
+		totalTSVcount += (maxZ-minZ);
+	}
+	return totalTSVcount;
+}
+//@Added by kaie
+
+// Added by kaie 2009-11-25
+void CPlaceDB::CalcModuleLeftBottomLocation(const int& id)
+{
+    m_modules[id].m_x = m_modules[id].m_cx - m_modules[id].GetWidth() * 0.5;
+    m_modules[id].m_y = m_modules[id].m_cy - m_modules[id].GetHeight() * 0.5;
+}
+
+void CPlaceDB::SetModuleOrientationCenter( const int & moduleId, const int & orient )
+{
+    int _orient = m_modules[moduleId].m_orient;
+    int _start,_end,_count;
+    //if (m_modules[moduleId].m_pinsId.size() != 0)
+    {
+	if ( (_orient %2 )!= (orient %2 )  )
+	    swap(m_modules[moduleId].m_width,m_modules[moduleId].m_height);
+	
+	/*if((orient / 4 )!= (_orient / 4 )){
+	  for(int i = 0 ; i < m_modules[moduleId].m_pinsId.size() ; i++){
+	  m_pins[m_modules[moduleId].m_pinsId[i]].xOff =
+	  -m_pins[m_modules[moduleId].m_pinsId[i]].xOff;
+
+	  }
+
+	  }*/
+
+        if( _orient >= 4 )
+        {
+	    // flip back
+            for(int i = 0 ; i < (int)m_modules[moduleId].m_pinsId.size() ; i++){
+                m_pins[m_modules[moduleId].m_pinsId[i]].xOff =
+                    -m_pins[m_modules[moduleId].m_pinsId[i]].xOff;
+            }
+        }
+
+        _start = _orient %  4;
+        _end = (orient %  4) + 4;
+        _count = (_end - _start) % 4;
+        for (int j = 0 ; j < _count ; j++ ){
+
+		/*
+		// clockwise 90 degree
+		for(int i = 0 ; i < m_modules[moduleId].m_pinsId.size() ; i++){
+		swap(m_pins[m_modules[moduleId].m_pinsId[i]].xOff ,
+		m_pins[m_modules[moduleId].m_pinsId[i]].yOff);
+		m_pins[m_modules[moduleId].m_pinsId[i]].yOff =
+		-m_pins[m_modules[moduleId].m_pinsId[i]].yOff;
+		}*/
+		// COUNTER-clockwise 90 degree
+	    for(int i = 0 ; i < (int)m_modules[moduleId].m_pinsId.size() ; i++)
+	    {
+            	swap(m_pins[m_modules[moduleId].m_pinsId[i]].xOff ,
+                        m_pins[m_modules[moduleId].m_pinsId[i]].yOff);
+                m_pins[m_modules[moduleId].m_pinsId[i]].xOff =
+                    -m_pins[m_modules[moduleId].m_pinsId[i]].xOff;
+            }
+	}
+
+        if( orient >= 4 )
+        {
+	    // flip new
+	    for(int i = 0 ; i < (int)m_modules[moduleId].m_pinsId.size() ; i++)
+	    {
+		m_pins[m_modules[moduleId].m_pinsId[i]].xOff =
+                    -m_pins[m_modules[moduleId].m_pinsId[i]].xOff;
+	    }
+	}
+
+	CalcModuleLeftBottomLocation(moduleId);
+	for(int i = 0 ; i < (int)m_modules[moduleId].m_pinsId.size() ; i++){
+	    CalcPinLocation(m_modules[moduleId].m_pinsId[i]);
+	}
+    }
+
+    m_modules[moduleId].m_orient = orient;
+}
+
+
+
+void CPlaceDB::SetModuleOrientationBest(bool macroonly)
+{
+    printf("Set best module orientations...\n");
+    double HPWL1 = CalcHPWL();
+
+    while(true)
+    {
+	for(unsigned int i = 0; i < m_modules.size(); i++)
+	{
+	    if(m_modules[i].m_isFixed || BlockOutCore(i) == true
+		|| m_modules[i].m_isCluster == true)
+		continue;
+	    if(macroonly && m_modules[i].m_height <= m_rowHeight)
+		continue;
+
+	    double min_wirelength = CalcHPWLModule(i);
+	    int moduleOrient = m_modules[i].m_orient;
+	    int bestOrient = moduleOrient;
+
+	    if(m_modules[i].m_width == m_modules[i].m_height
+		&& m_modules[i].m_height > m_rowHeight) // square macro
+	    {
+		moduleOrient++;
+		for(int j = 1; j < 8; j++, moduleOrient++)
+		{
+		    moduleOrient %= 8;
+		    SetModuleOrientationCenter(i, moduleOrient);
+		    double wlength = CalcHPWLModule(i);
+		    if(wlength < min_wirelength)
+		    {
+			min_wirelength = wlength;
+			bestOrient = moduleOrient;
+		    }
+		    //if(bestOrient != moduleOreint%8) count++;
+		}
+	    }else
+	    {
+		moduleOrient += 2;
+		for(int j = 1; j < 3; j++, moduleOrient += 2)
+		{
+		    moduleOrient %= 8;
+		    SetModuleOrientationCenter(i, moduleOrient);
+		    double wlength = CalcHPWLModule(i);
+		    if(wlength < min_wirelength)
+		    {
+			min_wirelength = wlength;
+			bestOrient = moduleOrient;
+		    }
+		}
+		//if(bestOrient != moduleOrient %8) count++;
+	    }
+	    SetModuleOrientationCenter(i, bestOrient);
+	}
+	//printf("%d macros are rotated\n", count);
+	double HPWL2 = CalcHPWL();
+	if(fabs(HPWL1-HPWL2) < 1.0e-10) break;
+	else printf("HPWL = %.0f\n", HPWL2);
+	HPWL1 = HPWL2;
+    }
+}
+
+double CPlaceDB::CalcHPWLModule( const int& id )
+{
+    double HPWL = 0;
+    for(unsigned int i = 0; i < m_modules[id].m_netsId.size(); i++)
+    {
+	int netId = m_modules[id].m_netsId[i];
+	HPWL += GetNetLength(netId);
+    }
+    return HPWL;
+}
+// @Added by kaie 2009-11-25
 
 void CPlaceDB::PrintModules()
 {
@@ -1319,6 +1751,23 @@ bool CPlaceDB::MoveModuleCenter( const int& id, float cx, float cy )
     return true;
 }
 
+bool CPlaceDB::MoveModuleCenter( const int& id, float cx, float cy, float cz )
+{
+    if( m_modules[id].m_isFixed )
+	return false;
+    m_modules[id].m_x = cx-m_modules[id].m_width * (float)0.5;
+    m_modules[id].m_y = cy-m_modules[id].m_height * (float)0.5;
+    m_modules[id].m_z = cz-m_modules[id].m_thickness * (float)0.5;
+    m_modules[id].m_cx = cx;
+    m_modules[id].m_cy = cy;
+    m_modules[id].m_cz = cz;
+    for( int i=0; i<(int)m_modules[id].m_pinsId.size(); i++ )
+    {
+	CalcPinLocation( m_modules[id].m_pinsId[i], cx, cy );
+    }
+    return true;
+}
+
 void CPlaceDB::ShowRows()
 {
     printf( "Row information:\n" );
@@ -2048,6 +2497,981 @@ void CPlaceDB::OutputMatlabFigure( const char* filename )
 
 // }
 
+// // (kaie) 2009-07-05 3D ICs
+// void CPlaceDB::OutputGnuplotFigureWithZoom3D( 
+// 	const char* prefix, 
+// 	bool withCellMove, 
+// 	bool showMsg, 
+// 	bool withZoom,
+//         //int layer,	
+// 	bool withOrient , 
+// 	bool withPin,
+//         bool bNets)
+// {
+//     /*if( gArg.CheckExist( "png" ) )
+//     {
+// 	OutputPngFigure(prefix, withCellMove, showMsg, withOrient, withPin);
+// 	return;
+//     }*/
+	
+//     CalcHPWL();
+//     string plt_filename,net_filename,fixed_filename,module_filename,move_filename, dummy_filename, pin_filename;
+//     FILE* pPlt;
+//     FILE* pNet;
+//     FILE* pFixed;
+//     FILE* pMod;
+//     FILE* pMove;
+//     FILE* pDummy;   // donnie 2006-03-02
+//     FILE* pPin;   // indark 2006-04-24
+//     if(withZoom){
+//     	plt_filename = net_filename = fixed_filename = module_filename = 
+// 	    move_filename = dummy_filename = pin_filename = prefix ;
+//     	plt_filename    += ".plt";
+//     	net_filename    += "_net.dat";
+//     	fixed_filename  += "_fixed.dat";
+//     	module_filename += "_mod.dat";
+//     	move_filename   += "_move.dat";
+// 	dummy_filename  += "_dummy.dat";
+// 	pin_filename	+= "_pin.dat";
+
+// 	net_filename    = "dat/" + net_filename;
+// 	fixed_filename  = "dat/" + fixed_filename;
+// 	module_filename = "dat/" + module_filename;
+// 	move_filename   = "dat/" + move_filename;
+// 	dummy_filename  = "dat/" + dummy_filename;
+// 	pin_filename    = "dat/" + pin_filename;
+// 	system( "mkdir dat 1> /dev/null 2> /dev/null" );
+	
+//     	pPlt   = fopen( plt_filename.c_str(), "w" );
+//     	pNet   = fopen( net_filename.c_str(), "w" );
+//     	pFixed = fopen( fixed_filename.c_str(), "w" );
+//     	pMod   = fopen( module_filename.c_str(), "w" );
+//     	pMove  = fopen( move_filename.c_str(), "w" );
+// 	pDummy = fopen( dummy_filename.c_str(), "w" );
+// 	pPin   = fopen( pin_filename.c_str(), "w" );
+	
+//     }else{
+//     	pPlt = fopen( prefix, "w" );
+//     	pNet = pFixed = pMod = pMove = pDummy = pPin = pPlt;
+    	
+//     }
+
+//     if( !(pPlt && pNet && pFixed && pMod && pMove && pDummy && pPin) )
+//     {
+// 	cerr << "Error, cannot open output file: " << prefix << endl;
+// 	return;
+//     }
+    
+
+//     if( showMsg )
+//     	if (withZoom)
+//     		//printf( "Output gnuplot figure with prefix: %s\n", prefix );
+//     		printf( "Output placement: %s\n", prefix );
+//     	else
+// 		//printf( "Output gnuplot figure: %s\n", prefix );
+// 		printf( "Output placement (single): %s\n", prefix );
+
+//     // output title
+//     fprintf( pPlt, "\nset title \" %s, block= %d, net= %d, HPWL= %.0f \" font \"Times, 22\"\n\n",
+// 	    prefix, (int)m_modules.size(), m_nNets, GetHPWLp2p() );
+
+//     fprintf( pPlt, "set size ratio 1\n" );
+    
+//     if(!withZoom)
+//     	fprintf( pPlt, "set nokey\n\n" ); 
+
+
+//     //Congestion color map
+//     //Color	    Congestion  Value
+//     //Blue	    +1		3
+//     //Green	    0		2
+//     //Light Brown   -1		8
+//     //Red	    -2		1
+//     //Magenta	    -3		4
+//     //Light Blue    -4 or less	5
+    
+//     //if( withCellMove && (int)m_nets.size() < 2000 )
+//     if (withZoom)
+//     {
+// 	fprintf( pPlt, "splot[:][:][:] '%s' w l 3, '%s' w l 4, '%s' w l 1, '%s' w l 7, '%s' w l 5, '%s' w l 2\n\n", 
+// 		fixed_filename.c_str(), module_filename.c_str(), move_filename.c_str(),
+// 		net_filename.c_str(), dummy_filename.c_str(), pin_filename.c_str() );
+//     }
+//     else
+//     {
+// 	string drawType[2];
+// 	drawType[0] = "l";
+// 	drawType[1] = "filledcurve";
+// 	int type = 0;
+// 	if( gArg.CheckExist( "cong" ) && (int)m_modules.size()< 50000 ) // filled color
+// 	    type = 1;
+// 	fprintf( pPlt, "splot[:][:][:] '-' w l 3, '-' w %s 4, '-' w l 1, '-' w l 7, '-' w l 5, '-' w l 2\n\n", 
+// 		drawType[type].c_str() ); 
+
+//     }
+    
+//     // output Core region
+//     // 2007-03-30 (donnie) Change %.3f to %.3f to reduce the file size
+//     double layerThickness = (m_front - m_back)/(double)(m_totalLayer);
+//     for(int layer = 0; layer < m_totalLayer; layer++)
+//     {
+// 	fprintf( pFixed, "\n# core region\n" );
+//     	fprintf( pFixed, "%.3f, %.3f, %.3f\n", m_coreRgn.left, m_coreRgn.bottom, layer*layerThickness );
+//     	fprintf( pFixed, "%.3f, %.3f, %.3f\n", m_coreRgn.right, m_coreRgn.bottom, layer*layerThickness );
+//     	fprintf( pFixed, "%.3f, %.3f, %.3f\n", m_coreRgn.right, m_coreRgn.top, layer*layerThickness );
+//     	fprintf( pFixed, "%.3f, %.3f, %.3f\n", m_coreRgn.left, m_coreRgn.top, layer*layerThickness ); 
+//     	fprintf( pFixed, "%.3f, %.3f, %.3f\n\n", m_coreRgn.left, m_coreRgn.bottom, layer*layerThickness );
+//     	/*fprintf( pFixed, "\n# die area\n" );
+//     	fprintf( pFixed, "%.3f, %.3f, %d\n", m_dieArea.left,  m_dieArea.bottom, layer );
+//     	fprintf( pFixed, "%.3f, %.3f, %d\n", m_dieArea.right, m_dieArea.bottom, layer );
+//     	fprintf( pFixed, "%.3f, %.3f, %d\n", m_dieArea.right, m_dieArea.top, layer );
+//     	fprintf( pFixed, "%.3f, %.3f, %d\n", m_dieArea.left,  m_dieArea.top, layer );
+//     	fprintf( pFixed, "%.3f, %.3f, %d\n\n", m_dieArea.left, m_dieArea.bottom, layer );*/
+//     }
+
+
+  
+//     // output movable modules
+//     fprintf( pMod, "\n# blocks\n" ); 
+//     fprintf( pMod, "0, 0, 0\n\n" );
+
+//     double x = 0, y = 0, w = 0, h = 0, z = 0;
+//     int orient;
+//     for( int i=0; i<(int)m_modules.size(); i++ )
+//     {
+// 	x = m_modules[i].GetX();
+// 	y = m_modules[i].GetY();
+// 	w = m_modules[i].GetWidth();
+// 	h = m_modules[i].GetHeight();
+// 	z = m_modules[i].GetZ();
+// 	orient = m_modules[i].GetOrient();
+// 	//if( !m_modules[i].m_isFixed && !m_modules[i].m_isDummy && !m_modules[i].m_isMacro )
+// 	if( !m_modules[i].m_isFixed && !m_modules[i].m_isDummy )
+// 	{
+// 	    if( (int)m_modules.size()< 50000 || m_modules[i].m_height > m_rowHeight )
+// 	    {
+// 		// draw blocks
+// 		fprintf( pMod, "%.3f, %.3f, %.3f\n", x, y, z);
+// 		fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w, y, z );
+// 		fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w, y+h, z );
+// 		fprintf( pMod, "%.3f, %.3f, %.3f\n", x, y+h, z ); 
+// 		fprintf( pMod, "%.3f, %.3f, %.3f\n\n", x, y, z );
+
+// 		//draw orientation indicator
+// 		if(withOrient){
+// 		    switch(orient){
+// 			case 0:		//N
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.8, y+h*0.5, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.8, y+h, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.8 - w*0.1, y+h - h*0.1, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.8, y+h, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n\n", x+w*0.8 + w*0.1, y+h - h*0.1, z );
+// 			    break;
+// 			case 1:		//W
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.5, y+h*0.8, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x, y + h*0.8, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.1, y+h*0.9, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x, y + h*0.8, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n\n", x + w*0.1, y + h*0.7, z );
+// 			    break;
+// 			case 2:		//S
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.2, y+h*0.5, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.2, y, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.2-w*0.1, y+h*0.1, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.2, y, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n\n", x+w*0.2 + w*0.1, y+h*0.1, z );
+// 			    break;
+// 			case 3:		//E
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.5, y+h*0.2, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w, y+h*0.2, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w - w * 0.1, y+h*0.2 + h * 0.1, z  );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w, y+h*0.2, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n\n", x+w - w * 0.1, y+h*0.2 - h * 0.1, z );
+
+// 			    break;
+// 			case 4:		//FN
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.2, y+h*0.5, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.2, y + h, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.2-w*0.1, y + h*0.9, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.2, y + h, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.2 + w*0.1, y + h*0.9, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n\n", x+w*0.2-w*0.1, y + h*0.9, z );
+// 			    break;
+// 			case 5:		//FW
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.5, y+h*0.8, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w, y + h *0.8, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w-w*0.1, y + h *0.9, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w, y + h *0.8, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w -w*0.1, y + h *0.7, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n\n", x+w-w*0.1, y + h *0.9, z );
+// 			    break;
+// 			case 6:		//FS
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.8, y+h*0.5, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.8, y, z  );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.7, y + h * 0.1, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.8, y, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.9, y + h * 0.1, z);
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n\n", x+w*0.7, y + h * 0.1, z );
+// 			    break;
+// 			case 7:		//FE
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.5, y+h*0.2, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x, y + h*0.2, z  );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x + w*0.1, y + h*0.1, z  );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x, y + h*0.2, z  );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x + w*0.1, y + h*0.3, z  );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n\n", x + w*0.1, y + h*0.1, z  );
+// 			    break;
+
+// 			default:
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x, y, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n\n", x + w, y +h, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n", x + w, y, z );
+// 			    fprintf( pMod, "%.3f, %.3f, %.3f\n\n", x, y +h, z );
+// 			    cerr << "Orientation Error " << endl;	
+
+// 		    }
+// 		}
+// 	    }
+// 	    else
+// 	    {
+// 		// draw line
+// 		fprintf( pMod, "%.3f, %.3f, %.3f\n", x, y+h/2, z );
+// 		fprintf( pMod, "%.3f, %.3f, %.3f\n\n", x+w, y+h/2, z );
+// 	    }
+// 	}
+//     }
+
+//     if(!withZoom)
+// 	fprintf( pPlt, "\nEOF\n\n" );
+
+//     // output fixed modules
+//     fprintf( pFixed, "\n# fixed blocks\n" ); 
+//     fprintf( pFixed, "0, 0, 0\n\n" ); 
+
+//     for( int i=0; i<(int)m_modules.size(); i++ )
+//     {
+// 	x = m_modules[i].GetX();
+// 	y = m_modules[i].GetY();
+// 	w = m_modules[i].GetWidth();
+// 	h = m_modules[i].GetHeight();
+// 	z = m_modules[i].GetZ();
+// 	orient = m_modules[i].GetOrient();
+// 	if( m_modules[i].m_isFixed && !m_modules[i].m_isDummy )
+// 	{
+// 	    fprintf( pFixed, "%.3f, %.3f, %.3f\n", x, y, z );
+// 	    fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w, y, z );
+// 	    fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w, y+h, z );
+// 	    fprintf( pFixed, "%.3f, %.3f, %.3f\n", x, y+h, z ); 
+// 	    fprintf( pFixed, "%.3f, %.3f, %.3f\n\n", x, y, z );
+// 	    //draw orientation indicator
+// 	    if(withOrient){
+// 		switch(orient){
+// 			case 0:		//N
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.8, y+h*0.5, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.8, y+h, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.8 - w*0.1, y+h - h*0.1, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.8, y+h, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n\n", x+w*0.8 + w*0.1, y+h - h*0.1, z );
+// 				break;
+// 			case 1:		//W
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.5, y+h*0.8, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x, y + h*0.8, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.1, y+h*0.9, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x, y + h*0.8, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n\n", x + w*0.1, y + h*0.7, z );
+// 				break;
+// 			case 2:		//S
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.2, y+h*0.5, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.2, y, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.2-w*0.1, y+h*0.1, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.2, y, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n\n", x+w*0.2 + w*0.1, y+h*0.1, z );
+// 				break;
+// 			case 3:		//E
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.5, y+h*0.2, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w, y+h*0.2, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w - w * 0.1, y+h*0.2 + h * 0.1, z  );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w, y+h*0.2, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n\n", x+w - w * 0.1, y+h*0.2 - h * 0.1, z );
+
+// 				break;
+// 			case 4:		//FN
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.2, y+h*0.5, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.2, y + h, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.2-w*0.1, y + h*0.9, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.2, y + h, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.2 + w*0.1, y + h*0.9, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n\n", x+w*0.2-w*0.1, y + h*0.9, z );
+// 				break;
+// 			case 5:		//FW
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.5, y+h*0.8, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w, y + h *0.8, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w-w*0.1, y + h *0.9, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w, y + h *0.8, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w -w*0.1, y + h *0.7, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n\n", x+w-w*0.1, y + h *0.9, z );
+// 				break;
+// 			case 6:		//FS
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.8, y+h*0.5, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.8, y, z  );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.7, y + h * 0.1, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.8, y, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.9, y + h * 0.1, z);
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n\n", x+w*0.7, y + h * 0.1, z );
+// 				break;
+// 			case 7:		//FE
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x+w*0.5, y+h*0.2, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x, y + h*0.2, z  );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x + w*0.1, y + h*0.1, z  );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x, y + h*0.2, z  );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x + w*0.1, y + h*0.3, z  );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n\n", x + w*0.1, y + h*0.1, z  );
+// 				break;
+
+// 			default:
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x, y, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n\n", x + w, y +h, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n", x + w, y, z );
+// 				fprintf( pFixed, "%.3f, %.3f, %.3f\n\n", x, y +h, z );
+// 				cerr << "Orientation Error " << endl;	
+
+// 		}
+// 	    }
+
+
+// 	}
+//     }
+//     if(!withZoom)
+//     	fprintf( pPlt, "\nEOF\n\n" );
+
+    
+//     double threshold = (m_coreRgn.top-m_coreRgn.bottom+m_coreRgn.right-m_coreRgn.left) * 0.02;
+     
+//     fprintf( pMove, "\n# cell move\n" ); 
+//     fprintf( pMove, "0, 0, 0\n\n" ); 
+//     if( withCellMove )
+//     {
+// 	// Output legalization cell shifting
+// 	double x1, y1, x2, y2, z;
+// 	for( int i=0; i<(int)m_modules.size(); i++ )
+// 	{
+// 	    x1 = m_modules_bak[i].m_cx;
+// 	    y1 = m_modules_bak[i].m_cy;
+// 	    x2 = m_modules[i].m_cx;
+// 	    y2 = m_modules[i].m_cy;
+// 	    z = m_modules[i].m_z;
+	    
+// 	    if( fabs( x1-x2 ) + fabs( y1-y2 ) > threshold )
+// 	    //if( (int)m_modules.size() < 100000 || m_modules[i].m_isFixed )
+// 	    {
+// 		// draw movable blocks only when total module # < 100k
+// 		fprintf( pMove, "%.3f, %.3f, %.3f\n", x1, y1, z );
+// 		fprintf( pMove, "%.3f, %.3f, %.3f\n\n", x2, y2, z );
+// 	    }
+
+// 	}
+//     }
+//     if(!withZoom)
+// 	fprintf( pPlt, "\nEOF\n\n" );
+
+//     // 2005/03/11 output nets
+//     fprintf( pNet, "\n# nets\n" );
+//     fprintf( pNet, "0, 0, 0\n\n" ); 
+//     if( (int)m_nets.size() < 2000 && (int)m_nets.size() != 0 && bNets)
+//     {
+// 	for( int i=0; i<(int)m_nets.size(); i++ )
+// 	{
+// 	    double x1, x2, y1, y2, z;
+// 	    if( (int)m_nets[i].size() >= 2 )
+// 	    {
+// 		GetPinLocation( m_nets[i][0], x1, y1, z);
+// 		for( int j=1; j<(int)m_nets[i].size(); j++ )
+// 		{
+// 		    GetPinLocation( m_nets[i][j], x2, y2, z);
+// 		    fprintf( pNet, "%.3f, %.3f, %.3f\n", x1, y1, z );
+// 		    fprintf( pNet, "%.3f, %.3f, %.3f\n\n", x2, y2, z );
+// 		}
+// 	    }
+// 	}
+//     }
+//     if(!withZoom){
+// 	fprintf( pPlt, "\nEOF\n\n" );
+//     }
+
+
+//     // output dummy modules
+//     fprintf( pDummy, "\n# dummy modules\n" ); 
+//     fprintf( pDummy, "0, 0, 0\n\n" ); 
+//     for( int i=0; i<(int)m_modules.size(); i++ )
+//     {
+// 	x = m_modules[i].GetX();
+// 	y = m_modules[i].GetY();
+// 	w = m_modules[i].GetWidth();
+// 	h = m_modules[i].GetHeight();
+// 	z = m_modules[i].GetZ();
+	
+// 	if( m_modules[i].m_isDummy )
+// 	{
+// 	    if( (int)m_modules.size()< 50000 || m_modules[i].m_height > m_rowHeight )
+// 	    {
+// 		// draw blocks
+// 		fprintf( pMod, "%.3f, %.3f, %.3f\n", x, y, z );
+// 		fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w, y, z );
+// 		fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w, y+h, z );
+// 		fprintf( pMod, "%.3f, %.3f, %.3f\n", x, y+h, z ); 
+// 		fprintf( pMod, "%.3f, %.3f, %.3f\n\n", x, y, z );
+
+// 		fprintf( pMod, "%.3f, %.3f, %.3f\n", x+w*0.75, y+h, z );
+// 		fprintf( pMod, "%.3f, %.3f, %.3f\n\n", x+w,      y+h*0.5, z );
+// 	    }
+// 	    else
+// 	    {
+// 		// draw line
+// 		fprintf( pMod, "%.3f, %.3f, %.3f\n", x, y+h/2, z );
+// 		fprintf( pMod, "%.3f, %.3f, %.3f\n\n", x+w, y+h/2, z );
+// 	    }
+// 	}
+//     }
+//     if(!withZoom){
+// 	fprintf( pPlt, "\nEOF\n\n" );
+//     }
+
+
+//     //indark output_ pins
+//     fprintf( pPin, "\n# pins\n" );
+//     fprintf( pPin, "\t0, 0, 0\n\n" );
+//     double pin_x,pin_y,pin_z;
+//     double pin_width = m_rowHeight * 0.5;
+//     if (withPin){
+// 	for( int i=0; i<(int)m_modules.size(); i++ )
+// 	{
+// 	    pin_z = m_modules[i].GetZ();
+// 	    if( m_modules[i].m_isFixed || m_modules[i].m_height > m_rowHeight * 2 )
+// 	    {
+// 		fprintf( pPin, "     # pin for block %s\n", m_modules[i].GetName().c_str() );
+// 		for (int j = 0 ; j < (int)m_modules[i].m_pinsId.size(); j++)
+// 		{
+// 		    int pin_id =  m_modules[i].m_pinsId[j];
+// 		    pin_x = this->m_pins[pin_id].absX;
+// 		    pin_y = this->m_pins[pin_id].absY;
+// 		    fprintf( pPin, "%.3f, %.3f, %.3f\n",   pin_x - pin_width*0.5, pin_y - pin_width*0.5, z );
+// 		    fprintf( pPin, "%.3f, %.3f, %.3f\n",   pin_x - pin_width*0.5, pin_y + pin_width*0.5, z );
+// 		    fprintf( pPin, "%.3f, %.3f, %.3f\n",   pin_x + pin_width*0.5, pin_y + pin_width*0.5, z );
+// 		    fprintf( pPin, "%.3f, %.3f, %.3f\n",   pin_x + pin_width*0.5, pin_y - pin_width*0.5, z );
+// 		    fprintf( pPin, "%.3f, %.3f, %.3f\n\n", pin_x - pin_width*0.5, pin_y - pin_width*0.5, z );
+// 		}
+// 	    }
+// 	}
+//     }
+//     if(!withZoom){
+// 	fprintf( pPin, "\nEOF\n\n" );
+//     }
+
+//     fprintf( pPlt, "pause -1 'Press any key'" );
+//     if(withZoom){
+// 	fclose( pPlt );
+// 	fclose( pMod );
+// 	fclose( pFixed );
+// 	fclose( pMove );
+// 	fclose( pNet );
+// 	fclose( pDummy );
+// 	fclose( pPin );
+//     }else{
+// 	fclose( pPlt );
+//     }
+
+// }
+// // @(kaie) 2009-07-05 3D ICs
+
+// // (kaie) layer-by-layer plot
+// void CPlaceDB::OutputGnuplotFigureWithZoom3DByLayer( 
+// 	const char* prefix, 
+// 	bool withCellMove, 
+// 	bool showMsg, 
+// 	bool withZoom,
+//         int layer,	
+// 	bool withOrient , 
+// 	bool withPin,
+//         bool bNets)
+// {
+//     if( gArg.CheckExist( "png" ) )
+//     {
+// 	OutputPngFigure(prefix, withCellMove, showMsg, withOrient, withPin);
+// 	return;
+//     }
+	
+//     CalcHPWL();
+//     string plt_filename,net_filename,fixed_filename,module_filename,move_filename, dummy_filename, pin_filename;
+//     FILE* pPlt;
+//     FILE* pNet;
+//     FILE* pFixed;
+//     FILE* pMod;
+//     FILE* pMove;
+//     FILE* pDummy;   // donnie 2006-03-02
+//     FILE* pPin;   // indark 2006-04-24
+//     if(withZoom){
+//     	plt_filename = net_filename = fixed_filename = module_filename = 
+// 	    move_filename = dummy_filename = pin_filename = prefix ;
+//     	plt_filename    += ".plt";
+//     	net_filename    += "_net.dat";
+//     	fixed_filename  += "_fixed.dat";
+//     	module_filename += "_mod.dat";
+//     	move_filename   += "_move.dat";
+// 	dummy_filename  += "_dummy.dat";
+// 	pin_filename	+= "_pin.dat";
+
+// 	net_filename    = "dat/" + net_filename;
+// 	fixed_filename  = "dat/" + fixed_filename;
+// 	module_filename = "dat/" + module_filename;
+// 	move_filename   = "dat/" + move_filename;
+// 	dummy_filename  = "dat/" + dummy_filename;
+// 	pin_filename    = "dat/" + pin_filename;
+// 	system( "mkdir dat 1> /dev/null 2> /dev/null" );
+	
+//     	pPlt   = fopen( plt_filename.c_str(), "w" );
+//     	pNet   = fopen( net_filename.c_str(), "w" );
+//     	pFixed = fopen( fixed_filename.c_str(), "w" );
+//     	pMod   = fopen( module_filename.c_str(), "w" );
+//     	pMove  = fopen( move_filename.c_str(), "w" );
+// 	pDummy = fopen( dummy_filename.c_str(), "w" );
+// 	pPin   = fopen( pin_filename.c_str(), "w" );
+	
+//     }else{
+//     	pPlt = fopen( prefix, "w" );
+//     	pNet = pFixed = pMod = pMove = pDummy = pPin = pPlt;
+    	
+//     }
+
+//     if( !(pPlt && pNet && pFixed && pMod && pMove && pDummy && pPin) )
+//     {
+// 	cerr << "Error, cannot open output file: " << prefix << endl;
+// 	return;
+//     }
+    
+
+//     if( showMsg )
+//     	if (withZoom)
+//     		//printf( "Output gnuplot figure with prefix: %s\n", prefix );
+//     		printf( "Output placement: %s\n", prefix );
+//     	else
+// 		//printf( "Output gnuplot figure: %s\n", prefix );
+// 		printf( "Output placement (single): %s\n", prefix );
+
+//     // output title
+//     fprintf( pPlt, "\nset title \" %s, block= %d, net= %d, HPWL= %.0f \" font \"Times, 22\"\n\n",
+// 	    prefix, (int)m_modules.size(), m_nNets, GetHPWLp2p() );
+
+//     fprintf( pPlt, "set size ratio 1\n" );
+    
+//     if(!withZoom)
+//     	fprintf( pPlt, "set nokey\n\n" ); 
+
+
+//     //Congestion color map
+//     //Color	    Congestion  Value
+//     //Blue	    +1		3
+//     //Green	    0		2
+//     //Light Brown   -1		8
+//     //Red	    -2		1
+//     //Magenta	    -3		4
+//     //Light Blue    -4 or less	5
+    
+//     //if( withCellMove && (int)m_nets.size() < 2000 )
+//     if (withZoom)
+//     {
+// 	fprintf( pPlt, "plot[:][:] '%s' w l 3, '%s' w l 4, '%s' w l 1, '%s' w l 7, '%s' w l 5, '%s' w l 2\n\n", 
+// 		fixed_filename.c_str(), module_filename.c_str(), move_filename.c_str(),
+// 		net_filename.c_str(), dummy_filename.c_str(), pin_filename.c_str() );
+//     }
+//     else
+//     {
+// 	string drawType[2];
+// 	drawType[0] = "l";
+// 	drawType[1] = "filledcurve";
+// 	int type = 0;
+// 	if( gArg.CheckExist( "cong" ) && (int)m_modules.size()< 50000 ) // filled color
+// 	    type = 1;
+// 	fprintf( pPlt, "plot[:][:] '-' w l 3, '-' w %s 4, '-' w l 1, '-' w l 7, '-' w l 5, '-' w l 2\n\n", 
+// 		drawType[type].c_str() ); 
+
+//     }
+    
+//     // output Core region
+//     // 2007-03-30 (donnie) Change %.3f to %.3f to reduce the file size
+//     fprintf( pFixed, "\n# core region\n" ); 
+//     fprintf( pFixed, "%.3f, %.3f\n", m_coreRgn.left, m_coreRgn.bottom );
+//     fprintf( pFixed, "%.3f, %.3f\n", m_coreRgn.right, m_coreRgn.bottom );
+//     fprintf( pFixed, "%.3f, %.3f\n", m_coreRgn.right, m_coreRgn.top );
+//     fprintf( pFixed, "%.3f, %.3f\n", m_coreRgn.left, m_coreRgn.top ); 
+//     fprintf( pFixed, "%.3f, %.3f\n\n", m_coreRgn.left, m_coreRgn.bottom );
+//     /*fprintf( pFixed, "\n# die area\n" );
+//     fprintf( pFixed, "%.3f, %.3f\n", m_dieArea.left,  m_dieArea.bottom );
+//     fprintf( pFixed, "%.3f, %.3f\n", m_dieArea.right, m_dieArea.bottom );
+//     fprintf( pFixed, "%.3f, %.3f\n", m_dieArea.right, m_dieArea.top );
+//     fprintf( pFixed, "%.3f, %.3f\n", m_dieArea.left,  m_dieArea.top );
+//     fprintf( pFixed, "%.3f, %.3f\n\n", m_dieArea.left, m_dieArea.bottom );*/
+
+
+  
+//     // output movable modules
+//     fprintf( pMod, "\n# blocks\n" ); 
+//     fprintf( pMod, "0, 0\n\n" );
+
+//     double x, y, w, h;
+//     int orient;
+//     for( int i=0; i<(int)m_modules.size(); i++ )
+//     {
+// 	if((int)m_modules[i].GetZ() != layer)
+// 	    continue;
+
+// 	x = m_modules[i].GetX();
+// 	y = m_modules[i].GetY();
+// 	w = m_modules[i].GetWidth();
+// 	h = m_modules[i].GetHeight();
+// 	orient = m_modules[i].GetOrient();
+// 	//if( !m_modules[i].m_isFixed && !m_modules[i].m_isDummy && !m_modules[i].m_isMacro )
+// 	if( !m_modules[i].m_isFixed && !m_modules[i].m_isDummy )
+// 	{
+// 	    if( (int)m_modules.size()< 50000 || m_modules[i].m_height > m_rowHeight )
+// 	    {
+// 		// draw blocks
+// 		fprintf( pMod, "%.3f, %.3f\n", x, y );
+// 		fprintf( pMod, "%.3f, %.3f\n", x+w, y );
+// 		fprintf( pMod, "%.3f, %.3f\n", x+w, y+h );
+// 		fprintf( pMod, "%.3f, %.3f\n", x, y+h ); 
+// 		fprintf( pMod, "%.3f, %.3f\n\n", x, y );
+
+// 		//draw orientation indicator
+// 		if(withOrient){
+// 		    switch(orient){
+// 			case 0:		//N
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.8, y+h*0.5 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.8, y+h );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.8 - w*0.1, y+h - h*0.1 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.8, y+h );
+// 			    fprintf( pMod, "%.3f, %.3f\n\n", x+w*0.8 + w*0.1, y+h - h*0.1 );
+// 			    break;
+// 			case 1:		//W
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.5, y+h*0.8 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x, y + h*0.8 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.1, y+h*0.9 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x, y + h*0.8 );
+// 			    fprintf( pMod, "%.3f, %.3f\n\n", x + w*0.1, y + h*0.7 );
+// 			    break;
+// 			case 2:		//S
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.2, y+h*0.5 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.2, y );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.2-w*0.1, y+h*0.1 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.2, y );
+// 			    fprintf( pMod, "%.3f, %.3f\n\n", x+w*0.2 + w*0.1, y+h*0.1 );
+// 			    break;
+// 			case 3:		//E
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.5, y+h*0.2 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w, y+h*0.2 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w - w * 0.1, y+h*0.2 + h * 0.1  );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w, y+h*0.2 );
+// 			    fprintf( pMod, "%.3f, %.3f\n\n", x+w - w * 0.1, y+h*0.2 - h * 0.1 );
+
+// 			    break;
+// 			case 4:		//FN
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.2, y+h*0.5 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.2, y + h );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.2-w*0.1, y + h*0.9 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.2, y + h );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.2 + w*0.1, y + h*0.9 );
+// 			    fprintf( pMod, "%.3f, %.3f\n\n", x+w*0.2-w*0.1, y + h*0.9 );
+// 			    break;
+// 			case 5:		//FW
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.5, y+h*0.8 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w, y + h *0.8 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w-w*0.1, y + h *0.9 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w, y + h *0.8 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w -w*0.1, y + h *0.7 );
+// 			    fprintf( pMod, "%.3f, %.3f\n\n", x+w-w*0.1, y + h *0.9 );
+// 			    break;
+// 			case 6:		//FS
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.8, y+h*0.5 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.8, y  );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.7, y + h * 0.1 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.8, y );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.9, y + h * 0.1);
+// 			    fprintf( pMod, "%.3f, %.3f\n\n", x+w*0.7, y + h * 0.1 );
+// 			    break;
+// 			case 7:		//FE
+// 			    fprintf( pMod, "%.3f, %.3f\n", x+w*0.5, y+h*0.2 );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x, y + h*0.2  );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x + w*0.1, y + h*0.1  );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x, y + h*0.2  );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x + w*0.1, y + h*0.3  );
+// 			    fprintf( pMod, "%.3f, %.3f\n\n", x + w*0.1, y + h*0.1  );
+// 			    break;
+
+// 			default:
+// 			    fprintf( pMod, "%.3f, %.3f\n", x, y );
+// 			    fprintf( pMod, "%.3f, %.3f\n\n", x + w, y +h );
+// 			    fprintf( pMod, "%.3f, %.3f\n", x + w, y );
+// 			    fprintf( pMod, "%.3f, %.3f\n\n", x, y +h );
+// 			    cerr << "Orientation Error " << endl;	
+
+// 		    }
+// 		}
+// 	    }
+// 	    else
+// 	    {
+// 		// draw line
+// 		fprintf( pMod, "%.3f, %.3f\n", x, y+h/2 );
+// 		fprintf( pMod, "%.3f, %.3f\n\n", x+w, y+h/2 );
+// 	    }
+// 	}
+//     }
+
+//     if(!withZoom)
+// 	fprintf( pPlt, "\nEOF\n\n" );
+
+//     // output fixed modules
+//     fprintf( pFixed, "\n# fixed blocks\n" ); 
+//     fprintf( pFixed, "0, 0\n\n" ); 
+
+//     for( int i=0; i<(int)m_modules.size(); i++ )
+//     {
+// 	if((int)m_modules[i].GetZ() != layer)
+// 	    continue;
+
+// 	x = m_modules[i].GetX();
+// 	y = m_modules[i].GetY();
+// 	w = m_modules[i].GetWidth();
+// 	h = m_modules[i].GetHeight();
+// 	orient = m_modules[i].GetOrient();
+// 	if( m_modules[i].m_isFixed && !m_modules[i].m_isDummy )
+// 	{
+// 	    fprintf( pFixed, "%.3f, %.3f\n", x, y );
+// 	    fprintf( pFixed, "%.3f, %.3f\n", x+w, y );
+// 	    fprintf( pFixed, "%.3f, %.3f\n", x+w, y+h );
+// 	    fprintf( pFixed, "%.3f, %.3f\n", x, y+h ); 
+// 	    fprintf( pFixed, "%.3f, %.3f\n\n", x, y );
+// 	    //draw orientation indicator
+// 	    if(withOrient){
+// 		switch(orient){
+// 			case 0:		//N
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.8, y+h*0.5 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.8, y+h );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.8 - w*0.1, y+h - h*0.1 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.8, y+h );
+// 				fprintf( pFixed, "%.3f, %.3f\n\n", x+w*0.8 + w*0.1, y+h - h*0.1 );
+// 				break;
+// 			case 1:		//W
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.5, y+h*0.8 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x, y + h*0.8 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.1, y+h*0.9 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x, y + h*0.8 );
+// 				fprintf( pFixed, "%.3f, %.3f\n\n", x + w*0.1, y + h*0.7 );
+// 				break;
+// 			case 2:		//S
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.2, y+h*0.5 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.2, y );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.2-w*0.1, y+h*0.1 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.2, y );
+// 				fprintf( pFixed, "%.3f, %.3f\n\n", x+w*0.2 + w*0.1, y+h*0.1 );
+// 				break;
+// 			case 3:		//E
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.5, y+h*0.2 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w, y+h*0.2 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w - w * 0.1, y+h*0.2 + h * 0.1  );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w, y+h*0.2 );
+// 				fprintf( pFixed, "%.3f, %.3f\n\n", x+w - w * 0.1, y+h*0.2 - h * 0.1 );
+
+// 				break;
+// 			case 4:		//FN
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.2, y+h*0.5 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.2, y + h );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.2-w*0.1, y + h*0.9 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.2, y + h );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.2 + w*0.1, y + h*0.9 );
+// 				fprintf( pFixed, "%.3f, %.3f\n\n", x+w*0.2-w*0.1, y + h*0.9 );
+// 				break;
+// 			case 5:		//FW
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.5, y+h*0.8 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w, y + h *0.8 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w-w*0.1, y + h *0.9 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w, y + h *0.8 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w -w*0.1, y + h *0.7 );
+// 				fprintf( pFixed, "%.3f, %.3f\n\n", x+w-w*0.1, y + h *0.9 );
+// 				break;
+// 			case 6:		//FS
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.8, y+h*0.5 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.8, y  );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.7, y + h * 0.1 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.8, y );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.9, y + h * 0.1);
+// 				fprintf( pFixed, "%.3f, %.3f\n\n", x+w*0.7, y + h * 0.1 );
+// 				break;
+// 			case 7:		//FE
+// 				fprintf( pFixed, "%.3f, %.3f\n", x+w*0.5, y+h*0.2 );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x, y + h*0.2  );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x + w*0.1, y + h*0.1  );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x, y + h*0.2  );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x + w*0.1, y + h*0.3  );
+// 				fprintf( pFixed, "%.3f, %.3f\n\n", x + w*0.1, y + h*0.1  );
+// 				break;
+
+// 			default:
+// 				fprintf( pFixed, "%.3f, %.3f\n", x, y );
+// 				fprintf( pFixed, "%.3f, %.3f\n\n", x + w, y +h );
+// 				fprintf( pFixed, "%.3f, %.3f\n", x + w, y );
+// 				fprintf( pFixed, "%.3f, %.3f\n\n", x, y +h );
+// 				cerr << "Orientation Error " << endl;	
+
+// 		}
+// 	    }
+
+
+// 	}
+//     }
+//     if(!withZoom)
+//     	fprintf( pPlt, "\nEOF\n\n" );
+
+    
+//     double threshold = (m_coreRgn.top-m_coreRgn.bottom+m_coreRgn.right-m_coreRgn.left) * 0.02;
+     
+//     fprintf( pMove, "\n# cell move\n" ); 
+//     fprintf( pMove, "0, 0\n\n" ); 
+//     if( withCellMove )
+//     {
+// 	// Output legalization cell shifting
+// 	double x1, y1, x2, y2;
+// 	for( int i=0; i<(int)m_modules.size(); i++ )
+// 	{
+// 	    if((int)m_modules[i].GetZ() != layer)
+// 		continue;
+
+// 	    x1 = m_modules_bak[i].m_cx;
+// 	    y1 = m_modules_bak[i].m_cy;
+// 	    x2 = m_modules[i].m_cx;
+// 	    y2 = m_modules[i].m_cy;
+
+// 	    if( fabs( x1-x2 ) + fabs( y1-y2 ) > threshold )
+// 	    //if( (int)m_modules.size() < 100000 || m_modules[i].m_isFixed )
+// 	    {
+// 		// draw movable blocks only when total module # < 100k
+// 		fprintf( pMove, "%.3f, %.3f\n", x1, y1 );
+// 		fprintf( pMove, "%.3f, %.3f\n\n", x2, y2 );
+// 	    }
+
+// 	}
+//     }
+//     if(!withZoom)
+// 	fprintf( pPlt, "\nEOF\n\n" );
+
+//     // 2005/03/11 output nets
+//     fprintf( pNet, "\n# nets\n" );
+//     fprintf( pNet, "0, 0\n\n" ); 
+//     if( (int)m_nets.size() < 2000 && (int)m_nets.size() != 0 )
+//     {
+// 	for( int i=0; i<(int)m_nets.size(); i++ )
+// 	{
+// 	    double x1, x2, y1, y2;
+// 	    if( (int)m_nets[i].size() >= 2 )
+// 	    {
+// 		GetPinLocation( m_nets[i][0], x1, y1 );
+// 		for( int j=1; j<(int)m_nets[i].size(); j++ )
+// 		{
+// 		    GetPinLocation( m_nets[i][j], x2, y2 );
+// 		    fprintf( pNet, "%.3f, %.3f\n", x1, y1 );
+// 		    fprintf( pNet, "%.3f, %.3f\n\n", x2, y2 );
+// 		}
+// 	    }
+// 	}
+//     }
+//     if(!withZoom){
+// 	fprintf( pPlt, "\nEOF\n\n" );
+//     }
+
+
+//     // output dummy modules
+//     fprintf( pDummy, "\n# dummy modules\n" ); 
+//     fprintf( pDummy, "0, 0\n\n" ); 
+//     for( int i=0; i<(int)m_modules.size(); i++ )
+//     {
+// 	if((int)m_modules[i].GetZ() != layer)
+// 	    continue;
+
+// 	x = m_modules[i].GetX();
+// 	y = m_modules[i].GetY();
+// 	w = m_modules[i].GetWidth();
+// 	h = m_modules[i].GetHeight();
+
+// 	if( m_modules[i].m_isDummy )
+// 	{
+// 	    if( (int)m_modules.size()< 50000 || m_modules[i].m_height > m_rowHeight )
+// 	    {
+// 		// draw blocks
+// 		fprintf( pMod, "%.3f, %.3f\n", x, y );
+// 		fprintf( pMod, "%.3f, %.3f\n", x+w, y );
+// 		fprintf( pMod, "%.3f, %.3f\n", x+w, y+h );
+// 		fprintf( pMod, "%.3f, %.3f\n", x, y+h ); 
+// 		fprintf( pMod, "%.3f, %.3f\n\n", x, y );
+
+// 		fprintf( pMod, "%.3f, %.3f\n", x+w*0.75, y+h );
+// 		fprintf( pMod, "%.3f, %.3f\n\n", x+w,      y+h*0.5 );
+// 	    }
+// 	    else
+// 	    {
+// 		// draw line
+// 		fprintf( pMod, "%.3f, %.3f\n", x, y+h/2 );
+// 		fprintf( pMod, "%.3f, %.3f\n\n", x+w, y+h/2 );
+// 	    }
+// 	}
+//     }
+//     if(!withZoom){
+// 	fprintf( pPlt, "\nEOF\n\n" );
+//     }
+
+
+//     //indark output_ pins
+//     fprintf( pPin, "\n# pins\n" );
+//     fprintf( pPin, "\t0, 0\n\n" );
+//     double pin_x,pin_y;
+//     double pin_width = m_rowHeight * 0.5;
+//     if (withPin){
+// 	for( int i=0; i<(int)m_modules.size(); i++ )
+// 	{
+
+// 	    if( m_modules[i].m_isFixed || m_modules[i].m_height > m_rowHeight * 2 )
+// 	    {
+// 		fprintf( pPin, "     # pin for block %s\n", m_modules[i].GetName().c_str() );
+// 		for (int j = 0 ; j < (int)m_modules[i].m_pinsId.size(); j++)
+// 		{
+// 		    int pin_id =  m_modules[i].m_pinsId[j];
+// 		    pin_x = this->m_pins[pin_id].absX;
+// 		    pin_y = this->m_pins[pin_id].absY;
+// 		    fprintf( pPin, "%.3f, %.3f\n",   pin_x - pin_width*0.5, pin_y - pin_width*0.5 );
+// 		    fprintf( pPin, "%.3f, %.3f\n",   pin_x - pin_width*0.5, pin_y + pin_width*0.5 );
+// 		    fprintf( pPin, "%.3f, %.3f\n",   pin_x + pin_width*0.5, pin_y + pin_width*0.5 );
+// 		    fprintf( pPin, "%.3f, %.3f\n",   pin_x + pin_width*0.5, pin_y - pin_width*0.5 );
+// 		    fprintf( pPin, "%.3f, %.3f\n\n", pin_x - pin_width*0.5, pin_y - pin_width*0.5 );
+// 		}
+// 	    }
+// 	}
+//     }
+//     if(!withZoom){
+// 	fprintf( pPin, "\nEOF\n\n" );
+//     }
+
+//     fprintf( pPlt, "pause -1 'Press any key'" );
+//     if(withZoom){
+// 	fclose( pPlt );
+// 	fclose( pMod );
+// 	fclose( pFixed );
+// 	fclose( pMove );
+// 	fclose( pNet );
+// 	fclose( pDummy );
+// 	fclose( pPin );
+//     }else{
+// 	fclose( pPlt );
+//     }
+
+// }
+// // @kaie 3D plot
 
 // // nicky 2007-01-22
 // void CPlaceDB::OutputPngFigure( const char* prefix, bool withCellMove, bool showMsg, bool withOrient , bool withPin )
@@ -2552,6 +3976,10 @@ void CPlaceDB::RemoveFixedBlockSite()
 	{
 	    continue;
 	}   
+
+	// kaie
+	if ((int)iteModule->m_z != m_layer) continue;
+	// @kaie
 	
 	if( iteModule->m_isFixed && // Find a fixed module
 		!iteModule->m_isNI && // skip terminal_NI
@@ -2790,224 +4218,6 @@ void CPlaceDB::SetModuleIsPin( const int & moduleId, const bool & isPin )
     m_modules[moduleId].m_isPin = isPin;
 }
 #endif
-
-// (kaie) 2009-07-20 Rotating r.s.t center
-void CPlaceDB::CalcModuleLeftBottomLocation(const int& id)
-{
-	m_modules[id].m_x = m_modules[id].m_cx - m_modules[id].GetWidth() * 0.5;
-	m_modules[id].m_y = m_modules[id].m_cy - m_modules[id].GetHeight() * 0.5;
-}
-
-void CPlaceDB::SetModuleOrientationCenter( const int & moduleId, const int & orient )
-{
-    int _orient = m_modules[moduleId].m_orient;
-    int _start,_end,_count;
-    //if (m_modules[moduleId].m_pinsId.size() != 0)
-    {
-
-	if ( (_orient %2 )!= (orient %2 )  )
-	    swap(m_modules[moduleId].m_width,m_modules[moduleId].m_height);
-
-	/*if((orient / 4 )!= (_orient / 4 )){
-	  for(int i = 0 ; i < m_modules[moduleId].m_pinsId.size() ; i++){
-	  m_pins[m_modules[moduleId].m_pinsId[i]].xOff =
-	  -m_pins[m_modules[moduleId].m_pinsId[i]].xOff;
-
-	  }
-
-	  }*/
-	if( _orient >= 4 )
-	{
-	    // flip back
-	    for(int i = 0 ; i < (int)m_modules[moduleId].m_pinsId.size() ; i++){
-		m_pins[m_modules[moduleId].m_pinsId[i]].xOff =
-		    -m_pins[m_modules[moduleId].m_pinsId[i]].xOff;
-	    }
-	}
-
-	_start = _orient %  4;
-	_end = (orient %  4) + 4;
-	_count = (_end - _start) % 4;
-	for (int j = 0 ; j < _count ; j++ ){
-
-	    /*
-	    // clockwise 90 degree
-	    for(int i = 0 ; i < m_modules[moduleId].m_pinsId.size() ; i++){
-	    swap(m_pins[m_modules[moduleId].m_pinsId[i]].xOff ,
-	    m_pins[m_modules[moduleId].m_pinsId[i]].yOff);
-	    m_pins[m_modules[moduleId].m_pinsId[i]].yOff =
-	    -m_pins[m_modules[moduleId].m_pinsId[i]].yOff;
-	    }*/
-	    // COUNTER-clockwise 90 degree
-	    for(int i = 0 ; i < (int)m_modules[moduleId].m_pinsId.size() ; i++){
-		swap(m_pins[m_modules[moduleId].m_pinsId[i]].xOff ,
-			m_pins[m_modules[moduleId].m_pinsId[i]].yOff);
-		m_pins[m_modules[moduleId].m_pinsId[i]].xOff =
-		    -m_pins[m_modules[moduleId].m_pinsId[i]].xOff;
-	    }
-
-	}
-
-	if( orient >= 4 )
-	{
-	    // flip new
-	    for(int i = 0 ; i < (int)m_modules[moduleId].m_pinsId.size() ; i++){
-		m_pins[m_modules[moduleId].m_pinsId[i]].xOff =
-		    -m_pins[m_modules[moduleId].m_pinsId[i]].xOff;
-
-	    }
-	}
-
-	CalcModuleLeftBottomLocation(moduleId);
-	for(int i = 0 ; i < (int)m_modules[moduleId].m_pinsId.size() ; i++){
-	    CalcPinLocation(m_modules[moduleId].m_pinsId[i]);
-	}
-
-
-    }
-
-
-    m_modules[moduleId].m_orient = orient;
-
-}
-// @(kaie) 2009-07-20
-
-// (kaie) 2009-08-13
-
-vector<Module>* CPlaceDB::SortCompareModules::m_pMod = 0;
-bool CPlaceDB::SortCompareModules::asending = false;
-
-void CPlaceDB::SetModuleOrientationBest(bool macroonly, bool rotate, bool flip)
-{
-	//printf("Set best module orientations...\n");
-	double HPWL1 = CalcHPWL();
-
-	// sort modules
-	vector<int> ProcessList;
-	for(unsigned int i = 0; i < m_modules.size(); i++)
-	    ProcessList.push_back(i);
-	SortCompareModules::m_pMod = &m_modules;
-	SortCompareModules::asending = false;
-	if(gArg.CheckExist("assort")) SortCompareModules::asending = true;
-	if(!gArg.CheckExist("nosort"))
-	    sort(ProcessList.begin(), ProcessList.end(), SortCompareModules());
-
-	//int count = 0;
-	while(true)
-	{
-		//for(unsigned int i = 0; i < m_modules.size(); i++)
-		for(unsigned int i = 0; i < ProcessList.size(); i++)
-		{
-			int mId = ProcessList[i];	
-			//printf("%lf\n", m_modules[mId].m_area);
-
-			if(m_modules[mId].m_isFixed || BlockOutCore(mId) == true 
-				|| m_modules[mId].m_isCluster == true)
-				continue;
-			if(macroonly && m_modules[mId].m_height <= m_rowHeight) // do not rotate standard cells
-				continue;
-
-			double min_wirelength = CalcHPWLModule(mId);
-			int moduleOrient = m_modules[mId].m_orient;
-			int bestOrient = moduleOrient;
-		
-			//double moduleARatio = m_modules[mId].m_height / m_modules[mId].m_width;
-			//double targetLRatio = 0.9;
-			//double targetURatio = 1.1;
-
-			if(m_modules[mId].m_height > m_rowHeight)
-			{
-			    moduleOrient++;
-			    for(int j = 1; j < 8; j++, moduleOrient++)
-			    {
-				moduleOrient %= 8;
-
-				if(!flip && moduleOrient >= 4) continue;
-				if(!rotate && j%2 == 1) continue;
-				
-				SetModuleOrientationCenter(mId, moduleOrient);
-				double wlength = CalcHPWLModule(mId);
-				if(wlength < min_wirelength)
-				{
-				    min_wirelength = wlength;
-				    bestOrient = moduleOrient;
-				}
-			    }
-			    //if((fliponly && m_modules[mId].m_width == m_modules[mId].m_height) || 
-			//	(!fliponly /*&& (moduleARatio > targetLRatio && moduleARatio < targetURatio)*/))
-			    /*{
-				moduleOrient++;
-				for(int j = 1; j < 8; j++, moduleOrient++)
-				{
-					moduleOrient %= 8;
-					SetModuleOrientationCenter(mId, moduleOrient);
-					double wlength = CalcHPWLModule(mId);
-					if(wlength < min_wirelength)
-					{
-						min_wirelength = wlength;
-						bestOrient = moduleOrient;
-					}
-				}
-				//if(bestOrient != moduleOrient%8) count++;
-			    }else
-			    {
-				moduleOrient += 2;
-				for(int j = 1; j < 4; j++, moduleOrient += 2)
-				{
-					moduleOrient %= 8;
-					SetModuleOrientationCenter(mId, moduleOrient);
-					double wlength = CalcHPWLModule(mId);
-					if(wlength < min_wirelength)
-					{
-						min_wirelength = wlength;
-						bestOrient = moduleOrient;
-					}
-				}
-				//if(bestOrient != moduleOrient %8) count++;
-			    }*/
-			}else
-			{
-			    moduleOrient += 4;
-			    moduleOrient %= 8;
-			    SetModuleOrientationCenter(mId, moduleOrient);
-			    double wlength = CalcHPWLModule(mId);
-			    if(wlength < min_wirelength)
-			    {
-				min_wirelength = wlength;
-				bestOrient = moduleOrient;
-			    }
-			    //if(bestOrient != moduleOrient %8) count++;
-			}
-			SetModuleOrientationCenter(mId, bestOrient);
-    		}
-		//printf("%d macros are rotated\n", count);
-		double HPWL2 = CalcHPWL();
-		if(fabs(HPWL1-HPWL2) < 1.0e-10) break;
-		//else printf("HPWL = %lf\n", HPWL2);
-		HPWL1 = HPWL2;
-	}
-}
-
-void CPlaceDB::SetModuleNoFlip()
-{
-	for(unsigned int i = 0; i < m_modules.size(); i++)
-	{
-		if(m_modules[i].m_orient >= 4)
-		SetModuleOrientationCenter(i, m_modules[i].m_orient-4);
-	}
-}
-
-double CPlaceDB::CalcHPWLModule( const int& id )
-{
-	double HPWL = 0;
-	for(unsigned int i = 0; i < m_modules[id].m_netsId.size(); i++)
-	{
-		int netId = m_modules[id].m_netsId[i];
-		HPWL += GetNetLength(netId);
-	}
-	return HPWL;
-}
-// @(kaie) 2009-08-13
 
 void CPlaceDB::SetModuleOrientation( const int & moduleId, const int & orient )
 {
@@ -3324,13 +4534,13 @@ void CPlaceDB::ShowDensityInfo()
 
     if( param.coreUtil < 1.0 )
     {
-	placeBin.CreateGrid( m_rowHeight * 10.0, m_rowHeight * 10.0 );  // ISPD-06 contest standard
+	placeBin.CreateGrid( m_rowHeight * 10.0 );  // ISPD-06 contest standard
 	penalty = placeBin.GetPenalty( param.coreUtil );
 	printf( "  Density Penalty %.2f = %.2f \t(dHPWL = %.0f)\n", param.coreUtil, penalty, wire*(1+penalty/100.0) );
     }
     else if( param.coreUtil >= 1.0 )
     {
-	placeBin.CreateGrid( static_cast<int>( sqrt( m_modules.size() ) ), static_cast<int>( sqrt( m_modules.size() ) ) );
+	placeBin.CreateGrid( static_cast<int>( sqrt( m_modules.size() ) ) );
 	penalty = placeBin.GetOverflowRatio( param.coreUtil );
 	printf( "        Overflow Ratio = %.3f%%\n", penalty * 100.0 );
     }
@@ -3349,6 +4559,14 @@ void CPlaceDB::AddNet( Net n, const char* name )
     m_nets.push_back( n );
     m_netsName.resize( m_nets.size() );
     m_netsName[ m_nets.size()-1 ] = name;
+}
+
+void CPlaceDB::AddNet( Net n, const char* name, bool isPin )
+{
+    m_nets.push_back( n );
+    m_netsName.resize( m_nets.size() );
+    m_netsName[ m_nets.size()-1 ] = name;
+    m_netsIsPin.push_back( isPin );
 }
 
 void CPlaceDB::AddNet( set<int> n )
@@ -3470,6 +4688,8 @@ void CPlaceDB::RemoveMacroSite()
 	    iteModule <  m_modules.end() ;
 	    iteModule++ )
     {
+	if ((int)iteModule->m_z != m_layer) continue; // (kaie)
+
 	double module_top = iteModule->m_y + iteModule->m_height;
 	double module_bottom = iteModule->m_y;
 	double module_left = iteModule->m_x;
@@ -3613,7 +4833,7 @@ double CPlaceDB::GetHPWLdensity( double util )
 	return m_HPWLp2p;
 
     CPlaceBin placeBin( *this );
-    placeBin.CreateGrid( m_rowHeight * 10.0, m_rowHeight * 10.0 );
+    placeBin.CreateGrid( m_rowHeight * 10.0 );
 
     double penalty = placeBin.GetPenalty( util );
     return m_HPWLp2p*(1+penalty/100.0);
@@ -3635,40 +4855,12 @@ void CPlaceDB::SetAllBlockMovable()
 		count++;
 		m_modules[i].m_isFixed = false;
 // 		MoveModuleCenter( i, 0.0, 0.0);
-	    	FixedBlockSet.push_back(i);
+	    	//FixedBlockSet.push_back(i);
 	    }
 	}
     }
     printf( "%d blocks\n", count ); 
 }
-
-//(kaie) 2009-06-25
-void CPlaceDB::SetMacroFixed(const double ratio)
-{
-    printf("Set Macro Fixed.... ");
-    int number = 0;
-    double avg_area = m_totalModuleArea/m_modules.size();
-    for(unsigned int i = 0; i < m_modules.size(); i++)
-    {
-	    if(m_modules[i].m_area > avg_area * ratio && m_modules[i].m_height > m_rowHeight)
-	    {
-		    SetModuleFixed(i);
-		    number++;
-	    }
-    }
-    printf("end\n");
-    printf("%d modules are fixed\n", number);
-}
-void CPlaceDB::RestoreFixedBlocks()
-{
-    printf("Restore fixed blocks... ");
-    for( unsigned int i = 0; i < FixedBlockSet.size(); i++)
-    {
-	    m_modules[FixedBlockSet[i]].m_isFixed = m_modules_bak[FixedBlockSet[i]].m_isFixed = true;
-    }
-    printf("end\n");
-}
-// @(kaie) 2009-06-25
 
 void CPlaceDB::FixFreeSiteBySiteStep(void)
 {
@@ -3697,9 +4889,14 @@ void CPlaceDB::FixFreeSiteBySiteStep(void)
 
 	    double new_left = ceil( (interval_left-chip_left_bound)/site_step ) * site_step + chip_left_bound;
 	    double new_right = floor( (interval_right-chip_left_bound)/site_step ) * site_step + chip_left_bound;
-	    double new_width = new_right - new_left;
+	    if(fabs(new_left - interval_left-site_step)   < 1.0e-10) new_left  = interval_left;
+	    if(fabs(interval_right - new_right-site_step) < 1.0e-10) new_right = interval_right;
+		//printf("%lf, %lf\n", (interval_right-chip_left_bound)/site_step, floor((interval_right-chip_left_bound)/site_step));
+
+		double new_width = new_right - new_left;
 	    if( new_width > 0 )
 	    {
+		//printf("(%lf) %lf-%lf => %lf-%lf\n", chip_left_bound, iteSite->m_interval[i], iteSite->m_interval[i+1], new_left, new_right);
 		iteSite->m_interval[i] = new_left;
 		iteSite->m_interval[i+1] = new_right;
 	    }
@@ -4547,3 +5744,857 @@ void CPlaceDB::UpdatePinNetId()
     }
 }
 
+// kaie 20100302 adjust standard cell orientation on rows
+void CPlaceDB::AdjustStandardCellOrientation()
+{
+    for(unsigned int i = 0; i < m_modules.size(); i++)
+    {
+	double m_y = m_modules[i].m_y;
+	double m_bottom = m_coreRgn.bottom;
+	int row_id = floor((m_y - m_bottom) / m_rowHeight);
+	if(row_id %2 == 0) SetModuleOrientationCenter(i, OR_FS);
+	else SetModuleOrientationCenter(i, OR_N);
+    }
+}
+
+void CPlaceDB::AdjustNetConnection()
+{
+    vector< vector<int> > ori_nets = m_nets;
+
+    vector<int> pinNet;
+    pinNet.resize(m_pins.size(), -1);
+
+    int n_nets = 0;
+    for(unsigned int i = 0; i < ori_nets.size(); i++) // for each original net
+    {
+	bool found = false; // check if a pin is connected with previous nets
+	int netId = -1;
+	for(unsigned int j = 0; j < ori_nets[i].size(); j++)
+	{
+	    int pinId = ori_nets[i][j];
+	    if(pinNet[pinId] != -1) // the pin is connected with previous nets
+	    {
+		found = true;
+		netId = pinNet[pinId];
+		break;
+	    }
+	    if(found) break;
+	}
+	if(found)
+	{
+	    for(unsigned int j = 0; j < ori_nets[i].size(); j++)
+	    {
+		int pinId = ori_nets[i][j];
+		if(pinNet[pinId] == -1)
+		{
+		    pinNet[pinId] = netId;
+		}
+	    }
+	}else
+	{
+	    for(unsigned int j = 0; j < ori_nets[i].size(); j++)
+	    {
+		int pinId = ori_nets[i][j];
+		pinNet[pinId] = n_nets;
+	    }
+	    n_nets++;
+	}
+    }
+
+    printf("generate new net list\n");
+    for(unsigned int i = 0; i < m_modules.size(); i++)
+    {
+	m_modules[i].m_pinsId.resize(0);
+	m_modules[i].m_netsId.resize(0);
+    }
+    m_nets.resize(n_nets);
+    for(unsigned int i = 0; i < m_nets.size(); i++)
+	m_nets[i].resize(0);
+
+    for(unsigned int pinId = 0; pinId < m_pins.size(); pinId++)
+    {
+	int moduleId = m_pins[pinId].moduleId;
+	if(moduleId >= 0 && moduleId < (int)m_modules.size())
+	    m_modules[moduleId].m_pinsId.push_back(pinId);
+
+	int netId = pinNet[pinId];
+	if(netId >= 0 && netId < (int)m_nets.size())
+	    m_nets[netId].push_back(pinId);
+    }
+
+    printf("update nets connected to modules\n");
+    for(unsigned int i = 0; i < m_modules.size(); i++)
+    {
+	for(unsigned int j = 0; j < m_modules[i].m_pinsId.size(); j++)
+	{
+	    int pinId = m_modules[i].m_pinsId[j];
+	    int netId = pinNet[pinId];
+	    if(pinId >= 0 && pinId < (int)m_pins.size() && netId >= 0 && netId < (int)m_nets.size())
+		m_modules[i].m_netsId.push_back(pinNet[pinId]);
+	}
+    }
+
+    printf("check net connection\n");
+    // debug
+    vector<bool> visited;
+    visited.resize(m_pins.size(), false);
+    for(unsigned int i = 0; i < m_nets.size(); i++)
+    {
+	for(unsigned int j = 0; j < m_nets[i].size(); j++)
+	{
+	    int pinId = m_nets[i][j];
+	    if(visited[pinId] == true) printf("pin %d redefined!\n", pinId);
+	    else visited[pinId] = true;
+	}
+    }
+    // debug
+}
+
+// kaie 20100301 resize core region for TSVs
+void CPlaceDB::ResizeCoreRegion3d(const double wsratio)
+{
+    printf("original core region: (%.2f - %.2f)(%.2f - %.2f)\n",
+    	m_coreRgn.left, m_coreRgn.right,
+    	m_coreRgn.bottom, m_coreRgn.top);
+
+    vector<double> totalArea3d;
+    totalArea3d.resize(m_totalLayer, 0.0);
+    for(unsigned int i = 0; i < m_modules.size(); i++)
+	totalArea3d[(int)m_modules[i].m_z] += m_modules[i].m_area;
+
+    for(int i = 0; i < (int)m_nets.size(); i++) // for each net
+    {
+	double max_z = 0;
+	double min_z = m_totalLayer-1;
+	for(int j = 0; j < (int)m_nets[i].size(); j++)
+	{
+	    int pinId = m_nets[i][j];
+	    double pin_x, pin_y, pin_z;
+	    GetPinLocation(pinId, pin_x, pin_y, pin_z);
+
+	    if(pin_z < min_z) min_z = pin_z;
+	    else if(pin_z > max_z) max_z = pin_z;
+	}
+
+	for(int l_z = (int)min_z; l_z <= (int)max_z; l_z++)
+	{
+	    if(l_z == 0) continue;
+	    totalArea3d[l_z] += TSVarea;
+	}
+    }
+
+    for(int l = 0; l < m_totalLayer; l++)
+	printf("totalArea3d[%d] = %lf\n", l, totalArea3d[l]);
+
+    double max_totalArea = totalArea3d[0];
+    for(int l = 1; l < m_totalLayer; l++)
+	if(totalArea3d[l] > max_totalArea)
+	    max_totalArea = totalArea3d[l];
+
+    //double targetArea = max_totalArea * (1+wsratio);
+    double m_factor = 1.10;
+    gArg.GetDouble("expand", &m_factor);
+    double targetArea = max_totalArea * m_factor; 
+    double targetHeight = floor(sqrt(targetArea));
+    double targetWidth = targetHeight;
+    m_coreRgn.right = m_coreRgn.left + targetWidth;
+    m_coreRgn.top = m_coreRgn.bottom + targetHeight;
+
+    printf("new core region: (%.2f - %.2f)(%.2f - %.2f)\n",
+	m_coreRgn.left, m_coreRgn.right,
+	m_coreRgn.bottom, m_coreRgn.top);
+
+    //double m_coreHeight = m_coreRgn.m_top - m_coreRgn.m_bottom;
+    //double m_siteHeight = m_sites3d[0][1].m_bottom - m_sites3d[0][0].m_bottom;
+    //double targetWidthRatio = targetArea / m_core_height;
+
+    m_sites3d[0].resize(0);
+    double row_bottom = m_coreRgn.bottom;
+    double row_height = m_rowHeight;
+    double row_step = m_sites[0].m_step;
+    int count = 0;
+    while(true)
+    {
+	if(row_bottom + row_height > m_coreRgn.top) break;
+	m_sites3d[0].push_back(CSiteRow(row_bottom, row_height, row_step ));
+	m_sites3d[0].back().m_interval.push_back(m_coreRgn.left);
+	m_sites3d[0].back().m_interval.push_back(m_coreRgn.right);
+	m_sites3d[0].back().m_macro = m_sites[0].m_macro;
+	if(count %2 == 0)
+	    m_sites3d[0].back().m_orient = OR_FS;
+	char row_name[256];
+	sprintf(row_name, "CORE_ROW_%d", count);
+	m_sites3d[0].back().m_name = string(row_name);
+	row_bottom += row_height;
+	count++;
+    }
+    //for(unsigned int i = 0; i < m_sites3d[0].size(); i++)
+	//printf("CORE_ROW_%d: %lf -- %lf\n", i, m_sites3d[0][i].m_interval[0], m_sites3d[0][i].m_interval[1]);
+    for(int l = 1; l < m_totalLayer; l++)
+	m_sites3d[l] = m_sites3d[0];
+}
+// @kaie
+
+
+// kaie
+void CPlaceDB::LayerAssignmentByPartition(const int layer)
+{
+	//printf("Layer assignment by partition\n");
+
+	int nvtxs, nhedges;
+	int* vwgts;
+	int* eptr;
+	int* eind;
+	int* hewgts;
+	int nparts;
+	int ubfactor;
+	int options[9];
+	int* part;
+	int* edgecut;
+
+	// test
+	//int nvtxs = 7;
+	//int nhedges = 4;
+	//int vwgts[7] = { 5, 1, 8, 7, 3, 9, 3};
+	//int* hewgts = NULL;
+	//int eptr[5] = { 0, 2, 6, 9, 12 };
+	//int eind[12] = { 0, 1, 0, 6, 4, 5, 4, 5, 3, 1, 2, 3};
+	//int nparts = 2;
+	//int ubfactor = 5;
+	//options[0] = 0;
+	//part = new int[nvtxs];
+	//edgecut = new int;
+
+	nvtxs = (int)m_modules.size();
+	nhedges = (int)m_nets.size();
+	vwgts = new int[nvtxs];
+	//printf("nodes...\n");
+	double unitArea = m_rowHeight * m_sites[0].m_step;
+	for(int i = 0; i < nvtxs; i++)
+	{
+	    vwgts[i] = (int)(m_modules[i].m_area/unitArea);
+	    //printf("%d\n", vwgts[i]);
+	}
+	eptr = new int[nhedges+1];
+	
+	int num = 0;
+	for(int i = 0; i < nhedges; i++)
+		num += (int)m_nets[i].size();
+	eind = new int[num];
+	eptr[nhedges] = num;
+
+	//hewgts = new int[nhedges];
+	//printf("edges...\n");
+	for(int i = 0, index = 0; i < nhedges; i++)
+	{
+		//hewgts[i] = (int)-m_nets[i].size();
+		eptr[i] = index;
+		for(int j = 0; j < (int)m_nets[i].size(); j++)
+		{
+			int moduleId = m_pins[m_nets[i][j]].moduleId;
+			eind[index] = moduleId;
+			index++;
+		}
+	}
+	//for(int i = 0; i < num; i++)
+		//printf("%d\n", eind[i]);
+	hewgts = NULL;
+	nparts = layer;
+	ubfactor = 5;
+	options[0] = 1;
+	options[1] = 10;
+	options[2] = 5;
+	options[3] = 1;
+	options[4] = 3;
+	//options[5] = 0;
+	//options[6] = 0;
+	options[7] = 0;
+	options[8] = 0;
+
+	part = new int[nvtxs];
+	//edgecut = new int[nparts];
+	edgecut = new int;
+
+	//printf("partition...\n");
+	//HMETIS_PartRecursive(nvtxs, nhedges, vwgts, eptr, eind, hewgts, nparts, ubfactor, options, part, edgecut);	
+	////HMETIS_PartKway(nvtxs, nhedges, vwgts, eptr, eind, hewgts, nparts, ubfactor, options, part, edgecut);
+
+	//printf("Cut: %d\n", *edgecut);
+
+	int* partition = new int[nparts];
+	for(int i = 0; i < nparts; i++) partition[i] = 0;
+
+	for(int i = 0; i < nvtxs; i++)
+	{
+		//printf("%d\n", part[i]);
+		m_modules[i].m_z = part[i];
+		partition[part[i]]++;
+		//printf("%d, %d\n", part[i], vwgts[i]);
+	}
+
+	//for(int i = 0; i < nparts; i++) printf("%d\n", partition[i]);
+
+	//exit(0);
+}
+
+/*FM Partition*/ // kaie 2009-11-12
+FM_Partition::FM_Partition(CPlaceDB& placedb, vector<int> pmodules)
+{
+	num_nets = (int)placedb.m_nets.size();
+	nets.resize(num_nets);
+	num_cells = pmodules.size();
+	cells.resize(num_cells+1);
+	vector<int> placeIdmap;
+	placeIdmap.resize(placedb.m_modules.size(), -1);
+
+	//printf("Initialize cells\n");
+	cells[0].id = 0;
+	for(int i = 1; i <= num_cells; i++)
+	{
+		cells[i].id = i;
+		cells[i].placeId = pmodules[i-1];
+		cells[i].area = placedb.m_modules[pmodules[i-1]].m_area;
+		cells[i].netId = placedb.m_modules[pmodules[i-1]].m_netsId;
+		placeIdmap[pmodules[i-1]] = i;
+	}
+
+	//printf("Initialize nets\n");
+	for(int i = 0; i < num_nets; i++)
+	{
+		nets[i].id = i;
+		for(unsigned int j = 0; j < placedb.m_nets[i].size(); j++)
+		{
+			int moduleId = placedb.m_pins[placedb.m_nets[i][j]].moduleId;
+			if(placeIdmap[moduleId] == -1) continue;
+			nets[i].cellId.push_back(placeIdmap[moduleId]);
+		}
+		nets[i].block_cells_bak[BLK_A] = nets[i].block_cells_bak[BLK_B] = 0;
+	}
+	
+	//printf("Initialize pins\n");
+	num_pins = 0;
+	p_max = 0;
+	for(unsigned int i = 0; i < cells.size(); i++)
+	{
+		//cells[i].id = i;
+		//if(cells[i].netId.size() == 0) printf("cell_%d is float\n", cells[i].id);
+                num_pins += (int)cells[i].netId.size();
+                if((int)cells[i].netId.size() > p_max)
+                        p_max = (int)cells[i].netId.size();
+	}
+
+        // initialization for gain bucket
+	p_min = 0-p_max;
+	//printf("p_max = %d, p_min = %d\n", p_max, p_min);
+	gain_bucket.resize(2*p_max+1);
+
+	// print initial informations
+	//printf("Total Number of Nets: %d\n", num_nets);
+	//printf("Total Number of Cells: %d\n", num_cells);
+	//printf("Total Number of Pins: %d\n", num_pins);
+	//printf("(cell+nets+pins: %d)\n", num_nets+num_cells+num_pins);
+
+	imbalance_ratio = 0.05;
+}
+
+/* Debugging */
+void FM_Partition::PrintNets()
+{
+        for(int i = 0; i < num_nets; i++)
+        {
+                printf("Net_%d: %s, ", nets[i].id, nets[i].name.c_str());
+                for(unsigned int j = 0; j < nets[i].cellId.size(); j++)
+                        printf("%d ", nets[i].cellId[j]);
+                printf("\n");
+        }
+}
+
+void FM_Partition::PrintCells()
+{
+        for(int i = 0; i < num_cells; i++)
+	{
+		printf("Cell_%d(%u), ", cells[i+1].id, cells[i+1].netId.size());
+		for(unsigned int j = 0; j < cells[i+1].netId.size(); j++)
+		{
+			printf("%s ", nets[cells[i+1].netId[j]].name.c_str());
+			//assert(cells[i+1].netId[j] == nets[cells[i+1].netId[j]].id);
+		}
+		printf("\n");
+	}
+}
+
+void FM_Partition::PrintPartitions()
+{
+        set<int>::iterator theIterator;
+        printf("|A| = %d\n", partition_A.size());
+        printf("A = { ");
+        for(theIterator = partition_A.begin(); theIterator != partition_A.end(); theIterator++)
+                printf("c%d ", *(theIterator));
+        printf("}\n");
+        printf("|B| = %d\n", partition_B.size());
+        printf("B = { ");
+        for(theIterator = partition_B.begin(); theIterator != partition_B.end(); theIterator++)
+                printf("c%d ", *(theIterator));
+        printf("}\n");
+}
+
+void FM_Partition::PrintGainBucket()
+{
+        list<int>::iterator Literator;
+        for(int i = 0; i < (int)gain_bucket.size(); i++)
+        {
+                printf("gain:%d [ ", p_max-i);
+                for(Literator = gain_bucket[i].begin(); Literator != gain_bucket[i].end(); Literator++)
+                {
+                        if(cells[*Literator].isFree)
+                                printf("%d ", *Literator);
+                }
+                printf("]\n");
+        }
+}
+
+/*Calculate the Cut Size */
+int FM_Partition::GetCutSize()
+{
+        cut_size = 0;
+        cut.resize(0);
+	for(int i = 0; i < num_nets; i++)
+	{
+		// net has cells in both sides
+		if(nets[i].block_cells[BLK_A] > 0 && nets[i].block_cells[BLK_B] > 0)
+		{
+			cut.push_back(i);
+			cut_size++;
+		}
+	}
+
+	//assert(cut_size == (int)cut.size());
+	return cut_size;
+}
+
+/* Initialize the Partition */
+void FM_Partition::init()
+{
+	// parition the cells into 2 blocks averagely
+	//int partition_num = num_cells/2;
+	//int partition_num = (int)ceil((1.0-imbalance_ratio)*num_cells/2.0);
+	partition_A.clear();
+	partition_B.clear();
+
+	partition_A_size = partition_B_size = 0;
+	double total_area = 0;
+	for(int i = 1; i <= num_cells; i++)
+		total_area += cells[i].area;
+	//printf("total_area: %.0f\n", total_area);
+
+	int i = 0;
+	while(partition_A_size < (total_area / 2))
+	{
+		partition_A.insert(cells[i+1].id);      // insert cell[i+1] to partition A
+		cells[i+1].block = BLK_A;               // mark cell[i+1]'s block by A
+		for(unsigned int j = 0; j < cells[i+1].netId.size(); j++) // count for nets F(n) and T(n)
+			nets[cells[i+1].netId[j]].block_cells_bak[BLK_A]++;
+		partition_A_size += cells[i+1].area;
+		i++;
+	}
+	//printf("partition_A_size: %.0f\n", partition_A_size);
+	while(i < num_cells)
+	{
+		partition_B.insert(cells[i+1].id);      // insert cell[i+1] to partition B
+		cells[i+1].block = BLK_B;               // mark cell[i+1]'s block by B
+		for(unsigned int j = 0; j < cells[i+1].netId.size(); j++) // count for nets F(n) and T(n)
+			nets[cells[i+1].netId[j]].block_cells_bak[BLK_B]++;
+		partition_B_size += cells[i+1].area;
+		i++;
+	}
+	//printf("partition_B_size: %.0f\n", partition_B_size);
+
+	/*int i;
+	for(i = 0; i < partition_num; i++)
+	{
+		partition_A.insert(cells[i+1].id);      // insert cell[i+1] to partition A
+		cells[i+1].block = BLK_A;               // mark cell[i+1]'s block by A
+		for(unsigned int j = 0; j < cells[i+1].netId.size(); j++) // count for nets F(n) and T(n)
+			nets[cells[i+1].netId[j]].block_cells_bak[BLK_A]++;
+	}
+	for(i = partition_num; i < num_cells; i++)
+	{
+		partition_B.insert(cells[i+1].id);      // insert cell[i+1] to partition B
+		cells[i+1].block = BLK_B;               // mark cell[i+1]'s block by B
+		for(unsigned int j = 0; j < cells[i+1].netId.size(); j++) // count for nets F(n) and T(n)
+			nets[cells[i+1].netId[j]].block_cells_bak[BLK_B]++;
+	}*/
+
+	//partition_A_size = (int)partition_A.size();
+	//partition_B_size = (int)partition_B.size();
+
+	//printf("%.f %.f\n", partition_A_size, partition_B_size);
+	/*for(int net_id = 0; net_id < num_nets; net_id++)      // check block_cells's consistency
+	  {
+	  assert(nets[net_id].block_cells_bak[BLK_A]+nets[net_id].block_cells_bak[BLK_B] == nets[net_id].cellId.size());
+	  }*/
+	//assert((partition_A_size+partition_B_size) == num_cells);
+
+	// calculate partition's lower/upper bound
+	//low_bound = (unsigned int)ceil((1.0-imbalance_ratio)*num_cells/2.0);
+	//up_bound = (unsigned int)floor((1.0+imbalance_ratio)*num_cells/2.0);
+	low_bound = (1.0-imbalance_ratio)*total_area/2.0;
+	up_bound = (1.0+imbalance_ratio)*total_area/2.0;
+	
+	//printf("%d <= |A| <= %d\n", low_bound, up_bound);
+	//printf("%.f <= |A| <= %.f\n", low_bound, up_bound);
+	
+	cut_size = 0;
+	cut.resize(0);
+	for(int i = 0; i < num_nets; i++)
+	{
+		// net has cells in both sides
+		if(nets[i].block_cells_bak[BLK_A] > 0 && nets[i].block_cells_bak[BLK_B] > 0)
+		{
+			cut.push_back(i);
+			cut_size++;
+		}
+	}
+	printf("Initial Cut Size: %d\n", cut_size);
+
+	// initialize solutions
+	solutions.resize(num_cells);
+}
+
+/* Initialize the Cell Gains*/
+void FM_Partition::InitCellGains()
+{
+	//printf("Initialize cell gains\n");
+	// clear gain bucket
+	//for(unsigned int i = 0; i < gain_bucket.size(); i++)
+	//      gain_bucket[i].clear();
+
+	// initialize cell gains
+	for(int cell_id = 1; cell_id <= num_cells; cell_id++)
+	{
+		cells[cell_id].isFree = true;
+		cells[cell_id].gain = 0;
+		int from_block = cells[cell_id].block;
+		int to_block = (from_block+1)%2;
+		for(unsigned int j = 0; j < cells[cell_id].netId.size(); j++)
+		{
+			int net_id = cells[cell_id].netId[j];
+			// if(F(n) = 1) Then g(i)<-g(i)+1;
+			if(nets[net_id].block_cells[from_block] == 1) cells[cell_id].gain++;
+			// if(T(n) = 0) Then g(i)<-g(i)-1;
+			if(nets[net_id].block_cells[to_block] == 0) cells[cell_id].gain--;
+		}
+		//printf("Cell_%d, FROM %d, TO %d, gain: %d\n", cell_id, from_block, to_block, cells[cell_id].gain);
+		//assert(p_max >= cells[cell_id].gain);
+
+		// insert the cell into the gain bucket
+		gain_bucket[p_max-cells[cell_id].gain].push_back(cell_id);
+		cells[cell_id].gain_ptr = gain_bucket[p_max-cells[cell_id].gain].end();
+		cells[cell_id].gain_ptr--;
+		if(cells[cell_id].gain > (p_max-max_gain_ptr))  // update max-gain pointer
+			max_gain_ptr = p_max-cells[cell_id].gain;
+	}
+	//printf("end\n");
+}
+
+/* Update the Gain Bucket with New Cell Gain*/
+void FM_Partition::UpdateGainBucket(int cell, int old_gain, int new_gain)
+{
+	//printf("c%d's gain %+d\n", cell, new_gain-old_gain);
+	if(new_gain == old_gain) return ;
+	gain_bucket[p_max-old_gain].erase(cells[cell].gain_ptr);        // delete
+	gain_bucket[p_max-new_gain].push_back(cell);                    // insert
+	cells[cell].gain_ptr = gain_bucket[p_max-new_gain].end();
+	cells[cell].gain_ptr--;
+	if(new_gain > (p_max-max_gain_ptr))     // update max-gain pointer
+		max_gain_ptr = p_max-new_gain;
+}
+
+/* Update Cell Gain */
+void FM_Partition::UpdateCellGains(int base_cell)
+{
+	int from_block = cells[base_cell].block;
+	int to_block = (from_block+1)%2;
+
+	//printf("Base Cell: c%d, gain: %+d\n", base_cell, cells[base_cell].gain);
+	cells[base_cell].isFree = false;        // lock the base cell
+	free_cells--;
+	//assert(free_cells >= 0);
+
+	// update number of cells in both paritions
+	if(from_block == BLK_A){
+		//partition_A_size--;
+		//partition_B_size++;
+		partition_A_size -= cells[base_cell].area;
+		partition_B_size += cells[base_cell].area;
+	}else{
+		//partition_B_size--;
+		//partition_A_size++;
+		partition_B_size -= cells[base_cell].area;
+		partition_A_size += cells[base_cell].area;
+	}
+	
+	for(unsigned int i = 0; i < cells[base_cell].netId.size(); i++)
+	{
+		int net_id = cells[base_cell].netId[i];
+
+		//printf("%s, F = %d, T = %d\n", nets[net_id].name.c_str(), nets[net_id].block_cells[from_block], nets[net_id].block_cells[to_block]);
+
+		// if T(n) = 0 then increment gains of all free cells on n
+		if(nets[net_id].block_cells[to_block] == 0)
+		{
+			for(unsigned int j = 0; j < nets[net_id].cellId.size(); j++)
+			{
+				int cell_id = nets[net_id].cellId[j];
+				if(cells[cell_id].isFree)
+				{
+					UpdateGainBucket(cell_id, cells[cell_id].gain, cells[cell_id].gain+1);
+					cells[cell_id].gain++;
+				}
+			}
+		}
+		//if T(n) = 1 then decrement gain of the only T cell on n, if it is free
+		else if(nets[net_id].block_cells[to_block] == 1)
+		{
+			for(unsigned int j = 0; j < nets[net_id].cellId.size(); j++)
+			{
+				int cell_id = nets[net_id].cellId[j];
+				if(cells[cell_id].isFree && cells[cell_id].block == to_block)
+				{
+					UpdateGainBucket(cell_id, cells[cell_id].gain, cells[cell_id].gain-1);
+					cells[cell_id].gain--;
+				}
+			}
+		}
+
+		nets[net_id].block_cells[from_block]--; // F(n)--
+		nets[net_id].block_cells[to_block]++;   // T(n)++
+
+		//printf("%s, F = %d, T = %d\n", nets[net_id].name.c_str(), nets[net_id].block_cells[from_block], nets[net_id].block_cells[to_block]);
+
+		// if F(n) = 0 then decrement gains of all free cells on n
+		if(nets[net_id].block_cells[from_block] == 0)
+		{
+			for(unsigned int j = 0; j < nets[net_id].cellId.size(); j++)
+			{
+				int cell_id = nets[net_id].cellId[j];
+				if(cells[cell_id].isFree)
+				{
+					UpdateGainBucket(cell_id, cells[cell_id].gain, cells[cell_id].gain-1);
+					cells[cell_id].gain--;
+				}
+			}
+		}
+		//if F(n) = 1 then increment gain of the only F cell on n, if it is free
+		else if(nets[net_id].block_cells[from_block] == 1)
+		{
+			for(unsigned int j = 0; j < nets[net_id].cellId.size(); j++)
+			{
+				int cell_id = nets[net_id].cellId[j];
+				if(cells[cell_id].isFree && cells[cell_id].block == from_block)
+				{
+					UpdateGainBucket(cell_id, cells[cell_id].gain, cells[cell_id].gain+1);
+					cells[cell_id].gain++;
+				}
+			}
+
+		}
+	}
+}
+
+int FM_Partition::Par()
+{
+	//printf("Partition\n");
+
+        // (1-r)n/2 <= |A| <= (1+r)n/2
+	//assert(low_bound <= partition_A_size && up_bound >= partition_B_size);
+
+	// intialization
+	int iteration = 0;
+	int gain = 0;
+	max_gain_ptr = 2*p_max;
+	num_solutions = 0;
+	free_cells = num_cells;
+
+	for(int i = 0; i < num_nets; i++)
+	{
+		nets[i].block_cells[BLK_A] = nets[i].block_cells_bak[BLK_A];
+		nets[i].block_cells[BLK_B] = nets[i].block_cells_bak[BLK_B];
+	}
+
+	InitCellGains();
+
+	int max_gain = 0;
+	int max_sol = -1;
+	//int max_balance = up_bound-low_bound;
+	double max_balance = up_bound-low_bound;
+	//int balanceRatio;
+
+	while(1)
+	{
+		if(free_cells == 0){
+			//printf("\n");
+			break;      // no free cells
+		}
+		//printf("iteration_%d\n", iteration);
+		//if(iteration % 10 == 0)
+			//printf(".");
+
+		// choose base_cell
+		int base_cell = -1;
+		int gain_index = -1;
+		list<int>::iterator Literator;
+
+		for(unsigned int i = max_gain_ptr; i < gain_bucket.size(); i++)
+		{
+			int j;
+			if(gain_bucket[i].size() == 0) continue;
+			for(Literator = gain_bucket[i].begin(), j = 0; Literator != gain_bucket[i].end(); Literator++, j++)
+			{
+				int cell_id = *Literator;
+				//if(!cells[cell_id].isFree) continue;
+				//unsigned int num_A = partition_A_size;
+				double num_A = partition_A_size;
+				if(cells[cell_id].block == BLK_A)
+					num_A -= cells[cell_id].area;//num_A--;
+				else
+					num_A += cells[cell_id].area;//num_A++;
+				//printf("low_bound = %.f\n", low_bound);
+				//printf("up_bound = %.f\n", up_bound);
+				//printf("|A| = %.f\n", num_A);
+				if(low_bound <= num_A && up_bound >= num_A) // check balance
+				{
+					base_cell = cell_id;
+					i = gain_bucket.size();
+					gain_index = j;
+					break;
+				}
+			}
+		}
+
+		if(base_cell == -1) break;      // no base cells
+
+		//printf("base_cell: %d\n", base_cell);
+
+		//if(cells[base_cell].gain < 0) break;
+
+		gain += cells[base_cell].gain;
+
+		// remove base_cell from gain_bucket
+		int bucket_index = p_max-cells[base_cell].gain;
+		gain_bucket[bucket_index].erase(cells[base_cell].gain_ptr);
+
+		UpdateCellGains(base_cell);
+		solutions[num_solutions] = FMSolution(gain, base_cell, partition_A_size, partition_B_size);
+
+		double balance = abs(partition_A_size - partition_B_size);
+		//int balance = abs((int)partition_A_size-(int)partition_B_size);
+		if(solutions[num_solutions].gain > max_gain || (solutions[num_solutions].gain == max_gain && balance < max_balance))
+		{
+			max_gain = solutions[num_solutions].gain;
+			max_balance = balance;
+			max_sol = num_solutions;
+		}
+
+		//printf("")
+		num_solutions++;
+		//PrintGainBucket();
+		//PrintPartitions();
+		iteration++;
+		//printf("\n");
+	}
+
+	// update cell's block
+	if(max_sol != -1 && max_gain > 0)
+	{
+		//printf("max gain: %d\n", max_gain);
+		//printf("max sol: %d\n", max_sol);
+
+		// update cell block
+		for(int i = 0; i <= max_sol; i++)
+		{
+			int cell_id = solutions[i].move_cell;
+			int from_block = cells[cell_id].block;
+			int to_block = (from_block+1)%2;
+
+			for(int j = 0; j < (int)cells[cell_id].netId.size(); j++)
+			{
+				nets[cells[cell_id].netId[j]].block_cells_bak[from_block]--;
+				nets[cells[cell_id].netId[j]].block_cells_bak[to_block]++;
+			}
+
+			cells[cell_id].block = to_block;
+			if(from_block == BLK_A)
+			{
+				partition_A.erase(cell_id);
+				partition_B.insert(cell_id);
+			}else
+			{
+				partition_B.erase(cell_id);
+				partition_A.insert(cell_id);
+			}
+		}
+	}
+        partition_A_size = (int)partition_A.size();
+        partition_B_size = (int)partition_B.size();
+
+        return max_gain;
+}
+
+/* Output Results */
+void FM_Partition::OutputResult(char* file_name)
+{
+        ofstream file_out;
+        file_out.open(file_name);
+
+        file_out << "max_imbalance = " << imbalance_ratio << endl;
+        file_out << "total_net = " << num_nets << endl;
+        file_out << "total_cell = " << num_cells << endl;
+        file_out << "total_pins = " << num_pins << endl;
+        file_out << "total_pass = " << pass << endl;
+        file_out << "run_time = " << run_time/(double)CLOCKS_PER_SEC << endl;
+        set<int>::iterator theIterator;
+
+        file_out << "|A| = " << partition_A.size() << endl;
+        file_out << "A = { ";
+        for(theIterator = partition_A.begin(); theIterator != partition_A.end(); theIterator++)
+        {
+                file_out << "c" << *theIterator << " ";
+        }
+        file_out << "}" << endl;
+
+        file_out << "|B| = " << partition_B.size() << endl;
+        file_out << "B = { ";
+        for(theIterator = partition_B.begin(); theIterator != partition_B.end(); theIterator++)
+        {
+                file_out << "c" << *theIterator << " ";
+        }
+        file_out << "}" << endl;
+
+        file_out << "cut_size = " << cut_size << endl;
+        file_out << "cut = { ";
+        for(int i = 0; i < cut_size; i++)
+                file_out << nets[cut[i]].name << " ";
+        file_out << " }" << endl;
+
+        file_out.close();
+}
+
+/*Main Partition Function*/
+int FM_Partition::Partition()
+{
+	init();
+	int gain = 0;
+	pass = 0;
+	do{
+		//printf("pass_%d\t", pass++);
+		gain = Par();
+		//printf("gain: %d\n", gain);
+		GetCutSize();
+	}while(gain > 0);
+	printf("\nFinal Cut Size: %d\n", cut_size);
+
+	return cut_size;
+}
+
+//end of FM partition

@@ -285,7 +285,7 @@ class CTetrisLegal
 	    m_free_sites = m_placedb.m_sites;
 	}
 	//Robust Macro Shifter
-	bool RobustMacroShifter( const double& macroFator, const bool& makeFixed );
+	//bool RobustMacroShifter( const double& macroFator, const bool& makeFixed );
 
 
     private:
@@ -377,6 +377,17 @@ class CTetrisLegal
     private:
 	//Added by Jin 20070716
 	void ReverseFreeSites(void);
+
+	public:
+	//Added by kaie 2009-07-11 layer by layer legalization
+	int m_layer;
+	bool m_bLayerByLayerLegal;
+	bool SolveLayerByLayer(const int nlayers,
+		const double& util,
+		const bool& bMacroLegal = false,
+		const bool& bRobust = false,
+		const double& stop_prelegal_factor = 0.85
+	);
 };
 
 

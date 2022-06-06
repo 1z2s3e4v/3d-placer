@@ -29,7 +29,7 @@ void Placer_C::run(){
     //true3d_placement();
 
     // update the HPWL
-    cal_HPWL();
+    //cal_HPWL();
 
     cout << BLUE << "[Placer]" << RESET << " - Finish!\n";
 }
@@ -53,8 +53,8 @@ void Placer_C::true3d_placement(){
     double wl1 = 0; // gp-wire
     part_time_start = (float)clock() / CLOCKS_PER_SEC;
     cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1]" << RESET << ": Global Placement.\n";
-    global_place(isLegal, wl1); /////////////////////////////////////////////// main function
-    //ntu_d2d_global();
+    //global_place(isLegal, wl1); /////////////////////////////////////////////// main function
+    ntu_d2d_global(isLegal, wl1);
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Global: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << wl1 << ".\n";
@@ -88,38 +88,50 @@ void Placer_C::global_place(bool& isLegal, double& totalHPWL){ // Analytical Glo
     rand_ball_place();
 
     // die0
-    CPlaceDB placedb_die0;
-    create_placedb(placedb_die0, 0);
-    set_ntuplace_param(placedb_die0);
+    CPlaceDB placedb;
+    create_placedb(placedb);
+    set_ntuplace_param(placedb);
+    // 3d
+    param.b3d = true;
+    param.nlayer = 2;
+    if(1){
+        placedb.m_totalLayer = param.nlayer;
+        placedb.m_sites3d.resize(placedb.m_totalLayer);
+        placedb.m_sites3d[0].resize(0);
+        double row_bottom = placedb.m_coreRgn.bottom;
+		double row_height = placedb.m_rowHeight;
+		double row_step = placedb.m_sites[0].m_step;
+		int count = 0;
+        while(true){
+		    if(row_bottom + row_height > placedb.m_coreRgn.top) break;
+		    placedb.m_sites3d[0].push_back(CSiteRow(row_bottom, row_height, row_step ));
+		    placedb.m_sites3d[0].back().m_interval.push_back(placedb.m_coreRgn.left);
+		    placedb.m_sites3d[0].back().m_interval.push_back(placedb.m_coreRgn.right);
+		    placedb.m_sites3d[0].back().m_macro = placedb.m_sites[0].m_macro;
+		    if(count %2 == 0)
+			    placedb.m_sites3d[0].back().m_orient = OR_FS;
+		    char row_name[256];
+		    sprintf(row_name, "CORE_ROW_%d", count);
+		    placedb.m_sites3d[0].back().m_name = string(row_name);
+		    row_bottom += row_height;
+		    count++;
+		}
+        for(int l = 1; l < placedb.m_totalLayer; l++)
+        	placedb.m_sites3d[l] = placedb.m_sites3d[0];
+    }
     //placedb.ShowDBInfo();
 	//CPlaceUtil::GetTotalOverlapArea( placedb ); // 2007-07-22 (donnie)
-    // if( 1 ){ // spreading
-	//     globalLocalSpreading( &placedb_die0, 1.01 );
-    // }
-    placedb_die0.RemoveFixedBlockSite();
-    isLegal = multilevel_nlp( placedb_die0, 5, 1.0 ); // multilevel_nlp(placedb, gCType, gWeightLevelDecreaingRate)
-    load_from_placedb(placedb_die0);
+    placedb.RemoveFixedBlockSite();
+    isLegal = multilevel_nlp( placedb, 5, 1.0 ); // multilevel_nlp(placedb, gCType, gWeightLevelDecreaingRate)
+    load_from_placedb(placedb);
 
-    // die1
-    CPlaceDB placedb_die1;
-    create_placedb(placedb_die1, 1);
-    //placedb.ShowDBInfo();
-	//CPlaceUtil::GetTotalOverlapArea( placedb ); // 2007-07-22 (donnie)
-    // if( 1 ){ // spreading
-	//     globalLocalSpreading( &placedb_die0, 1.01 );
-    // }
-    placedb_die0.RemoveFixedBlockSite();
-    isLegal = multilevel_nlp( placedb_die0, 5, 1.0 ); // multilevel_nlp(placedb, gCType, gWeightLevelDecreaingRate)
-    load_from_placedb(placedb_die0);
-    // rand_place(0);
-    // rand_place(1);
-    // rand_ball_place();
+    totalHPWL = cal_HPWL();
 }
 void Placer_C::legal_place(){
 }
 void Placer_C::detail_place(){
 }
-void Placer_C::ntu_d2d_global(){
+void Placer_C::ntu_d2d_global(bool& isLegal, double& totalHPWL){
     // partition
     if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
         mincut_partition();
@@ -130,40 +142,115 @@ void Placer_C::ntu_d2d_global(){
     rand_place(0);
     rand_place(1);
     rand_ball_place();
-    // run ntuplace (nolegal and nodetail) for die0
-    if(_pChip->get_die(0)->get_cells().size() > 0){
-        AUX aux0;
-        create_aux_form(aux0, 0, "die0");
-        add_project_pin(aux0, 1);
-        // check nets
-        aux0.remove_open_net();
-        aux0.write_files();
-        run_ntuplace3("die0", "-nolegal -nodetail -devdev");
-        read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
+    
+    // die0
+    CPlaceDB placedb_die0;
+    create_placedb(placedb_die0, 0);
+    set_ntuplace_param(placedb_die0);
+    if(1){
+        placedb_die0.m_totalLayer = param.nlayer;
+        placedb_die0.m_sites3d.resize(placedb_die0.m_totalLayer);
+        placedb_die0.m_sites3d[0].resize(0);
+        double row_bottom = placedb_die0.m_coreRgn.bottom;
+		double row_height = placedb_die0.m_rowHeight;
+		double row_step = placedb_die0.m_sites[0].m_step;
+		int count = 0;
+        while(true){
+		    if(row_bottom + row_height > placedb_die0.m_coreRgn.top) break;
+		    placedb_die0.m_sites3d[0].push_back(CSiteRow(row_bottom, row_height, row_step ));
+		    placedb_die0.m_sites3d[0].back().m_interval.push_back(placedb_die0.m_coreRgn.left);
+		    placedb_die0.m_sites3d[0].back().m_interval.push_back(placedb_die0.m_coreRgn.right);
+		    placedb_die0.m_sites3d[0].back().m_macro = placedb_die0.m_sites[0].m_macro;
+		    if(count %2 == 0)
+			    placedb_die0.m_sites3d[0].back().m_orient = OR_FS;
+		    char row_name[256];
+		    sprintf(row_name, "CORE_ROW_%d", count);
+		    placedb_die0.m_sites3d[0].back().m_name = string(row_name);
+		    row_bottom += row_height;
+		    count++;
+		}
+        for(int l = 1; l < placedb_die0.m_totalLayer; l++)
+        	placedb_die0.m_sites3d[l] = placedb_die0.m_sites3d[0];
     }
-    // run ntuplace (noglobal) for die1 
-    if(_pChip->get_die(1)->get_cells().size() > 0){
-        AUX aux1;
-        create_aux_form(aux1, 1, "die1");
-        add_project_pin(aux1, 0);
-        // check nets
-        aux1.remove_open_net();
-        aux1.write_files();
-        run_ntuplace3("die1", "-nolegal -nodetail");
-        read_pl_and_set_pos(_RUNDIR+"die1.ntup.pl", 1);
+    //placedb.ShowDBInfo();
+	//CPlaceUtil::GetTotalOverlapArea( placedb ); // 2007-07-22 (donnie)
+    placedb_die0.RemoveFixedBlockSite();
+    isLegal = multilevel_nlp( placedb_die0, 5, 1.0 ); // multilevel_nlp(placedb, gCType, gWeightLevelDecreaingRate)
+    load_from_placedb(placedb_die0);
+
+    // die1
+    CPlaceDB placedb_die1;
+    create_placedb(placedb_die1, 1);
+    set_ntuplace_param(placedb_die1);
+    if(1){
+        placedb_die1.m_totalLayer = param.nlayer;
+        placedb_die1.m_sites3d.resize(placedb_die1.m_totalLayer);
+        placedb_die1.m_sites3d[0].resize(0);
+        double row_bottom = placedb_die1.m_coreRgn.bottom;
+		double row_height = placedb_die1.m_rowHeight;
+		double row_step = placedb_die1.m_sites[0].m_step;
+		int count = 0;
+        while(true){
+		    if(row_bottom + row_height > placedb_die1.m_coreRgn.top) break;
+		    placedb_die1.m_sites3d[0].push_back(CSiteRow(row_bottom, row_height, row_step ));
+		    placedb_die1.m_sites3d[0].back().m_interval.push_back(placedb_die1.m_coreRgn.left);
+		    placedb_die1.m_sites3d[0].back().m_interval.push_back(placedb_die1.m_coreRgn.right);
+		    placedb_die1.m_sites3d[0].back().m_macro = placedb_die1.m_sites[0].m_macro;
+		    if(count %2 == 0)
+			    placedb_die1.m_sites3d[0].back().m_orient = OR_FS;
+		    char row_name[256];
+		    sprintf(row_name, "CORE_ROW_%d", count);
+		    placedb_die1.m_sites3d[0].back().m_name = string(row_name);
+		    row_bottom += row_height;
+		    count++;
+		}
+        for(int l = 1; l < placedb_die1.m_totalLayer; l++)
+        	placedb_die1.m_sites3d[l] = placedb_die1.m_sites3d[0];
     }
-    // run ntuplace for terminals
-    if(cal_ball_num() > 0){
-        AUX aux2;
-        create_aux_form_for_ball(aux2, "ball");
-        add_project_pin(aux2, 0);
-        add_project_pin(aux2, 1);
-        // check nets
-        aux2.remove_open_net();
-        aux2.write_files();
-        run_ntuplace3("ball");
-        read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
-    }
+    //placedb.ShowDBInfo();
+	//CPlaceUtil::GetTotalOverlapArea( placedb ); // 2007-07-22 (donnie)
+    // if( 1 ){ // spreading
+	//     globalLocalSpreading( &placedb_die0, 1.01 );
+    // }
+    placedb_die1.RemoveFixedBlockSite();
+    isLegal = multilevel_nlp( placedb_die1, 5, 1.0 ); // multilevel_nlp(placedb, gCType, gWeightLevelDecreaingRate)
+    load_from_placedb(placedb_die1);
+
+    // // run ntuplace (nolegal and nodetail) for die0
+    // if(_pChip->get_die(0)->get_cells().size() > 0){
+    //     AUX aux0;
+    //     create_aux_form(aux0, 0, "die0");
+    //     add_project_pin(aux0, 1);
+    //     // check nets
+    //     aux0.remove_open_net();
+    //     aux0.write_files();
+    //     run_ntuplace3("die0", "-nolegal -nodetail");
+    //     read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
+    // }
+    // // run ntuplace (noglobal) for die1 
+    // if(_pChip->get_die(1)->get_cells().size() > 0){
+    //     AUX aux1;
+    //     create_aux_form(aux1, 1, "die1");
+    //     add_project_pin(aux1, 0);
+    //     // check nets
+    //     aux1.remove_open_net();
+    //     aux1.write_files();
+    //     run_ntuplace3("die1", "-nolegal -nodetail");
+    //     read_pl_and_set_pos(_RUNDIR+"die1.ntup.pl", 1);
+    // }
+    // // run ntuplace for terminals
+    // if(cal_ball_num() > 0){
+    //     AUX aux2;
+    //     create_aux_form_for_ball(aux2, "ball");
+    //     add_project_pin(aux2, 0);
+    //     add_project_pin(aux2, 1);
+    //     // check nets
+    //     aux2.remove_open_net();
+    //     aux2.write_files();
+    //     run_ntuplace3("ball");
+    //     read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+    // }
+    totalHPWL = cal_HPWL();
 }
 void Placer_C::ntu_d2d_legal_detail(){
     // run ntuplace (noglobal) for die0
@@ -202,6 +289,10 @@ void Placer_C::ntu_d2d_legal_detail(){
     }
 }
 void Placer_C::set_ntuplace_param(CPlaceDB& placedb){
+    param.dLpNorm_P = min(param.dLpNorm_P, _pChip->get_width()/6);
+    // 3d
+    // param.b3d = true;
+    // param.nlayer = 2;
     // bShow >>
     // param.bPlot = true;
     // param.bShow = true;
@@ -252,6 +343,78 @@ void Placer_C::set_ntuplace_param(CPlaceDB& placedb){
     }
     if( param.bShow )
 	    param.Print();
+}
+void Placer_C::create_placedb(CPlaceDB& placedb){
+    // .scl
+    vector<CSiteRow> &vSites = placedb.m_sites;
+    for(int i=0;i<_pChip->get_die(0)->get_row_num();++i){
+        vSites.push_back( CSiteRow(i*_pChip->get_die(0)->get_row_height(),_pChip->get_die(0)->get_row_height(),1) );
+        vSites.back().m_interval.push_back(0);
+        vSites.back().m_interval.push_back(_pChip->get_die(0)->get_width());
+    }
+    placedb.m_rowHeight = _pChip->get_die(0)->get_row_height();
+    placedb.SetCoreRegion();
+    // .node
+    placedb.ReserveModuleMemory(_vCell.size());
+    vector<Cell_C*>& v_cell = _vCell;
+    for(Cell_C* cell : v_cell){
+        placedb.AddModule( cell->get_name(), cell->get_width(0), cell->get_height(0), false );
+        // for terminal: placedb.AddModule( name, w, h, true );
+        // for terminal_NI: placedb.AddModule( name, w, h, true, true );
+    }
+    placedb.m_nModules = _vCell.size(); //fplan.m_nModules = nNodes + nTerminals;
+    placedb.m_modules.resize( placedb.m_modules.size() );
+    placedb.CreateModuleNameMap();
+    // .nets
+    int nPins = 0;
+    for(Net_C* net : _vNet) 
+        nPins += net->get_pin_num();
+    placedb.ReserveNetMemory( _vNet.size() );
+    placedb.ReservePinMemory( nPins );
+    int nReadNets = 0;
+    for(Net_C* net : _vNet){
+        Net net_db;
+        vector<Pin_C*> v_pin = net->get_pins();
+        net_db.reserve( v_pin.size() );
+        for(int i=0;i<net->get_pin_num();++i){
+            int moduleId = placedb.GetModuleId( v_pin[i]->get_cell()->get_name() );
+            int xOff = v_pin[i]->get_x() - v_pin[i]->get_cell()->get_posX();
+            int yOff = v_pin[i]->get_y() - v_pin[i]->get_cell()->get_posY();
+            int pinId = placedb.AddPin( moduleId, xOff, yOff );
+            net_db.push_back( pinId );
+            // remove duplicated netsIds
+            bool found = false; 
+            for(unsigned int z = 0 ; z < placedb.m_modules[moduleId].m_netsId.size() ; z++ ){
+                if ( nReadNets == placedb.m_modules[moduleId].m_netsId[z] ){
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) placedb.m_modules[moduleId].m_netsId.push_back( nReadNets );
+        }
+        placedb.AddNet( net_db );
+        nReadNets++;
+    }
+    placedb.m_nPins = nPins;
+	placedb.m_nNets = _vNet.size();
+    placedb.m_pins.resize( placedb.m_pins.size() );
+    placedb.m_nets.resize( placedb.m_nets.size() );
+    // .pl
+    for(Cell_C* cell : v_cell){
+        int moduleId = placedb.GetModuleId( cell->get_name() );
+        placedb.SetModuleLocation( moduleId, cell->get_posX(), cell->get_posY());
+		placedb.SetModuleOrientation( moduleId, 0 ); // orientInt('N')=0
+    }
+    placedb.ClearModuleNameMap();
+
+    placedb.Init(); // set member variables, module member variables, "isOutCore"
+    double coreCenterX = (placedb.m_coreRgn.left + placedb.m_coreRgn.right ) * 0.5;
+	double coreCenterY = (placedb.m_coreRgn.top + placedb.m_coreRgn.bottom ) * 0.5;
+	for( unsigned int i = 0; i < placedb.m_modules.size(); i++ ){
+	    if( !placedb.m_modules[i].m_isFixed &&
+	    	 fabs(placedb.m_modules[i].m_x) < 1e-5 && fabs(placedb.m_modules[i].m_y) < 1e-5 )
+	    	placedb.MoveModuleCenter(i, coreCenterX, coreCenterY);
+	}
 }
 void Placer_C::create_placedb(CPlaceDB& placedb, int dieId){
     // .scl
@@ -343,7 +506,10 @@ void Placer_C::create_placedb(CPlaceDB& placedb, int dieId){
 void Placer_C::load_from_placedb(CPlaceDB& placedb){
     for( unsigned int i=0; i<placedb.m_modules.size(); i++ ){
         if( !placedb.m_modules[i].m_isFixed ){
-            _mCell[placedb.m_modules[i].GetName()]->set_pos(Pos(placedb.m_modules[i].GetX(), placedb.m_modules[i].GetY()));
+            _mCell[placedb.m_modules[i].GetName()]->set_xy(Pos(placedb.m_modules[i].GetX(), placedb.m_modules[i].GetY()));
+            if(param.b3d){
+                _mCell[placedb.m_modules[i].GetName()]->set_die(_pChip->get_die((int)placedb.m_modules[i].GetZ()));
+            }
         }
     }
 }
@@ -563,9 +729,11 @@ void Placer_C::pin3d_ntuplace(){
 }
 void Placer_C::ntu_d2dplace(){
     // init_place or partition
-    //order_place();
-    mincut_partition(); // set_die() for each cell
-    //mincut_k_partition();
+    if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
+        mincut_partition();
+    else 
+        mincut_k_partition();
+    cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
     rand_place(0);
     rand_place(1);
     rand_ball_place();
@@ -638,26 +806,29 @@ void Placer_C::mincut_partition(){
     //cout << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell)num = " << _pChip->get_die(1)->get_cells().size() << "\n";
 
     // move cells for matching die's max_utilization
-    long long int areaUsing = 0;
-    long long int max_usage = _pChip->get_width()*_pChip->get_height()*_pChip->get_die(0)->get_max_util();
+    // move cells for matching die's max_utilization
+    long long valid_area = (long long)_pChip->get_width() * (long long)_pChip->get_height() * _pChip->get_die(0)->get_max_util();
     Die_C* die = _pChip->get_die(0);
     vector<Cell_C*>& v_cell = die->get_cells();
-    for(Cell_C* cell : v_cell){
-        areaUsing += cell->get_width()*cell->get_height();
-    }
+    vector<int> v_cellId;
+    for(Cell_C* cell : v_cell)
+        v_cellId.emplace_back(cell->get_id());
     int count_move = 0;
-    while(areaUsing > max_usage){
-        Cell_C* cell = v_cell.back();
-        areaUsing -= cell->get_width()*cell->get_height();
-        cell->set_die(_pChip->get_die(1));
-        ++count_move;
+    for(int i=0;i<v_cellId.size();++i){
+        Cell_C* cell = _vCell[i];
+        long long cell_area = (long long)(cell->get_width()*cell->get_height());
+        if(valid_area > cell_area){
+            valid_area -= cell_area;
+        }else{
+            cell->set_die(_pChip->get_die(1));
+            ++count_move;
+        }
     }
-    if(count_move > 0) cout << BLUE << "[Placer]" << RESET << " - " << count_move << " cells moved from die1->die0 for max-util.\n";
-    //cout << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell)num = " << _pChip->get_die(1)->get_cells().size() << "\n";
+    if(count_move > 0) cout << BLUE << "[Partition]" << RESET << " - " << count_move << " cells moved from die1->die0.\n";
 }
 void Placer_C::mincut_k_partition(){
     int row_sum = _pChip->get_die(0)->get_row_num()+_pChip->get_die(1)->get_row_num();
-    int k_part = min(row_sum, 20);
+    int k_part = min(row_sum, 30);
     //int slice = round(((double)_pChip->get_die(1)->get_row_num()*_pChip->get_die(1)->get_max_util()) / ((double)_pChip->get_die(0)->get_row_num()*_pChip->get_die(0)->get_max_util()) * k_part) ;
     int slice = round(((double)_pChip->get_die(1)->get_row_num()) / ((double)_pChip->get_die(0)->get_row_num()) * k_part) ;
     HGR hgr(_RUNDIR, "circuit");
@@ -685,24 +856,27 @@ void Placer_C::mincut_k_partition(){
     //cout << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell)num = " << _pChip->get_die(1)->get_cells().size() << "\n";
     if(_pChip->get_die(0)->get_cells().size() == 0 || _pChip->get_die(1)->get_cells().size() == 0){
         mincut_partition();
+    }else{
+        // move cells for matching die's max_utilization
+        long long valid_area = (long long)_pChip->get_width() * (long long)_pChip->get_height() * _pChip->get_die(0)->get_max_util();
+        Die_C* die = _pChip->get_die(0);
+        vector<Cell_C*>& v_cell = die->get_cells();
+        vector<int> v_cellId;
+        for(Cell_C* cell : v_cell)
+            v_cellId.emplace_back(cell->get_id());
+        int count_move = 0;
+        for(int i=0;i<v_cellId.size();++i){
+            Cell_C* cell = _vCell[i];
+            long long cell_area = (long long)(cell->get_width()*cell->get_height());
+            if(valid_area > cell_area){
+                valid_area -= cell_area;
+            }else{
+                cell->set_die(_pChip->get_die(1));
+                ++count_move;
+            }
+        }
+        if(count_move > 0) cout << BLUE << "[Partition]" << RESET << " - " << count_move << " cells moved from die1->die0.\n";
     }
-    //cout << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell)num = " << _pChip->get_die(1)->get_cells().size() << "\n";
-    // move cells for matching die's max_utilization
-    long long int areaUsing = 0;
-    long long int max_usage = _pChip->get_width()*_pChip->get_height()*_pChip->get_die(0)->get_max_util();
-    Die_C* die = _pChip->get_die(0);
-    vector<Cell_C*>& v_cell = die->get_cells();
-    for(Cell_C* cell : v_cell){
-        areaUsing += cell->get_width()*cell->get_height();
-    }
-    int count_move = 0;
-    while(areaUsing > max_usage){
-        Cell_C* cell = v_cell.back();
-        areaUsing -= cell->get_width()*cell->get_height();
-        cell->set_die(_pChip->get_die(1));
-        ++count_move;
-    }
-    if(count_move > 0) cout << BLUE << "[Partition]" << RESET << " - " << count_move << " cells moved from die1->die0.\n";
 }
 void Placer_C::init_place_ball(){
     int ball_curX = _pChip->get_ball_spacing();

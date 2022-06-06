@@ -22,8 +22,10 @@ public:
     CPlaceBin( CPlaceDB& );
     CPlaceBin();
 
-    void   CreateGrid( int binNumberX, int binNumberY );
-    void   CreateGrid( double binWidth, double binHeight );
+    // void   CreateGrid( int binNumberX, int binNumberY );
+    // void   CreateGrid( double binWidth, double binHeight );
+    void   CreateGrid( int binNumber );
+    void   CreateGrid( double binWidth );
 
     //Brian 2007-05-06
 
@@ -100,7 +102,8 @@ class CGreedyRefinement
 
 	void CreateBlockList();
 
-	void CreateGrid( int gridHNumber, int gridVNumber );
+	// void CreateGrid( int gridHNumber, int gridVNumber );
+    void CreateGrid( int gridNumber );
 
 	void RefineBlocks();
 	bool RefineBlock( int blockId );

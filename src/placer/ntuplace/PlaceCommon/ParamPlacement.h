@@ -168,6 +168,9 @@ public:
     //Added by Jin 20081013
     bool bTiming;
 
+    // Added by Frank 20220605
+    bool b3d;
+    int nlayer;
 };
 
 extern CParamPlacement param;	// global variable

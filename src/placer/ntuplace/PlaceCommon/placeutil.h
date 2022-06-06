@@ -25,6 +25,8 @@ class CPlaceDBScaling
 	static void XScale( CPlaceDB&, const double& scale );
 	static void YShift( CPlaceDB&, const double& shift );
 	static void YScale( CPlaceDB&, const double& scale );
+	static void ZShift( CPlaceDB&, const double& shift );
+	static void ZScale( CPlaceDB&, const double& scale );
 };
 
 class CPlaceFlipping
@@ -92,14 +94,6 @@ class CMatrixPlotter
 		double limit=0,
 	        bool scale=false,
 		double limitBase=0 );
-	static void OutputGnuplotFigure( 
-		const vector< vector< float > >&, 
-		const char* filename, 
-		string title="", 
-		float limit=0,
-	        bool scale=false,
-		float limitBase=0 );
-
 };
 
 // 2007-02-07 (donnie)

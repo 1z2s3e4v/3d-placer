@@ -56,8 +56,10 @@ void CClustering::declustering(  CPlaceDB& dbsmall, CPlaceDB& dblarge,bool isPer
 
 			double rdx = dbsmall.m_modules[i].m_cx;
 			double rdy = dbsmall.m_modules[i].m_cy;
+			double rdz = dbsmall.m_modules[i].m_cz;
 			rdx += ( (rand() % 10000) / 10000.0 - 0.5 ) * shift;
 			rdy += ( (rand() % 10000) / 10000.0 - 0.5 ) * shift;
+			//rdz += ( (radn() % 10000) / 10000.0 - 0.5 ) * shift;
 
 			// 2006-10-7 (donnie) bound positions
 			if( rdx > dblarge.m_coreRgn.right )
@@ -68,11 +70,15 @@ void CClustering::declustering(  CPlaceDB& dbsmall, CPlaceDB& dblarge,bool isPer
 			    rdy = dblarge.m_coreRgn.top;
 			else if( rdy < dblarge.m_coreRgn.bottom )
 			    rdy = dblarge.m_coreRgn.bottom;
+			if( rdz > dblarge.m_front )
+			    rdz = dblarge.m_front;
+			else if( rdz < dblarge.m_back )
+			    rdz = dblarge.m_back;
 
 			dblarge.SetModuleOrientation(m_hierarchy[i][j], dbsmall.m_modules[i].m_orient);//indark MPTree rotation
-			dblarge.MoveModuleCenter( m_hierarchy[i][j], rdx, rdy ); // by donnie
+			//dblarge.MoveModuleCenter( m_hierarchy[i][j], rdx, rdy ); // by donnie
+			dblarge.MoveModuleCenter( m_hierarchy[i][j], rdx, rdy, rdz ); // (kaie) 2009-09-12 z
 			dblarge.m_modules[ m_hierarchy[i][j] ].m_isFixed = dbsmall.m_modules[i].m_isFixed;  // donnie
-
 
 			if(preFix==true)
 			{

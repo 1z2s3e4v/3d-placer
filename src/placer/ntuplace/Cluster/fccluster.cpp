@@ -92,6 +92,7 @@ void CFCClustering::declustering(CPlaceDB& dbsmall, CPlaceDB& dblarge,bool isPer
 					dblarge.MoveModuleCenter(m_hierarchy[i][j],rdx,rdy);	// debug by donnie
 					++declusterMove;
 				}
+				dblarge.m_modules[m_hierarchy[i][j]].m_z = dbsmall.m_modules[i].m_z;
 			}
 		}
 	}
@@ -889,7 +890,7 @@ void CClusterDB::placeDbOut()
 	//--------------------------------------------------------------------
 	// 2. update m_pDB->m_net, remove unnecessary net and unnecessary pin
 	//--------------------------------------------------------------------
-	vector<Net> newNetList; // (kaie) Decrease net size by removing unnecessary nets from DB
+	//vector<Net> newNetList; // (kaie) Decrease net size by removing unnecessary nets from DB
 	for(unsigned int i=0; i<this->m_nets.size(); ++i)
 	{
 		if(m_nets[i].size()<2)
@@ -902,7 +903,7 @@ void CClusterDB::placeDbOut()
 				//@test code
 				m_isPinExist[m_pDB->m_nets[i][j]]=false;  //remove pins
 			}
-			//m_pDB->m_nets[i].clear();
+			m_pDB->m_nets[i].clear();
 		}
 		else //remove redundant pin (prevent 1 net has more than 1 pin in a module)
 		{
@@ -926,11 +927,11 @@ void CClusterDB::placeDbOut()
 				}
 
 			}
-			//m_pDB->m_nets[i]=newPinList;
-			newNetList.push_back(newPinList);
+			m_pDB->m_nets[i]=newPinList;
+			//newNetList.push_back(newPinList);
 		}
 	}
-	m_pDB->m_nets = newNetList;
+	//m_pDB->m_nets = newNetList;
 
 
 	//--------------------------------------------------------------------

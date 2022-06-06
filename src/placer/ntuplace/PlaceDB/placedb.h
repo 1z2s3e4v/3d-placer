@@ -21,6 +21,15 @@ Placement Database
 #include <cassert>
 #include <set>
 
+// kaie
+#include <set>
+#include <cassert>
+#include <cmath>
+#include <list>
+#include <bitset>
+#include <cstring>
+//
+
 using namespace std;
  
 
@@ -91,6 +100,10 @@ public:
 	double m_height;        // The height of this row of sites
 	double m_step;		//The minimum x step of row.	by indark
 
+    float  m_z;		// (kaie) 2009-07-05  The layer number of this row of sites 
+	string m_name;		// (kaie) 2009-12-04
+	string m_macro;		// (kaie) 2009-12-04
+
 	std::vector<double> m_interval;
 	ORIENT m_orient;	// donnie 2006-04-23  N (0) or S (1)
 };
@@ -143,9 +156,11 @@ class Module
 	    Init();
 	    m_x = (float)0.0;
 	    m_y = (float)0.0;
+        m_z = (float)0.0;
 	    m_name    = name;
 	    m_width   = width;
 	    m_height  = height;
+        m_thickness = (float)1.0;
 	    m_area    = width*height;
 	    m_isFixed = isFixed;
         m_isNI    = isNI; // 2022-05-13 (frank)
@@ -171,20 +186,26 @@ class Module
 	{ 
 	    m_cx = m_x + (float)0.5 * m_width;
 	    m_cy = m_y + (float)0.5 * m_height;
+        m_cz = m_z + (float)0.5 * m_thickness;
 	}
 
 	string GetName()		{ return m_name; } 
 	float GetWidth()		{ return m_width; }
 	float GetHeight()		{ return m_height; }
+    float GetThickness()		{ return m_thickness; }
 	float GetX()			{ return m_x; }
 	float GetY()			{ return m_y; }
+    float GetZ()			{ return m_z; }	//(kaie) 2009-07-05 vertical position
+	void  SetZ(const float _z)	{ m_z = _z; }
 	float GetArea()			{ return m_area; }
 	short int GetOrient()		{ return m_orient; }
 
 	float  m_x, m_y;
 	float  m_cx, m_cy;
+    float  m_z, m_cz; //(kaie) 2009-07-05 vertical position
 	string m_name;
 	float  m_width, m_height;
+    float  m_thickness;
 	float  m_area;
 	char   m_orient;	    // 2005-10-20 (donnie) current orientation  2007-07-17 (donnie) save memory
 	//short int m_orient;	    // 2005-10-20 (donnie) current orientation
@@ -256,6 +277,7 @@ class CPlaceDB
 
     void AddNet( Net n );
     void AddNet( Net n, const char* name );
+    void AddNet( Net n, const char* name, bool isPin );
     void AddNet( set<int> n );
     int AddPin( const int& moduleId, const float& xOff, const float& yOff, 
 	    const int dir = PIN_DIRECTION_UNDEFINED );
@@ -275,6 +297,13 @@ class CPlaceDB
     double GetHPWL()	{ return m_HPWL;   }
     double GetHPWLp2p()	{ return m_HPWLp2p;   }
     double GetHPWLdensity( double util );
+
+    // kaie 2009-11-25
+    void CalcModuleLeftBottomLocation( const int& id );
+    void SetModuleOrientationCenter( const int& moduleId, const int& orient );
+    void SetModuleOrientationBest(bool macroonly);
+    double CalcHPWLModule( const int& id );
+    // @kaie 2009-11-25
     
     // 2006-05-23 (donnie) X-Arch
     double CalcXHPWL();
@@ -311,6 +340,21 @@ class CPlaceDB
     // 	{ OutputGnuplotFigureWithZoom(filename,withCellMove,false,false,true,true); }
     // void OutputAstroDump( const char* filename );
 
+    // // (kaie) 2009-07-05 3D ICs
+    // void OutputGnuplotFigure3D( const char* filename, bool withCellMove, bool showMsg, bool outputlayer = false)
+    // 	{
+	//     OutputGnuplotFigureWithZoom3D(filename, withCellMove, showMsg, false);
+	//     if(outputlayer)
+	// 	for(int layer = 0; layer < m_totalLayer; layer++)
+	// 	{
+	// 	    char filename_layer[1000];
+	// 	    sprintf(filename_layer, "%s.3d-%d.plt", filename, layer);
+	// 	    OutputGnuplotFigureWithZoom3DByLayer(filename_layer, withCellMove, showMsg, false, layer); 
+	//     	}
+	// }
+    // void OutputGnuplotFigureWithZoom3D( const char* filename, bool withCellMove, bool showMsg, bool withZoom, bool withOrient = true, bool withPin = false, bool bNets = false );
+    // void OutputGnuplotFigureWithZoom3DByLayer( const char* filename, bool withCellMove, bool showMsg, bool withZoom, int layer, bool withOrient = true, bool withPin = false, bool nNets = false);
+
     double GetFixBlockArea( const double& left, const double& bottom, const double& right, const double& top );
 
     inline vector<int> GetModulePins( const int id );
@@ -319,7 +363,16 @@ class CPlaceDB
     void CalcModuleCenter( const int& id );
     void GetModuleCenter( const int& id, double& x, double& y );
     void SetModuleLocation( const int& id, float x, float y );
+    void SetModuleLocation( const int& id, float x, float y, float z ) // gnr
+    {
+        assert(id<(int)m_modules.size());
+        m_modules[id].m_x = x;
+        m_modules[id].m_y = y;
+        m_modules[id].m_z = z;
+        m_modules[id].CalcCenter();
+    }
     bool MoveModuleCenter( const int& id, float cx, float cy );
+    bool MoveModuleCenter( const int& id, float cx, float cy, float cz ); // (kaie) 3d
 
     // Pin ================================
     void UpdatePinPosition();	// 2006-10-01 update pin positions according to current module positions
@@ -342,6 +395,14 @@ class CPlaceDB
 	x = m_pins[pid].absX;
 	y = m_pins[pid].absY;
     }
+    // (kaie) 2009-09-16
+    void GetPinLocation( const int& pid, double &x, double &y, double &z) const
+    {
+	x = m_pins[pid].absX;
+	y = m_pins[pid].absY;
+	z = m_modules[m_pins[pid].moduleId].m_z;
+    }
+    // @(kaie) 2009-09-16
     string GetPinName( int pid )
     {
 	return m_pins[pid].pinName;
@@ -371,29 +432,29 @@ class CPlaceDB
 
     // 2006-03-06
     void SetAllBlockMovable();
-    // (kaie) 2009-06-25
-    void CalcModuleLeftBottomLocation( const int& id );
-    void SetModuleOrientationCenter( const int& moduleId, const int& orient );
-    vector<int> FixedBlockSet;
-    void RestoreFixedBlocks();
-    void SetMacroFixed( const double ratio);
-    class SortCompareModules
-    {
-	public:
-	    static std::vector<Module>* m_pMod;
-	    static bool asending;
-	    bool operator() ( const int& m1, const int& m2 )
-	    {
-		if(asending)
-	    	    return (*m_pMod)[m1].m_area < (*m_pMod)[m2].m_area;
-		else
-		    return (*m_pMod)[m1].m_area > (*m_pMod)[m2].m_area;
-	    }
-    };
-    void SetModuleOrientationBest(bool macroonly, bool rotate, bool flip);
-    void SetModuleNoFlip();
-    double CalcHPWLModule( const int& id );
-    // @(kaie) 2009-06-25
+    // // (kaie) 2009-06-25
+    // void CalcModuleLeftBottomLocation( const int& id );
+    // void SetModuleOrientationCenter( const int& moduleId, const int& orient );
+    // vector<int> FixedBlockSet;
+    // void RestoreFixedBlocks();
+    // void SetMacroFixed( const double ratio);
+    // class SortCompareModules
+    // {
+	// public:
+	//     static std::vector<Module>* m_pMod;
+	//     static bool asending;
+	//     bool operator() ( const int& m1, const int& m2 )
+	//     {
+	// 	if(asending)
+	//     	    return (*m_pMod)[m1].m_area < (*m_pMod)[m2].m_area;
+	// 	else
+	// 	    return (*m_pMod)[m1].m_area > (*m_pMod)[m2].m_area;
+	//     }
+    // };
+    // void SetModuleOrientationBest(bool macroonly, bool rotate, bool flip);
+    // void SetModuleNoFlip();
+    // double CalcHPWLModule( const int& id );
+    // // @(kaie) 2009-06-25
     
     // 2005-12-02 (donnie)
 public:
@@ -431,6 +492,7 @@ public:
     //vector<double> m_netsWeight;    // 2006-01-10 (donnie)
     vector<float> m_netsWeight;    // 2006-01-10 (donnie)
     vector<string> m_netsName;	    // 2006-4-1 (donnie)
+    vector<bool> m_netsIsPin;		// kaie 2009-11-18
     vector<Pin> m_pins;
     vector<Pin> m_pins_bak;
     vector<Pin> m_pins_bak_best;
@@ -458,6 +520,26 @@ public:
 public:
     vector<CSiteRow> m_sites;
     //@Added by Jin
+
+    //Added by kaie 3D ICs
+    int m_layer;
+    int m_totalLayer;
+    double m_front;
+    double m_back;
+    double m_totalModuleVolumn;
+    double m_totalMovableModuleVolumn;
+    vector< vector<CSiteRow> > m_sites3d;
+    vector< vector<int> >m_modules3d;
+    void Folding2();
+    void Folding4();
+    int TSVlefid;
+    float TSVwidth;
+    float TSVheight;
+    float TSVarea;
+    double CalcTSV();
+    int totalTSVcount;
+    int GetTSVcount()	{ return totalTSVcount; }
+    //@Added by kaie
 
     void AdjustCoordinate();
     void CheckRowHeight(double row_height);
@@ -571,6 +653,16 @@ public:
     //Added by Jin 20081013
     TimingAnalysis* m_pTimingAnalysis;
 
+    //Added by kaie 20091112
+    void LayerAssignmentByPartition(const int layer);
+
+    //Added by kaie 20100301
+    void ResizeCoreRegion3d(const double wsratio);
+
+    //Added by kaie 20100302
+    void AdjustStandardCellOrientation();
+    void AdjustNetConnection();
+
 };
 
 
@@ -668,5 +760,106 @@ vector<int> CPlaceDB::GetModuleNets( const int& i )
 {
     return m_modules[i].m_netsId;
 }
+
+/*FM Partition*/ //(kaie) 2009-11-11
+
+struct FMNet
+{
+public:
+	int id;
+	string name;
+	vector<int> cellId;	// connected cell list
+	
+	int block_cells[2];	// count for connected cells in two blocks
+	int block_cells_bak[2];	// backup
+};
+
+enum Block{BLK_A, BLK_B};
+
+struct FMCell
+{
+public:
+	int id;
+	int placeId;
+	vector<int> netId;	// connected net list
+
+	bool isFree;	// locked or unlocked
+	int gain;	// cell gain
+	bool block;	// associated block
+	double area;
+
+	list<int>::iterator gain_ptr;	// pointer to gain bucket
+};
+
+struct FMSolution
+{
+        FMSolution(){};
+        FMSolution(const int _gain, const int _cell, const double A_size, const double B_size)
+                :gain(_gain), move_cell(_cell), part_A_size(A_size), part_B_size(B_size){};
+        ~FMSolution(){};
+
+        int gain;       // solution gain
+        int move_cell;  // moved cell
+        double part_A_size;
+        double part_B_size;
+};
+
+class FM_Partition
+{
+public:
+	// Parsing
+	inline void Parsing(char*);
+	FM_Partition(CPlaceDB& placedb, vector<int> pmodules);
+	~FM_Partition(void){}
+
+	// Debugging
+	void PrintNets();
+	void PrintCells();
+	void PrintGainBucket();
+	void PrintPartitions();
+
+	// Partition
+	void init();
+	void InitCellGains();
+	void UpdateCellGains(int);
+	int Par();
+	int Partition(); // main partition function
+
+	// Output
+	void OutputResult(char*);
+
+	// Data
+	double imbalance_ratio;
+	vector<FMNet> nets;
+        int num_nets;
+        vector<FMCell> cells;
+        int num_cells;
+        int free_cells;
+        int num_pins;
+        int pass;
+
+	// Cut-Size
+	int cut_size;
+	vector<int> cut;
+	int GetCutSize();
+
+	// Gain Bucket
+	int p_max, p_min;
+	void UpdateGainBucket(int, int, int);
+	vector<list<int> > gain_bucket;
+	int max_gain_ptr;       // pointer to max-gain
+
+	// Partitions
+	set<int> partition_A, partition_B;
+	//int partition_A_size, partition_B_size;
+	double partition_A_size, partition_B_size;
+	//unsigned int low_bound, up_bound;
+	double low_bound, up_bound;
+	int num_solutions;
+	vector<FMSolution> solutions;
+
+	// Run Time
+	clock_t run_time;
+};
 
 #endif

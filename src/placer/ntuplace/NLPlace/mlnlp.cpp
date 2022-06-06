@@ -10,6 +10,7 @@
 #include "../PlaceCommon/placebin.h"
 //#include "WhiteSpaceAllocation.h"
 //#include "macrosp.h"
+#include "../PlaceCommon/placeutil.h"
 
 //Added by Jin 20070306
 //#include "FixedPointMethod.h"
@@ -41,7 +42,7 @@ bool multilevel_nlp( CPlaceDB& placedb,
     double ratio = 5;
     int maxLevel = INT_MAX;
     
-    if( gArg.IsDev() )
+    if( param.bShow )
     {
 	gArg.GetInt( "maxLevel",  &maxLevel );
 	gArg.GetInt( "cblock",    &targetBlock );
@@ -56,13 +57,10 @@ bool multilevel_nlp( CPlaceDB& placedb,
 	printf( "\n" );	
     }
     
-    if( !gArg.CheckExist("loadpl") )
-    {
 	printf( "Set all module orient N\n" );
 	for( unsigned int i = 0; i < placedb.m_modules.size(); i++ )
 	    if( placedb.m_modules[i].m_isFixed == false )
 	    	placedb.SetModuleOrientation( i, 0 );
-    }
    
     int levels = 0;
 
@@ -80,7 +78,7 @@ bool multilevel_nlp( CPlaceDB& placedb,
     int expLevel = (int)ceil( log( static_cast<double>(currentBlock) / targetBlock ) / log( ratio ) ) + 1;
     if( expLevel < 0 )
 	expLevel = 0;
-    if( gArg.IsDev() )
+    if( param.bShow )
     {
 	printf( "Expect level # = %d\n", expLevel );
 	if( maxLevel < 200 )
@@ -133,12 +131,12 @@ bool multilevel_nlp( CPlaceDB& placedb,
 	levelTargetOver[i] = start_density - ( start_density - final_target_density ) * (currentLevel) / (totalLevels);
 	levelSmoothDelta[i] = startSmoothDelta - ( startSmoothDelta - finalSmoothDelta ) * (currentLevel) / (totalLevels); 
 
-	if( gArg.IsDev() )
+	if( param.bShow )
 	    printf( "Level %d\tBlock %d\tPin %d\tDelta %.3f\tOver %.3f\n", 
 		    i+1, (int)placedb_clustered[levels-i-1].m_modules.size(), 
 		    (int)placedb_clustered[levels-i-1].m_pins.size(), levelSmoothDelta[i], levelTargetOver[i] );	
     }
-    if( gArg.IsDev() )
+    if( param.bShow )
 	printf( "Level %d\tBlock %d\tPin %d\tDelta %.3f\tOver %.3f\n\n", 
 		levels+1, (int)placedb.m_modules.size(), 
 		(int)placedb.m_pins.size(),
@@ -155,21 +153,22 @@ bool multilevel_nlp( CPlaceDB& placedb,
     if( fixedNum == 0 )
 	param.bQP = false; // cannot use QP
     
-    if( !gArg.CheckExist("loadpl") && param.bRunInit )
-    {
-    	vector<int> fixId;
-	/*for( unsigned int i = 0; i < currentDB->m_modules.size(); i++ )
+    // if( !gArg.CheckExist("loadpl") && param.bRunInit )
+    // {
+    // 	vector<int> fixId;
+	// /*for( unsigned int i = 0; i < currentDB->m_modules.size(); i++ )
+	// {
+	//     if( !currentDB->m_modules[i].m_isCluster )
+	//     {
+	//     	currentDB->m_modules[i].m_isFixed = true;
+	// 	fixId.push_back(i);
+	//     }
+	// }*/
+    // 	//if( param.bQP )
+    // 	if(param.bQP || fixId.size() != 0)
+	if(param.bQP)
 	{
-	    if( !currentDB->m_modules[i].m_isCluster )
-	    {
-	    	currentDB->m_modules[i].m_isFixed = true;
-		fixId.push_back(i);
-	    }
-	}*/
-    	//if( param.bQP )
-    	if(param.bQP || fixId.size() != 0)
-	{
-		cout << "*************************************** frank: close because QP not yet...\n";
+		cout << "*************************************** frank: closed because QP not yet...\n";
 	    /*printf( "Solve QP (MEM= %.0f MB)\n", GetPeakMemoryUsage() );
 	    fflush( stdout );
 	
@@ -194,8 +193,9 @@ bool multilevel_nlp( CPlaceDB& placedb,
 	    pqplace = NULL;
 	
 	    currentDB->m_coreRgn = oldCore;*/
-    	}//else
-	//{
+    }
+	else
+	{
 	    // random place
 	    //CRandomPlace::Place( *currentDB, 0.1 );
 	    //CRandomPlace::Place( *currentDB, 0.01 );
@@ -210,14 +210,52 @@ bool multilevel_nlp( CPlaceDB& placedb,
 	    mynlp->MySolve( 1, levelTargetOver[0], 0 );
 	    delete mynlp;
 	    mynlp = NULL;*/
-	//}
+		//CRandomPlace::Place( *currentDB, 0.01 );
+	}
 
-	for(unsigned int i = 0; i < fixId.size(); i++)
-	    currentDB->m_modules[fixId[i]].m_isFixed = false;
-    }
-    if( gArg.IsDev() ) 
+	// for(unsigned int i = 0; i < fixId.size(); i++)
+	//     currentDB->m_modules[fixId[i]].m_isFixed = false;
+    // }
+	//CPlaceDBScaling::XScale( placedb, 1.0/xScale );
+    //CPlaceDBScaling::YScale( placedb, 1.0/yScale );
+    
+    // transform to 3d
+    if( param.b3d ){
+		printf("transform to 3d...\n");
+		currentDB->m_totalLayer = param.nlayer;
+	    //currentDB->Folding2();
+	    //
+
+		double layerThickness = (currentDB->m_front - currentDB->m_back) / (double)(currentDB->m_totalLayer);
+		if(currentDB->m_totalLayer > 1){
+			currentDB->LayerAssignmentByPartition(currentDB->m_totalLayer);
+		}
+                    
+	    for(unsigned int i = 0; i < currentDB->m_modules.size(); i++)
+	    {
+		currentDB->m_modules[i].m_cz = currentDB->m_modules[i].m_z + 0.5 * layerThickness;
+		//currentDB->m_modules[i].m_z = (int)(0.5 * currentDB->m_totalLayer) * layerThickness;
+	    }
+	    currentDB->CalcTSV();
+	    //printf("#TSV: %d\n", (int)currentDB->GetTSVcount());
+	    fprintf( stderr, "#TSV: %d\n", (int)currentDB->GetTSVcount());
+	    
+	    double core_area = (currentDB->m_coreRgn.right-currentDB->m_coreRgn.left) * (currentDB->m_coreRgn.top-currentDB->m_coreRgn.bottom);
+	    vector<double> totalArea3d;
+	    totalArea3d.resize(currentDB->m_totalLayer, 0.0);
+	    for(unsigned int i = 0; i < currentDB->m_modules.size(); i++)
+	    	totalArea3d[(int)currentDB->m_modules[i].m_z] += currentDB->m_modules[i].m_area;
+	    for(int l = 0; l < currentDB->m_totalLayer; l++)
+		    printf("Layer%d: %.2f(%.2f/%.2f)\n", l, totalArea3d[l] / core_area, totalArea3d[l], core_area);
+	    //double layerThickness = (currentDB->m_front - currentDB->m_back) / currentDB->m_totalLayer;
+	    //for(unsigned int i = 0; i < currentDB->m_modules.size(); i++)
+		    //currentDB->m_modules[i].m_z *= layerThickness;
+    }else
+	    currentDB->m_totalLayer = 1;
+
+    if( param.bShow ) 
     {
-	printf( "\n block= %d, net= %d, pin= %d, MEM= %.0f MB\n", (int)currentDB->m_modules.size(),
+		printf( "\n block= %d, net= %d, pin= %d, MEM= %.0f MB\n", (int)currentDB->m_modules.size(),
 		(int)currentDB->m_nets.size(), (int)currentDB->m_pins.size(), GetPeakMemoryUsage() );
     }
 
@@ -228,9 +266,9 @@ bool multilevel_nlp( CPlaceDB& placedb,
     double weightWire = param.weightWire;
    
     double legalHeight = DBL_MAX;
-    double legalArea = DBL_MAX;
-    bool bUseMacroArea = gArg.CheckExist("MacroAreaRatio");
-    bool bMacroShifter = false;
+    // double legalArea = DBL_MAX;
+    // bool bUseMacroArea = gArg.CheckExist("MacroAreaRatio");
+    // bool bMacroShifter = false;
     
     while( levels > 0 )
     {
@@ -243,41 +281,55 @@ bool multilevel_nlp( CPlaceDB& placedb,
         currentDB->RemoveFixedBlockSite(); //indark 20070411
 	// 2006-06-01 (donnie) fix large blocks ///////////////////
 	vector<int> setFixId;
-	if(((bUseMacroArea && legalArea < DBL_MAX) || (!bUseMacroArea && legalHeight < DBL_MAX)) && bMacroShifter)
+	// if(((bUseMacroArea && legalArea < DBL_MAX) || (!bUseMacroArea && legalHeight < DBL_MAX)) && bMacroShifter)
+	// {
+	//     if( !gArg.CheckExist("noFixMacro") )
+	//     {
+	//     	for( unsigned int i=0; i<currentDB->m_modules.size(); i++ )
+	//     	{
+	// 	    if( currentDB->m_modules[i].m_isFixed == false &&
+	// 	    	( (!bUseMacroArea && currentDB->m_modules[i].m_height > legalHeight ) ||
+	// 		  (bUseMacroArea && currentDB->m_modules[i].m_height > currentDB->m_rowHeight &&
+	// 				    currentDB->m_modules[i].m_area > legalArea) ) )
+	// 	    {
+	// 	    	setFixId.push_back( i );
+	// 	    	currentDB->m_modules[i].m_isFixed = true;
+	// 	    }
+	//     	}
+	//     }
+	//     if( param.bShow )
+	//     {
+	// 	if(!bUseMacroArea)
+	// 	    printf( "LEVEL %d  Height= %f  Fix #= %d\n", currentLevel, legalHeight, (int)setFixId.size() );
+	// 	else
+	// 	    printf( "LEVEL %d  Area= %f  Fix #= %d\n", currentLevel, legalArea, (int)setFixId.size() );
+	//     }
+	// }
+	if( legalHeight < DBL_MAX )
 	{
-	    if( !gArg.CheckExist("noFixMacro") )
+	    for( unsigned int i=0; i<currentDB->m_modules.size(); i++ )
 	    {
-	    	for( unsigned int i=0; i<currentDB->m_modules.size(); i++ )
-	    	{
-		    if( currentDB->m_modules[i].m_isFixed == false &&
-		    	( (!bUseMacroArea && currentDB->m_modules[i].m_height > legalHeight ) ||
-			  (bUseMacroArea && currentDB->m_modules[i].m_height > currentDB->m_rowHeight &&
-					    currentDB->m_modules[i].m_area > legalArea) ) )
-		    {
-		    	setFixId.push_back( i );
-		    	currentDB->m_modules[i].m_isFixed = true;
-		    }
-	    	}
+		if( currentDB->m_modules[i].m_isFixed == false && currentDB->m_modules[i].m_height > legalHeight )
+		{
+		    setFixId.push_back( i );
+		    currentDB->m_modules[i].m_isFixed = true;
+		}
 	    }
-	    if( gArg.IsDev() )
-	    {
-		if(!bUseMacroArea)
-		    printf( "LEVEL %d  Height= %f  Fix #= %d\n", currentLevel, legalHeight, (int)setFixId.size() );
-		else
-		    printf( "LEVEL %d  Area= %f  Fix #= %d\n", currentLevel, legalArea, (int)setFixId.size() );
-	    }
+	    if( param.bShow )
+		printf( "LEVEL %d  Height= %f  Fix #= %d\n", currentLevel, legalHeight, setFixId.size() );
 	}
 	
 	MyNLP* mynlp = new MyNLP( *currentDB );
 	mynlp->m_smoothDelta = levelSmoothDelta[currentLevel-1];
+	////mynlp->m_useBellPotentialForPreplaced = true;
         mynlp->m_earlyStop = true;	
 	mynlp->m_lookAheadLegalization = false;
-	mynlp->m_macroRotate = false;
-	mynlp->m_prototype = true;
-	if( param.bUseMacroRT ) mynlp->m_macroRotate = true; // (kaie) macro rotating
-	mynlp->m_weightedForce = false;
-	if( gArg.CheckExist("wf1") ) mynlp->m_weightedForce = true;
-	if( gArg.IsDev() )
+	// mynlp->m_macroRotate = false; // removed in 3d but don't know why yet
+	// mynlp->m_prototype = true; // removed in 3d but don't know why yet
+	// if( param.bUseMacroRT ) mynlp->m_macroRotate = true; // (kaie) macro rotating // removed in 3d but don't know why yet
+	// mynlp->m_weightedForce = false; // removed in 3d but don't know why yet
+	// if( gArg.CheckExist("wf1") ) mynlp->m_weightedForce = true; // removed in 3d but don't know why yet
+	if( param.bShow )
 	{
 	    printf( "LEVEL %d of %d (target overflow %f, smooth delta %f) (%.0fMB)\n", 
 		    currentLevel, totalLevels, levelTargetOver[currentLevel-1], levelSmoothDelta[currentLevel-1],
@@ -297,7 +349,7 @@ bool multilevel_nlp( CPlaceDB& placedb,
 	
 	// Macro shifter
 	double avgHeight = 0;
-	double avgArea = 0;
+	//double avgArea = 0;
 	int count = 0;
 	for( unsigned int i=0; i<currentDB->m_modules.size(); i++ )
 	{
@@ -305,10 +357,10 @@ bool multilevel_nlp( CPlaceDB& placedb,
 		continue;
 	    count++;
 	    avgHeight += currentDB->m_modules[i].m_height;
-	    avgArea += currentDB->m_modules[i].m_area;
+	    //avgArea += currentDB->m_modules[i].m_area;
 	}
 	avgHeight /= count;
-	avgArea /= count;
+	//avgArea /= count;
 	
 	//==================(indark)=============//
 	// Multilevel MPTree
@@ -372,7 +424,7 @@ bool multilevel_nlp( CPlaceDB& placedb,
 	// 	mlegal = NULL; // kaie
 	//     }
 
-	//     if( gArg.IsDev() )
+	//     if( param.bShow )
 	//     {
 	// 	if( false == bMacroShifter )
 	// 	    printf( "MACRO SHIFTER FAILED!\n" );
@@ -400,76 +452,91 @@ bool multilevel_nlp( CPlaceDB& placedb,
 	    clusters[levels-1].declustering( placedb_clustered[levels-1], placedb );
 	    clusters.clear();
 	    delete p_clusters;
-	    p_clusters = NULL;
+	    //p_clusters = NULL;
 	    delete p_placedb_clustered;
-	    p_placedb_clustered = NULL;
+	    //p_placedb_clustered = NULL;
 	    break;
 	}	    
 	levels--;
     }
 
-    if(param.bRunMacroShifter)
-    {
-	placedb.RemoveFixedBlockSite();
-	CTetrisLegal* legal = new CTetrisLegal( placedb );
-	//bool bMacroShifter;
-	if(!bUseMacroArea)
-	    bMacroShifter = legal->MacroShifter( legalHeight / placedb.m_rowHeight, false );
-	else
-	    bMacroShifter = legal->MacroShifter( legalArea / placedb.m_rowHeight, false );
+    // if(param.bRunMacroShifter)
+    // {
+	// placedb.RemoveFixedBlockSite();
+	// CTetrisLegal* legal = new CTetrisLegal( placedb );
+	// //bool bMacroShifter;
+	// if(!bUseMacroArea)
+	//     bMacroShifter = legal->MacroShifter( legalHeight / placedb.m_rowHeight, false );
+	// else
+	//     bMacroShifter = legal->MacroShifter( legalArea / placedb.m_rowHeight, false );
 
-	// if(!bMacroShifter)
+	// // if(!bMacroShifter)
+	// // {
+    // //     vector<int> legaled_moduleID;
+    // //     CMacroLegal* mlegal = new CMacroLegal(placedb, legalHeight / placedb.m_rowHeight ,50);
+    // //     bMacroShifter = mlegal->Legalize(legaled_moduleID);
+	// //     delete mlegal;
+	// //     mlegal = NULL;
+	// // }
+
+	// if( param.bShow )
 	// {
-    //     vector<int> legaled_moduleID;
-    //     CMacroLegal* mlegal = new CMacroLegal(placedb, legalHeight / placedb.m_rowHeight ,50);
-    //     bMacroShifter = mlegal->Legalize(legaled_moduleID);
-	//     delete mlegal;
-	//     mlegal = NULL;
+	//     if( false == bMacroShifter )
+	// 	printf( "MACRO SHIFTER FAILED!\n" );
+	//     else
+	// 	printf( "MACRO SHIFTER SUCCEEDED!\n" );
 	// }
-
-	if( gArg.IsDev() )
-	{
-	    if( false == bMacroShifter )
-		printf( "MACRO SHIFTER FAILED!\n" );
-	    else
-		printf( "MACRO SHIFTER SUCCEEDED!\n" );
-	}
-	delete legal;
-	legal = NULL;
-    }
+	// delete legal;
+	// legal = NULL;
+    // }
 
     // 2006-06-01 (donnie) fix large blocks ///////////////////
     vector<int> setFixId;
-    if(bMacroShifter)
-    {
-	//placedb.OutputGnuplotFigure( "MacroShifterTest.plt", false );
-    	//if( !gArg.CheckExist("noFixMacro") )
-	//{
-	    for( unsigned int i=0; i<placedb.m_modules.size(); i++ )
-    	    {
-	    	if( placedb.m_modules[i].m_isFixed == false
-	    	    && ( (!bUseMacroArea && placedb.m_modules[i].m_height > legalHeight)
-	    	    || (bUseMacroArea &&  placedb.m_modules[i].m_height > placedb.m_rowHeight && placedb.m_modules[i].m_area > legalArea) )
-	    	){
-	    	    setFixId.push_back( i );
-	    	    placedb.m_modules[i].m_isFixed = true;
+    // if(bMacroShifter)
+    // {
+	// //placedb.OutputGnuplotFigure( "MacroShifterTest.plt", false );
+    // 	//if( !gArg.CheckExist("noFixMacro") )
+	// //{
+	//     for( unsigned int i=0; i<placedb.m_modules.size(); i++ )
+    // 	    {
+	//     	if( placedb.m_modules[i].m_isFixed == false
+	//     	    && ( (!bUseMacroArea && placedb.m_modules[i].m_height > legalHeight)
+	//     	    || (bUseMacroArea &&  placedb.m_modules[i].m_height > placedb.m_rowHeight && placedb.m_modules[i].m_area > legalArea) )
+	//     	){
+	//     	    setFixId.push_back( i );
+	//     	    placedb.m_modules[i].m_isFixed = true;
 
-	    	    // fix it.
-	    	    // dHPWL is not correct
-	        }
-    	    }
-	//}    
-    	if( gArg.IsDev() )
-    	{
-	    if(!bUseMacroArea)
-	    	printf( "LEVEL %d  Height = %f  Fix # = %d\n", currentLevel+1, legalHeight, (int)setFixId.size() );
-	    else
-	    	printf( "LEVEL %d  Area = %f  Fix # = %d\n", currentLevel+1, legalArea, (int)setFixId.size() );
-    	}
+	//     	    // fix it.
+	//     	    // dHPWL is not correct
+	//         }
+    // 	    }
+	// //}    
+    // 	if( param.bShow )
+    // 	{
+	//     if(!bUseMacroArea)
+	//     	printf( "LEVEL %d  Height = %f  Fix # = %d\n", currentLevel+1, legalHeight, (int)setFixId.size() );
+	//     else
+	//     	printf( "LEVEL %d  Area = %f  Fix # = %d\n", currentLevel+1, legalArea, (int)setFixId.size() );
+    // 	}
+    // }
+	for( unsigned int i=0; i<placedb.m_modules.size(); i++ )
+    {
+	if( placedb.m_modules[i].m_isFixed == false && placedb.m_modules[i].m_height > legalHeight )
+	{
+	    setFixId.push_back( i );
+	    placedb.m_modules[i].m_isFixed = true;
+
+	    // fix it.
+	    // dHPWL is not correct
+	}
+    }
+	if( param.bShow )
+    {
+	printf( "LEVEL %d  Height = %f  Fix # = %d\n", currentLevel+1, legalHeight, setFixId.size() );
     }
     ////////////////////////////////////////////////////////////
 
-    if( gArg.IsDev() )
+    if( param.bShow )
     {
 	printf( "LEVEL %d of %d (target density %f, smooth delta %d)(%.0fMB)\n", 
 		currentLevel+1, totalLevels, final_target_density, 1, GetPeakMemoryUsage() );	
@@ -482,17 +549,18 @@ bool multilevel_nlp( CPlaceDB& placedb,
 	return false;
 
     MyNLP* mynlp = new MyNLP( placedb );
+	////mynlp->m_useBellPotentialForPreplaced = true;
     mynlp->m_topLevel = true;
     mynlp->m_lookAheadLegalization = true;
-    mynlp->m_macroRotate = false;
-    mynlp->m_prototype = false;
-    //if(gArg.CheckExist("MRT2")) mynlp->m_macroRotate = true; // (kaie) macro rotating
-    mynlp->m_weightedForce = false;
-    if( gArg.CheckExist("wf2") ) mynlp->m_weightedForce = true;
+    // mynlp->m_macroRotate = false; // removed in 3d but don't know why yet
+    // mynlp->m_prototype = false; // removed in 3d but don't know why yet
+    // //if(gArg.CheckExist("MRT2")) mynlp->m_macroRotate = true; // (kaie) macro rotating // removed in 3d but don't know why yet
+    // mynlp->m_weightedForce = false; // removed in 3d but don't know why yet
+    // if( gArg.CheckExist("wf2") ) mynlp->m_weightedForce = true; // removed in 3d but don't know why yet
     mynlp->m_smoothDelta = param.endDelta;
     bool isLegal = mynlp->MySolve( weightWire, param.endDensity, currentLevel+1 );
 
-    isLegal &= bMacroShifter;
+    //isLegal &= bMacroShifter;
     delete mynlp;
     mynlp = NULL;
 
@@ -501,8 +569,8 @@ bool multilevel_nlp( CPlaceDB& placedb,
 	placedb.m_modules[setFixId[i]].m_isFixed = false;
 
     // kaie macro rotation
-    if(gArg.CheckExist("BestOrient"))
-	placedb.SetModuleOrientationBest(true, false, !gArg.CheckExist("noflip")); // macroonly, norotate, flip
+    //if(gArg.CheckExist("BestOrient"))
+	//placedb.SetModuleOrientationBest(true, false, !gArg.CheckExist("noflip")); // macroonly, norotate, flip
 
     return isLegal;
 }
@@ -512,6 +580,7 @@ void globalLocalSpreading( CPlaceDB* pDB, double targetDensity )
     double weightDensity = 1.0;
     gArg.GetDouble( "weightDensity", &weightDensity );
     MyNLP* mynlp = new MyNLP( *pDB );
+	////mynlp->m_useBellPotentialForPreplaced = true;
     mynlp->m_topLevel = true;
     mynlp->m_lookAheadLegalization = false;
     mynlp->m_smoothDelta = param.endDelta;
@@ -531,10 +600,13 @@ void globalRefinement( CPlaceDB* pDB, double targetDensity )
     gArg.GetDouble( "refineSkew", &skew );
     
     MyNLP* mynlp = new MyNLP( *pDB );
+	////mynlp->m_useBellPotentialForPreplaced = true;
     mynlp->m_topLevel = true;
     mynlp->m_lookAheadLegalization = false;
     mynlp->m_smoothDelta = param.endDelta;
-    mynlp->m_maxIte = 1;	   
+    mynlp->m_maxIte = 1;	
+	////mynlp->m_skewDensityPenalty1 = skew;
+    ////mynlp->m_skewDensityPenalty2 = skew;   
     int itePrefix = 8;
     printf( "LF: target over  %g\n", targetDensity );
     printf( "LF: wire weight  %g\n", weightWire );

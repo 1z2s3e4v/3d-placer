@@ -41,6 +41,11 @@ void CPlaceDBScaling::YShift( CPlaceDB& db, const double& shift )
     // sites
     for( unsigned int i=0; i<db.m_sites.size(); i++ )
 	db.m_sites[i].m_bottom += shift;
+
+    // 3d sites (kaie)
+    for( unsigned int layer = 0; layer < db.m_sites3d.size(); layer++)
+	for(unsigned int i = 0; i < db.m_sites3d[layer].size(); i++ )
+	    db.m_sites3d[layer][i].m_bottom += shift;
 }
 
 
@@ -78,6 +83,42 @@ void CPlaceDBScaling::XShift( CPlaceDB& db, const double& shift )
     for( unsigned int i=0; i<db.m_sites.size(); i++ )
 	for( unsigned int j=0; j<db.m_sites[i].m_interval.size(); j++ )
 	    db.m_sites[i].m_interval[j] += shift;
+
+    // 3d sites (kaie)
+    for( unsigned int layer = 0; layer < db.m_sites3d.size(); layer++ )
+	for( unsigned int i = 0; i < db.m_sites3d[layer].size(); i++ )
+	    for( unsigned int j = 0; j < db.m_sites3d[layer][i].m_interval.size(); j++ )
+		db.m_sites3d[layer][i].m_interval[j] += shift;
+}
+
+void CPlaceDBScaling::ZShift( CPlaceDB& db, const double& shift )
+{
+    //printf( "z shift = %f\n", shift );
+
+    // core region    
+    db.m_back  += shift;
+    db.m_front += shift;
+
+    // blocks
+    for( unsigned int i=0; i<db.m_modules.size(); i++ )
+    {
+	db.m_modules[i].m_z += shift;
+	db.m_modules[i].m_cz += shift;
+    }
+    
+    if( db.m_modules_bak.size() == db.m_modules.size() )
+    {
+	for( unsigned int i=0; i<db.m_modules.size(); i++ )
+	{
+	    db.m_modules_bak[i].m_z += shift;
+	}
+    }
+
+    // pins
+   
+    // sites
+    for( unsigned int i=0; i<db.m_sites.size(); i++ )
+	    db.m_sites[i].m_z += shift;
 }
 
 void CPlaceDBScaling::YScale( CPlaceDB& db, const double& scale )
@@ -107,6 +148,11 @@ void CPlaceDBScaling::YScale( CPlaceDB& db, const double& scale )
     // sites
     for( unsigned int i=0; i<db.m_sites.size(); i++ )
 	db.m_sites[i].m_bottom *= scale;
+
+    // 3d sites (kaie)
+    for( unsigned int layer = 0; layer < db.m_sites3d.size(); layer++)
+	for( unsigned int i = 0; i < db.m_sites3d[layer].size(); i++)
+	    db.m_sites3d[layer][i].m_bottom *= scale;
 }
 
 void CPlaceDBScaling::XScale( CPlaceDB& db, const double& scale )
@@ -142,8 +188,39 @@ void CPlaceDBScaling::XScale( CPlaceDB& db, const double& scale )
 	for( unsigned int j=0; j<db.m_sites[i].m_interval.size(); j++ )
 	    db.m_sites[i].m_interval[j] *= scale;
     }
+
+    // 3d sites (kaie)
+    for( unsigned layer = 0; layer < db.m_sites3d.size(); layer++)
+	for(unsigned int i = 0; i < db.m_sites3d[layer].size(); i++)
+	{
+	    db.m_sites3d[layer][i].m_step *= scale;
+	    for( unsigned int j = 0; j < db.m_sites3d[layer][i].m_interval.size(); j++)
+		db.m_sites3d[layer][i].m_interval[j] *= scale;
+	}
 }
 
+void CPlaceDBScaling::ZScale( CPlaceDB& db, const double& scale )
+{
+    //printf( "z scale = %f\n", scale );
+
+    // core region
+    db.m_back  *= scale;
+    db.m_front *= scale;
+
+    // blocks
+    for( unsigned int i=0; i<db.m_modules.size(); i++ )
+    {
+	db.m_modules[i].m_z  *= scale;
+	db.m_modules[i].m_cz *= scale;
+	db.m_modules[i].m_thickness *= scale;
+    }
+
+    // pins
+   
+    // sites
+    for( unsigned int i=0; i<db.m_sites.size(); i++ )
+	    db.m_sites[i].m_z *= scale;
+}
 
 ////////////////////////////////
 
@@ -642,7 +719,7 @@ void CPlaceUtil::CreateRowSites( CPlaceDB* pDB, const double& utilization, const
     double totalBlockArea = 0;
     for( unsigned int i=0; i<pDB->m_modules.size(); i++ )
 	//if( !pDB->m_modules[i].m_isOutCore )
-	if( !pDB->m_modules[i].m_isFixed )
+	if( !pDB->m_modules[i].m_isFixed && !pDB->BlockOutCore( i ) ) 
 	    totalBlockArea += pDB->m_modules[i].m_area;
 
     if( totalBlockArea == 0 )
@@ -891,7 +968,7 @@ void CPlacePlotWithNet::PlotHeader( FILE* file )
 	 m_totalLength[0]+m_totalLength[1]+m_totalLength[2]+m_totalLength[3] );
     fprintf( file, "set size ratio 1\n" );
     fprintf( file, "set nokey\n" );
-    fprintf( file, "plot[:][:] '-' w l lt 3, '-' w l lt 1, '-' w l lt 6, '-' w l lt 2, '-' w l lt 5\n\n" );
+    fprintf( file, "plot[:][:] '-' w l 3, '-' w l 1, '-' w l 6, '-' w l 2, '-' w l 5\n\n" );
     //                              cell          H          V        +45        -45
     //                              blue         red      brown     lt green   lt blue
 
@@ -1144,52 +1221,6 @@ void CMatrixPlotter::OutputGnuplotFigure(
     system( "mkdir dat 1> /dev/null 2> /dev/null" );
 
     double maxZ = 0;
-    for( unsigned int y=0; y<matrix[0].size(); y++ )
-	for( unsigned int x=0; x<matrix.size(); x++ )
-	    if( matrix[x][y] > maxZ )
-		maxZ = matrix[x][y];
-    
-    if( scale && limit > 0 )
-	OutputGnuplotPM3D( plt.c_str(), dat.c_str(), matrix.size()+1, matrix[0].size()+1, 
-		limitBase, (maxZ/limit), title, 1.0 );
-    else
-	OutputGnuplotPM3D( plt.c_str(), dat.c_str(), matrix.size()+1, matrix[0].size()+1, 
-		limitBase, (maxZ), title, limit );
-
-    FILE* out = fopen( dat.c_str(), "w" );
-    for( unsigned int yy=0; yy<matrix[0].size()+1; yy++ )
-    {
-	unsigned int y = yy;
-	if( y == matrix[0].size() )
-	    y -= 1;
-	for( unsigned int xx=0; xx<matrix.size()+1; xx++ )
-	{
-	    unsigned int x = xx;
-	    if( x == matrix.size() )
-		x -= 1;
-	    if( scale && limit > 0 )
-		fprintf( out, "%.2f ", matrix[x][y]/limit );
-	    else
-		fprintf( out, "%.2f ", matrix[x][y] );
-	}
-	fprintf( out, "\n" );
-    }
-    fclose( out );
-}
-
-void CMatrixPlotter::OutputGnuplotFigure( 
-	const vector< vector< float > >& matrix, 
-	const char* filename, 
-	string title, 
-	float limit,
-        bool scale,
-        float limitBase )
-{
-    string plt = string( filename ) + ".plt" ;
-    string dat = "dat/" + string( filename ) + ".plt.dat";
-    system( "mkdir dat 1> /dev/null 2> /dev/null" );
-
-    float maxZ = 0;
     for( unsigned int y=0; y<matrix[0].size(); y++ )
 	for( unsigned int x=0; x<matrix.size(); x++ )
 	    if( matrix[x][y] > maxZ )

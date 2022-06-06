@@ -21,23 +21,23 @@ CPlaceBin::CPlaceBin( CPlaceDB& db )
     
 }
 
-void CPlaceBin::CreateGrid( int xGrid, int yGrid )
+void CPlaceBin::CreateGrid( int nGrid )
 {
-    m_binWidth  = ( m_pDB->m_coreRgn.right - m_pDB->m_coreRgn.left )   / xGrid;
-    m_binHeight = ( m_pDB->m_coreRgn.top   - m_pDB->m_coreRgn.bottom ) / yGrid;
-    m_binNumberH = xGrid;
-    m_binNumberW = yGrid;
+    m_binWidth  = ( m_pDB->m_coreRgn.right - m_pDB->m_coreRgn.left )   / nGrid;
+    m_binHeight = ( m_pDB->m_coreRgn.top   - m_pDB->m_coreRgn.bottom ) / nGrid;
+    m_binNumberH = nGrid;
+    m_binNumberW = nGrid;
     CreateGrid();
     UpdateBinFreeSpace(); 
     UpdateBinUsage();
 }
 
-void CPlaceBin::CreateGrid( double width, double height )
+void CPlaceBin::CreateGrid( double size )
 {
-    m_binWidth   = width;
-    m_binHeight  = height;
-    m_binNumberW = static_cast<int>(ceil( ( m_pDB->m_coreRgn.right - m_pDB->m_coreRgn.left ) / width ));
-    m_binNumberH = static_cast<int>(ceil( ( m_pDB->m_coreRgn.top   - m_pDB->m_coreRgn.bottom ) / height ));
+    m_binWidth   = size;
+    m_binHeight  = size;
+    m_binNumberW = static_cast<int>(ceil( ( m_pDB->m_coreRgn.right - m_pDB->m_coreRgn.left ) / size ));
+    m_binNumberH = static_cast<int>(ceil( ( m_pDB->m_coreRgn.top   - m_pDB->m_coreRgn.bottom ) / size ));
 
     CreateGrid();     
     UpdateBinFreeSpace(); 
@@ -265,7 +265,7 @@ double CPlaceBin::GetOverflowRatio( const double& targetUtil )
 
 double CPlaceBin::GetPenalty( const double& targetUtil )
 {
-    if(targetUtil == 1.0) return 0.0;
+    // if(targetUtil == 1.0) return 0.0;
 
     double totalOver = 0;
     for( int i=0; i<m_binNumberW; i++ )
@@ -737,10 +737,10 @@ void CGreedyRefinement::CreateBlockList()
     fflush( stdout );
 }
 
-void CGreedyRefinement::CreateGrid( int gridHNumber, int gridVNumber )
+void CGreedyRefinement::CreateGrid( int gridNumber )
 {
-    printf( "   Create grids %d x %d\n", gridHNumber, gridVNumber );
-    m_pBin->CreateGrid( gridHNumber, gridVNumber );
+    printf( "   Create grids %d x %d\n", gridNumber, gridNumber );
+    m_pBin->CreateGrid( gridNumber );
     CreateBlockList();
     printf( "   Grid size %f x %f ( %.1f row height)\n", GetBinWidth(),
 	    GetBinHeight(), GetBinHeight()/m_pDB->m_rowHeight );

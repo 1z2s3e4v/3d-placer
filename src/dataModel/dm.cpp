@@ -86,13 +86,13 @@ void DmMgr_C::run(){
 }
 
 void DmMgr_C::print_result(){
-    vector<long long int> vHPWL(2,0);
-    long long int totalHPWL = 0;
+    vector<long long> vHPWL(2,0);
+    long long totalHPWL = 0;
     for(int i=0;i<_pDesign->get_net_num();++i){
         Net_C* net = _pDesign->get_net(i);
         vHPWL[0] += net->get_HPWL(0);
         vHPWL[1] += net->get_HPWL(1);
-        totalHPWL += net->get_HPWL(0) + net->get_HPWL(1);
+        totalHPWL += (long long)net->get_HPWL(0) + (long long)net->get_HPWL(1);
     }
     cout << "------------------------ HPWL Result ------------------------\n";
     cout << "Top-Die HPWL = " << vHPWL[0] << "\n";

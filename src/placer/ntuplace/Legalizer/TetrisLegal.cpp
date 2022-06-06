@@ -22,7 +22,7 @@
 //#include "CellSlidingForCongestion.h"
 
 //Added by kaie
-#include "../lib/lpsolve55/lp_lib.h"
+//#include "../lib/lpsolve55/lp_lib.h"
 
 using namespace std;
 using namespace Jin;
@@ -384,7 +384,7 @@ bool CTetrisLegal::DoLeftRightUntil( const double& util, const double& stop_prel
     if( !gArg.CheckExist( "cong" ) )
     {
 	pBin = new CPlaceBin( m_placedb );
-	pBin->CreateGrid( m_placedb.m_rowHeight * 10.0, m_placedb.m_rowHeight * 10.0 );
+	pBin->CreateGrid( m_placedb.m_rowHeight * 10.0 );
     }
 
 
@@ -600,7 +600,7 @@ bool CTetrisLegal::DoLeftRightUntil( const double& util, const double& stop_prel
     {
 	delete pBin;
 	pBin = new CPlaceBin( m_placedb );
-	pBin->CreateGrid( m_placedb.m_rowHeight * 10.0, m_placedb.m_rowHeight * 10.0 );
+	pBin->CreateGrid( m_placedb.m_rowHeight * 10.0 );
     }
 
     //test code
@@ -913,6 +913,10 @@ void CTetrisLegal::SetNonMacroProcessList( const vector<int>& macro_ids )
 	    continue;
 	}
 
+	// (kaie) 2009-07-11 Layer-by-layer Legalization
+	if( (int)curModule.m_z != m_layer)
+		continue;
+
 	m_process_list.push_back(i);
     }
 }
@@ -923,7 +927,8 @@ void CTetrisLegal::SetProcessList(void)
 
     for( unsigned int i = 0 ; i < m_placedb.m_modules.size() ; i++ )
     {
-	if( !m_placedb.m_modules[i].m_isFixed )
+	// (kaie) 2009-07-11 add layer by layer legalization
+	if( !m_placedb.m_modules[i].m_isFixed && (int)m_placedb.m_modules[i].m_z == m_layer)
 	    m_process_list.push_back(i);
     }
 
@@ -937,7 +942,7 @@ void CTetrisLegal::MacroShifterSaveOrigPosition(void)
     {
 	const Module& curModule = m_placedb.m_modules[ m_macro_ids[i] ];
 	m_macro_shifter_orig_positions.push_back( CPoint( curModule.m_x, curModule.m_y ) );
-	m_origLocations[ m_macro_ids[i] ] = CPoint( curModule.m_x, curModule.m_y );
+	//m_origLocations[ m_macro_ids[i] ] = CPoint( curModule.m_x, curModule.m_y );
     }
 }
 
@@ -978,7 +983,10 @@ void CTetrisLegal::MacroShifterRestoreBestPosition(void)
 bool CTetrisLegal::AggressiveCellLegalLocationsSearch( const int& cellid,
 	vector<CLegalLocation>& legalLocations )
 {
-    double site_step = m_placedb.m_sites[0].m_step;
+    double site_step;
+    // (kaie) 2009-07-11 Layer by layer legalization
+    if(!m_bLayerByLayerLegal) site_step = m_placedb.m_sites[0].m_step;
+    else site_step = m_placedb.m_sites3d[m_layer][0].m_step;
 
     const Module& curModule = m_placedb.m_modules[cellid];
 
@@ -999,6 +1007,7 @@ bool CTetrisLegal::AggressiveCellLegalLocationsSearch( const int& cellid,
     }
 
     double xbound = ceil( curModule.m_x - (m_left_factor*m_average_cell_width) );
+	//double xbound = m_placedb.m_coreRgn.left;
     xbound = floor ( ( ( xbound + (site_step/2.0) ) / site_step) ) * site_step;
 
     int upward_row_start, upward_row_end;
@@ -1126,7 +1135,11 @@ void CTetrisLegal::GetCellLegalLocationsTowardLeft( const int& cellid,
 	vector<CLegalLocation>& legalLocations,
 	const double& left_bound )
 {
-    double site_step = m_placedb.m_sites[0].m_step;
+    double site_step;
+    // (kaie) 2009-07-11 Layer by layer legalization
+    if(!m_bLayerByLayerLegal) site_step = m_placedb.m_sites[0].m_step;
+    else site_step = m_placedb.m_sites3d[m_layer][0].m_step;
+
     if( start_site_index > end_site_index )
 	swap( start_site_index, end_site_index );
 
@@ -1188,13 +1201,16 @@ bool Jin::LessXCoorMacroPrior::BL( const int& mid1, const int& mid2 )
     const Module& m1 = m_placedb->m_modules[mid1];
     const Module& m2 = m_placedb->m_modules[mid2];
 
-    if( m1.m_area != m2.m_area )
-    	return m1.m_area > m2.m_area;
+	double cost1 = m1.m_cx + m1.m_cy - m1.m_width - m1.m_height;
+    double cost2 = m2.m_cx + m2.m_cy - m2.m_width - m2.m_height;
 
-    double cost1 = m1.m_cx + m1.m_cy - 0.5 * m1.m_width - 0.5 * m1.m_height;
-    double cost2 = m2.m_cx + m2.m_cy - 0.5 * m2.m_width - 0.5 * m2.m_height;
-    //double cost1 = m1.m_x + m1.m_y;
-    //double cost2 = m2.m_x + m2.m_y;
+    // if( m1.m_area != m2.m_area )
+    // 	return m1.m_area > m2.m_area;
+
+    // double cost1 = m1.m_cx + m1.m_cy - 0.5 * m1.m_width - 0.5 * m1.m_height;
+    // double cost2 = m2.m_cx + m2.m_cy - 0.5 * m2.m_width - 0.5 * m2.m_height;
+    // //double cost1 = m1.m_x + m1.m_y;
+    // //double cost2 = m2.m_x + m2.m_y;
 
     return cost1 < cost2;
 }
@@ -1204,13 +1220,16 @@ bool Jin::LessXCoorMacroPrior::BR( const int& mid1, const int& mid2 )
     const Module& m1 = m_placedb->m_modules[mid1];
     const Module& m2 = m_placedb->m_modules[mid2];
 
-    if( m1.m_area != m2.m_area )
-    	return m1.m_area > m2.m_area;
+	double cost1 = (-m1.m_cx) + m1.m_cy - m1.m_width - m1.m_height;
+    double cost2 = (-m2.m_cx) + m2.m_cy - m2.m_width - m2.m_height;
 
-    double cost1 = (-m1.m_cx) + m1.m_cy - 0.5 * m1.m_width - 0.5 * m1.m_height;
-    double cost2 = (-m2.m_cx) + m2.m_cy - 0.5 * m2.m_width - 0.5 * m2.m_height;
-    //double cost1 = (m1.m_x+m1.m_width) + m1.m_y;
-    //double cost2 = (m2.m_x+m2.m_width) + m2.m_y;
+    // if( m1.m_area != m2.m_area )
+    // 	return m1.m_area > m2.m_area;
+
+    // double cost1 = (-m1.m_cx) + m1.m_cy - 0.5 * m1.m_width - 0.5 * m1.m_height;
+    // double cost2 = (-m2.m_cx) + m2.m_cy - 0.5 * m2.m_width - 0.5 * m2.m_height;
+    // //double cost1 = (m1.m_x+m1.m_width) + m1.m_y;
+    // //double cost2 = (m2.m_x+m2.m_width) + m2.m_y;
 
     return cost1 < cost2;
 }
@@ -1220,13 +1239,16 @@ bool Jin::LessXCoorMacroPrior::TL( const int& mid1, const int& mid2 )
     const Module& m1 = m_placedb->m_modules[mid1];
     const Module& m2 = m_placedb->m_modules[mid2];
 
-    if(m1.m_area != m2.m_area)
-    	return m1.m_area > m2.m_area;
+	double cost1 = m1.m_cx + (-m1.m_cy) - m1.m_width - m1.m_height;
+    double cost2 = m2.m_cx + (-m2.m_cy) - m2.m_width - m2.m_height;
 
-    double cost1 = m1.m_cx + (-m1.m_cy) - 0.5 * m1.m_width - 0.5 * m1.m_height;
-    double cost2 = m2.m_cx + (-m2.m_cy) - 0.5 * m2.m_width - 0.5 * m2.m_height;
-    //double cost1 = m1.m_x + (m1.m_y+m1.m_height);
-    //double cost2 = m2.m_x + (m2.m_y+m2.m_height);
+    // if(m1.m_area != m2.m_area)
+    // 	return m1.m_area > m2.m_area;
+
+    // double cost1 = m1.m_cx + (-m1.m_cy) - 0.5 * m1.m_width - 0.5 * m1.m_height;
+    // double cost2 = m2.m_cx + (-m2.m_cy) - 0.5 * m2.m_width - 0.5 * m2.m_height;
+    // //double cost1 = m1.m_x + (m1.m_y+m1.m_height);
+    // //double cost2 = m2.m_x + (m2.m_y+m2.m_height);
 
     return cost1 < cost2;
 }
@@ -1236,13 +1258,16 @@ bool Jin::LessXCoorMacroPrior::TR( const int& mid1, const int& mid2 )
     const Module& m1 = m_placedb->m_modules[mid1];
     const Module& m2 = m_placedb->m_modules[mid2];
 
-    if(m1.m_area != m2.m_area)
-    	return m1.m_area > m2.m_area;
+	double cost1 = -(m1.m_cx + m1.m_cy) - m1.m_width - m1.m_height;
+    double cost2 = -(m2.m_cx + m2.m_cy) - m2.m_width - m2.m_height;
 
-    double cost1 = -(m1.m_cx + m1.m_cy) - 0.5 * m1.m_width - 0.5 * m1.m_height;
-    double cost2 = -(m2.m_cx + m2.m_cy) - 0.5 * m2.m_width - 0.5 * m2.m_height;
-    //double cost1 = (m1.m_x+m1.m_width) + (m1.m_y+m1.m_height);
-    //double cost2 = (m2.m_x+m2.m_width) + (m2.m_y+m2.m_height);
+    // if(m1.m_area != m2.m_area)
+    // 	return m1.m_area > m2.m_area;
+
+    // double cost1 = -(m1.m_cx + m1.m_cy) - 0.5 * m1.m_width - 0.5 * m1.m_height;
+    // double cost2 = -(m2.m_cx + m2.m_cy) - 0.5 * m2.m_width - 0.5 * m2.m_height;
+    // //double cost1 = (m1.m_x+m1.m_width) + (m1.m_y+m1.m_height);
+    // //double cost2 = (m2.m_x+m2.m_width) + (m2.m_y+m2.m_height);
 
     return cost1 < cost2;
 }
@@ -1274,22 +1299,21 @@ bool CTetrisLegal::MacroShifter( const double& macroFactor, const bool& makeFixe
     ExpandModuleWidthToSiteStep();
     
     const double thresholdHeight = macroFactor * m_placedb.m_rowHeight;
-    //const double thresholdWidth = m_placedb.m_sites[0].m_step;
-    const double thresholdArea = macroFactor * m_placedb.m_rowHeight;
-    bool bUseMacroArea = gArg.CheckExist("MacroAreaRatio");
+    // //const double thresholdWidth = m_placedb.m_sites[0].m_step;
+    // const double thresholdArea = macroFactor * m_placedb.m_rowHeight;
+    // bool bUseMacroArea = gArg.CheckExist("MacroAreaRatio");
     
     for( unsigned int iMod = 0 ; iMod < m_placedb.m_modules.size() ; iMod++ )
     {
 	const Module& curModule = m_placedb.m_modules[iMod];
-	if( !curModule.m_isFixed 
-		&& ( (!bUseMacroArea && curModule.m_height >= thresholdHeight)
-		|| (bUseMacroArea && curModule.m_height > m_placedb.m_rowHeight && curModule.m_area >= thresholdArea) )
-	){
+	if( !curModule.m_isFixed && curModule.m_height >= thresholdHeight 
+			&& (int)curModule.m_z == m_layer) // (kaie) 2009-07-11 add layer by layer legal
+	{
 	    		m_macro_ids.push_back( iMod );
 	}	
     }
    
-    if(m_macro_ids.size() == 0) return true; // kaie
+    //if(m_macro_ids.size() == 0) return true; // kaie
  
     double min_shifting = numeric_limits<double>::max();
 
@@ -1426,455 +1450,455 @@ bool CTetrisLegal::MacroShifter( const double& macroFactor, const bool& makeFixe
 }
 
 //kaie Robust MacroShifter
-bool CTetrisLegal::RobustMacroShifter( const double& macroFactor, const bool& makeFixed )
-{
-    //Expand module width to site step
-    SaveModuleWidth();
-    ExpandModuleWidthToSiteStep();
+// bool CTetrisLegal::RobustMacroShifter( const double& macroFactor, const bool& makeFixed )
+// {
+//     //Expand module width to site step
+//     SaveModuleWidth();
+//     ExpandModuleWidthToSiteStep();
     
-    vector<int> m_macroId;
-    const double thresholdHeight = macroFactor * m_placedb.m_rowHeight;
-    //const double thresholdWidth = m_placedb.m_sites[0].m_step;
-    const double thresholdArea = macroFactor * m_placedb.m_rowHeight;
-    bool bUseMacroArea = gArg.CheckExist("MacroAreaRatio");
+//     vector<int> m_macroId;
+//     const double thresholdHeight = macroFactor * m_placedb.m_rowHeight;
+//     //const double thresholdWidth = m_placedb.m_sites[0].m_step;
+//     const double thresholdArea = macroFactor * m_placedb.m_rowHeight;
+//     bool bUseMacroArea = gArg.CheckExist("MacroAreaRatio");
     
-    for( unsigned int iMod = 0 ; iMod < m_placedb.m_modules.size() ; iMod++ )
-    {
-	const Module& curModule = m_placedb.m_modules[iMod];
-	if( !curModule.m_isFixed 
-		&& ( (!bUseMacroArea && curModule.m_height >= thresholdHeight)
-		|| (bUseMacroArea && curModule.m_height > m_placedb.m_rowHeight && curModule.m_area >= thresholdArea) )
-	){
-	    		m_macroId.push_back( iMod );
-	}	
-    }
+//     for( unsigned int iMod = 0 ; iMod < m_placedb.m_modules.size() ; iMod++ )
+//     {
+// 	const Module& curModule = m_placedb.m_modules[iMod];
+// 	if( !curModule.m_isFixed 
+// 		&& ( (!bUseMacroArea && curModule.m_height >= thresholdHeight)
+// 		|| (bUseMacroArea && curModule.m_height > m_placedb.m_rowHeight && curModule.m_area >= thresholdArea) )
+// 	){
+// 	    		m_macroId.push_back( iMod );
+// 	}	
+//     }
     
-    bool bSuccess = false;
+//     bool bSuccess = false;
 
-    int n_macros = (int)m_macroId.size();
+//     int n_macros = (int)m_macroId.size();
 
-    double xMin = m_placedb.m_coreRgn.left;
-    double yMin = m_placedb.m_coreRgn.bottom;
+//     double xMin = m_placedb.m_coreRgn.left;
+//     double yMin = m_placedb.m_coreRgn.bottom;
 
-    double xShift = -floor( xMin );
-    double yShift = -floor( yMin );
+//     double xShift = -floor( xMin );
+//     double yShift = -floor( yMin );
 
-    //double left = m_placedb.m_coreRgn.left;
-    //double right = m_placedb.m_coreRgn.right;
-    //double bottom = m_placedb.m_coreRgn.bottom;
-    //double top = m_placedb.m_coreRgn.top;
-    double Width = m_placedb.m_coreRgn.right - m_placedb.m_coreRgn.left;
-    double Height = m_placedb.m_coreRgn.top - m_placedb.m_coreRgn.bottom;
+//     //double left = m_placedb.m_coreRgn.left;
+//     //double right = m_placedb.m_coreRgn.right;
+//     //double bottom = m_placedb.m_coreRgn.bottom;
+//     //double top = m_placedb.m_coreRgn.top;
+//     double Width = m_placedb.m_coreRgn.right - m_placedb.m_coreRgn.left;
+//     double Height = m_placedb.m_coreRgn.top - m_placedb.m_coreRgn.bottom;
 
-    printf("number of macros: %d\n", n_macros);
+//     printf("number of macros: %d\n", n_macros);
 
-    lprec *lp;
-    int Ncol, *colno = NULL, ret = 0;
-    REAL *row = NULL;
+//     lprec *lp;
+//     int Ncol, *colno = NULL, ret = 0;
+//     REAL *row = NULL;
 
-    FILE* CplexModel;
-    CplexModel = fopen("cplexmodel.lp", "w");
+//     FILE* CplexModel;
+//     CplexModel = fopen("cplexmodel.lp", "w");
 
-    Ncol = /*1+*/n_macros*(n_macros+1)+2; // the first element is reserved?
-    //printf("Ncol: %d\n", Ncol);
-    lp = make_lp(0, Ncol);
-    if(lp == NULL)
-	ret = 1; /* couldn't construct a new model... */
+//     Ncol = /*1+*/n_macros*(n_macros+1)+2; // the first element is reserved?
+//     //printf("Ncol: %d\n", Ncol);
+//     lp = make_lp(0, Ncol);
+//     if(lp == NULL)
+// 	ret = 1; /* couldn't construct a new model... */
 
-    fprintf(CplexModel, "minimize +C%d +C%d\n", Ncol-1, Ncol-2);
+//     fprintf(CplexModel, "minimize +C%d +C%d\n", Ncol-1, Ncol-2);
 
-    //variables
-    if(ret == 0)
-    {
-	/* create space large enough for one row */
-	colno = (int*)malloc(Ncol * sizeof(*colno));
-	row = (REAL*)malloc(Ncol * sizeof(*row));
-	if((colno == NULL) || (row == NULL))
-	    ret = 2;
+//     //variables
+//     if(ret == 0)
+//     {
+// 	/* create space large enough for one row */
+// 	colno = (int*)malloc(Ncol * sizeof(*colno));
+// 	row = (REAL*)malloc(Ncol * sizeof(*row));
+// 	if((colno == NULL) || (row == NULL))
+// 	    ret = 2;
 
-	int count = 0;
-	for(int i = 0; i < n_macros; i++)
-	{
-	    //set_int(lp, 2*i+2, true); // x_i
-	    //set_int(lp, 2*i+1+2, true); // y_i
-	    for(int j = i+1; j < n_macros; j++)
-	    {
-		set_binary(lp, 1 + 2*n_macros + 2*count, true); // p_ij
-		set_binary(lp, 1 + 2*n_macros + 2*count + 1, true); // q_ij
+// 	int count = 0;
+// 	for(int i = 0; i < n_macros; i++)
+// 	{
+// 	    //set_int(lp, 2*i+2, true); // x_i
+// 	    //set_int(lp, 2*i+1+2, true); // y_i
+// 	    for(int j = i+1; j < n_macros; j++)
+// 	    {
+// 		set_binary(lp, 1 + 2*n_macros + 2*count, true); // p_ij
+// 		set_binary(lp, 1 + 2*n_macros + 2*count + 1, true); // q_ij
 
-		//set_binary(lp, /*1+*/2*n_macros+2*(i*n_macros-(i*(i+1)/2)+j-i-1), true); // p_ij
-		//set_binary(lp, /*1+*/2*n_macros+2*(i*n_macros-(i*(i+1)/2)+j-i-1)+1, true); // q_ij
-		//printf("%d, %d, %d\n", i, j, i*n_macros-(i*(i+1)/2)+j-i);
+// 		//set_binary(lp, /*1+*/2*n_macros+2*(i*n_macros-(i*(i+1)/2)+j-i-1), true); // p_ij
+// 		//set_binary(lp, /*1+*/2*n_macros+2*(i*n_macros-(i*(i+1)/2)+j-i-1)+1, true); // q_ij
+// 		//printf("%d, %d, %d\n", i, j, i*n_macros-(i*(i+1)/2)+j-i);
 		
-		count ++;
-	    }
-	    //printf("%d (%lf, %lf)\n", m_macroId[i], m_placedb.m_modules[m_macroId[i]].m_width, m_placedb.m_modules[m_macroId[i]].m_height);
-	}
-    }
-    //printf("(%lf, %lf)(%lf, %lf), (%lf)(%lf)\n", left, bottom, right, top, width, height);
+// 		count ++;
+// 	    }
+// 	    //printf("%d (%lf, %lf)\n", m_macroId[i], m_placedb.m_modules[m_macroId[i]].m_width, m_placedb.m_modules[m_macroId[i]].m_height);
+// 	}
+//     }
+//     //printf("(%lf, %lf)(%lf, %lf), (%lf)(%lf)\n", left, bottom, right, top, width, height);
 
-    //constraints
-    if(ret == 0)
-    {
-	set_add_rowmode(lp, true); /* makes building the model faster if it is done rows by row */
+//     //constraints
+//     if(ret == 0)
+//     {
+// 	set_add_rowmode(lp, true); /* makes building the model faster if it is done rows by row */
 
-	fprintf(CplexModel, "subject to\n");
-	// non-overlap constraints
-	int count = 0;
-	for(int i = 0; i < n_macros; i++)
-	{
-	    //double m_x_i = m_placedb.m_modules[m_macroId[i]].m_x;
-	    //double m_y_i = m_placedb.m_modules[m_macroId[i]].m_y;
-	    for(int j = i+1; j < n_macros; j++) // for any two macros
-	    {
-		int k;
-		double bound;
+// 	fprintf(CplexModel, "subject to\n");
+// 	// non-overlap constraints
+// 	int count = 0;
+// 	for(int i = 0; i < n_macros; i++)
+// 	{
+// 	    //double m_x_i = m_placedb.m_modules[m_macroId[i]].m_x;
+// 	    //double m_y_i = m_placedb.m_modules[m_macroId[i]].m_y;
+// 	    for(int j = i+1; j < n_macros; j++) // for any two macros
+// 	    {
+// 		int k;
+// 		double bound;
 
-		int x_i = 1 + 2*i;
-		int y_i = 1 + 2*i + 1;
-		int x_j = 1 + 2*j;
-		int y_j = 1 + 2*j + 1;
-		//int p_ij = 1+2*n_macros+2*(i*n_macros-(i*(i+1)/2)+j-i-1);
-		//int q_ij = 1+2*n_macros+2*(i*n_macros-(i*(i+1)/2)+j-i-1)+1;
-		int p_ij = 1 + 2*n_macros + 2*count;
-		int q_ij = 1 + 2*n_macros + 2*count + 1;
-		//double m_x_j = m_placedb.m_modules[m_macroId[j]].m_x;
-		//double m_y_j = m_placedb.m_modules[m_macroId[j]].m_y;
+// 		int x_i = 1 + 2*i;
+// 		int y_i = 1 + 2*i + 1;
+// 		int x_j = 1 + 2*j;
+// 		int y_j = 1 + 2*j + 1;
+// 		//int p_ij = 1+2*n_macros+2*(i*n_macros-(i*(i+1)/2)+j-i-1);
+// 		//int q_ij = 1+2*n_macros+2*(i*n_macros-(i*(i+1)/2)+j-i-1)+1;
+// 		int p_ij = 1 + 2*n_macros + 2*count;
+// 		int q_ij = 1 + 2*n_macros + 2*count + 1;
+// 		//double m_x_j = m_placedb.m_modules[m_macroId[j]].m_x;
+// 		//double m_y_j = m_placedb.m_modules[m_macroId[j]].m_y;
 		
-		// M_i to the left of M_j
-		// x_i + w_i <= x_j + W(p_ij + q_ij)
-		// x_i - x_j - Wp_ij - Wq_ij <= -w_i
-		//if(m_x_i <= m_x_j)
-		//{
-		k = 0;
-		colno[k] = x_i;
-		row[k++] = 1;
-		colno[k] = x_j;
-		row[k++] = -1;
-		colno[k] = p_ij;
-		row[k++] = -1 * Width;
-		colno[k] = q_ij;
-		row[k++] = -1 * Width;
-		bound = -m_placedb.m_modules[m_macroId[i]].m_width;
-		if(!add_constraintex(lp, k, row, colno, LE, bound))
-		    ret = 3;
-		fprintf(CplexModel, "%+d C%d %+d C%d %+f C%d %+f C%d <= %+f\n",
-		    1, x_i, -1, x_j, -1*Width, p_ij, -1*Width, q_ij, bound);
-		//}
-		// M_i to the right of M_j
-		// x_i - w_j >= x_j - W(1 - p_ij + q_ij)
-		// x_i - x_j - Wp_ij + Wq_ij >= w_j - W
-		//if(m_x_i >= m_x_j)
-		//{
-		k = 0;
-		colno[k] = x_i;
-		row[k++] = 1;
-		colno[k] = x_j;
-		row[k++] = -1;
-		colno[k] = p_ij;
-		row[k++] = -1 * Width;
-		colno[k] = q_ij;
-		row[k++] = 1 * Width;
-		bound = m_placedb.m_modules[m_macroId[j]].m_width - Width;
-		if(!add_constraintex(lp, k, row, colno, GE, bound))
-		    ret = 3;
-		fprintf(CplexModel, "%+d C%d %+d C%d %+f C%d %+f C%d >= %+f\n",
-		    1, x_i, -1, x_j, -1*Width, p_ij, 1*Width, q_ij, bound);
-		//}
-		// M_i below M_j
-		// y_i + h_i <= y_j + H(1 + p_ij - q_ij)
-		// y_i - y_j - Hp_ij + Hq_ij <= H - h_i*/
-		//if(m_y_i <= m_y_j)
-		//{
-		k = 0;
-		colno[k] = y_i;
-		row[k++] = 1;
-		colno[k] = y_j;
-		row[k++] = -1;
-		colno[k] = p_ij;
-		row[k++] = -1 * Height;
-		colno[k] = q_ij;
-		row[k++] = 1 * Height;
-		bound = Height - m_placedb.m_modules[m_macroId[i]].m_height;
-		if(!add_constraintex(lp, k, row, colno, LE, bound))
-		    ret = 3;
-		fprintf(CplexModel, "%+d C%d %+d C%d %+f C%d %+f C%d <= %+f\n",
-		    1, y_i, -1, y_j, -1*Height, p_ij, 1*Height, q_ij, bound);
-		//}
-		// M_i above M_j
-		// y_i - h_j >= y_j - H(2 - p_ij - q_ij)	
-		// y_i - y_j - Hp_ij - Hq_ij >= h_j - 2H
-		//if(m_y_i >= m_y_j)
-		//{
-		k = 0;
-		colno[k] = y_i;
-		row[k++] = 1;
-		colno[k] = y_j;
-		row[k++] = -1;
-		colno[k] = p_ij;
-		row[k++] = -1 * Height;
-		colno[k] = q_ij;
-		row[k++] = -1 * Height;
-		bound = m_placedb.m_modules[m_macroId[j]].m_height - 2*Height;
-		if(!add_constraintex(lp, k, row, colno, GE, bound))
-		    ret = 3;
-		fprintf(CplexModel, "%+d C%d %+d C%d %+f C%d %+f C%d >= %+f\n",
-		    1, y_i, -1, y_j, -1*Height, p_ij, -1*Height, q_ij, bound);
-		//}
+// 		// M_i to the left of M_j
+// 		// x_i + w_i <= x_j + W(p_ij + q_ij)
+// 		// x_i - x_j - Wp_ij - Wq_ij <= -w_i
+// 		//if(m_x_i <= m_x_j)
+// 		//{
+// 		k = 0;
+// 		colno[k] = x_i;
+// 		row[k++] = 1;
+// 		colno[k] = x_j;
+// 		row[k++] = -1;
+// 		colno[k] = p_ij;
+// 		row[k++] = -1 * Width;
+// 		colno[k] = q_ij;
+// 		row[k++] = -1 * Width;
+// 		bound = -m_placedb.m_modules[m_macroId[i]].m_width;
+// 		if(!add_constraintex(lp, k, row, colno, LE, bound))
+// 		    ret = 3;
+// 		fprintf(CplexModel, "%+d C%d %+d C%d %+f C%d %+f C%d <= %+f\n",
+// 		    1, x_i, -1, x_j, -1*Width, p_ij, -1*Width, q_ij, bound);
+// 		//}
+// 		// M_i to the right of M_j
+// 		// x_i - w_j >= x_j - W(1 - p_ij + q_ij)
+// 		// x_i - x_j - Wp_ij + Wq_ij >= w_j - W
+// 		//if(m_x_i >= m_x_j)
+// 		//{
+// 		k = 0;
+// 		colno[k] = x_i;
+// 		row[k++] = 1;
+// 		colno[k] = x_j;
+// 		row[k++] = -1;
+// 		colno[k] = p_ij;
+// 		row[k++] = -1 * Width;
+// 		colno[k] = q_ij;
+// 		row[k++] = 1 * Width;
+// 		bound = m_placedb.m_modules[m_macroId[j]].m_width - Width;
+// 		if(!add_constraintex(lp, k, row, colno, GE, bound))
+// 		    ret = 3;
+// 		fprintf(CplexModel, "%+d C%d %+d C%d %+f C%d %+f C%d >= %+f\n",
+// 		    1, x_i, -1, x_j, -1*Width, p_ij, 1*Width, q_ij, bound);
+// 		//}
+// 		// M_i below M_j
+// 		// y_i + h_i <= y_j + H(1 + p_ij - q_ij)
+// 		// y_i - y_j - Hp_ij + Hq_ij <= H - h_i*/
+// 		//if(m_y_i <= m_y_j)
+// 		//{
+// 		k = 0;
+// 		colno[k] = y_i;
+// 		row[k++] = 1;
+// 		colno[k] = y_j;
+// 		row[k++] = -1;
+// 		colno[k] = p_ij;
+// 		row[k++] = -1 * Height;
+// 		colno[k] = q_ij;
+// 		row[k++] = 1 * Height;
+// 		bound = Height - m_placedb.m_modules[m_macroId[i]].m_height;
+// 		if(!add_constraintex(lp, k, row, colno, LE, bound))
+// 		    ret = 3;
+// 		fprintf(CplexModel, "%+d C%d %+d C%d %+f C%d %+f C%d <= %+f\n",
+// 		    1, y_i, -1, y_j, -1*Height, p_ij, 1*Height, q_ij, bound);
+// 		//}
+// 		// M_i above M_j
+// 		// y_i - h_j >= y_j - H(2 - p_ij - q_ij)	
+// 		// y_i - y_j - Hp_ij - Hq_ij >= h_j - 2H
+// 		//if(m_y_i >= m_y_j)
+// 		//{
+// 		k = 0;
+// 		colno[k] = y_i;
+// 		row[k++] = 1;
+// 		colno[k] = y_j;
+// 		row[k++] = -1;
+// 		colno[k] = p_ij;
+// 		row[k++] = -1 * Height;
+// 		colno[k] = q_ij;
+// 		row[k++] = -1 * Height;
+// 		bound = m_placedb.m_modules[m_macroId[j]].m_height - 2*Height;
+// 		if(!add_constraintex(lp, k, row, colno, GE, bound))
+// 		    ret = 3;
+// 		fprintf(CplexModel, "%+d C%d %+d C%d %+f C%d %+f C%d >= %+f\n",
+// 		    1, y_i, -1, y_j, -1*Height, p_ij, -1*Height, q_ij, bound);
+// 		//}
 
-		count++;
-	    }
-	}
+// 		count++;
+// 	    }
+// 	}
 
-	//boundary constraints
-	for(int i = 0; i < n_macros; i++)
-	{
-	    double right_bound, left_bound, bottom_bound, top_bound;
-	    if(!m_placedb.m_modules[m_macroId[i]].m_isFixed)
-	    {
-		left_bound = 0;
-		bottom_bound = 0;
-		right_bound = Width - m_placedb.m_modules[m_macroId[i]].m_width;
-		top_bound = Height - m_placedb.m_modules[m_macroId[i]].m_height;
-	    }else
-	    {
-		left_bound = right_bound = m_placedb.m_modules[m_macroId[i]].m_x+xShift;
-		bottom_bound = top_bound = m_placedb.m_modules[m_macroId[i]].m_y+yShift;
-	    }
+// 	//boundary constraints
+// 	for(int i = 0; i < n_macros; i++)
+// 	{
+// 	    double right_bound, left_bound, bottom_bound, top_bound;
+// 	    if(!m_placedb.m_modules[m_macroId[i]].m_isFixed)
+// 	    {
+// 		left_bound = 0;
+// 		bottom_bound = 0;
+// 		right_bound = Width - m_placedb.m_modules[m_macroId[i]].m_width;
+// 		top_bound = Height - m_placedb.m_modules[m_macroId[i]].m_height;
+// 	    }else
+// 	    {
+// 		left_bound = right_bound = m_placedb.m_modules[m_macroId[i]].m_x+xShift;
+// 		bottom_bound = top_bound = m_placedb.m_modules[m_macroId[i]].m_y+yShift;
+// 	    }
 	
-	    colno[0] = 1+2*i; // x_i
-	    row[0] = 1;
-	    if(!add_constraintex(lp, 1, row, colno, LE, right_bound)) ret = 3;
-	    fprintf(CplexModel, "%+d C%d <= %+f\n", 1, 1+2*i, right_bound);
-	    if(!add_constraintex(lp, 1, row, colno, GE, left_bound)) ret = 3;
-	    fprintf(CplexModel, "%+d C%d >= %+f\n", 1, 1+2*i, left_bound);
+// 	    colno[0] = 1+2*i; // x_i
+// 	    row[0] = 1;
+// 	    if(!add_constraintex(lp, 1, row, colno, LE, right_bound)) ret = 3;
+// 	    fprintf(CplexModel, "%+d C%d <= %+f\n", 1, 1+2*i, right_bound);
+// 	    if(!add_constraintex(lp, 1, row, colno, GE, left_bound)) ret = 3;
+// 	    fprintf(CplexModel, "%+d C%d >= %+f\n", 1, 1+2*i, left_bound);
 
-	    colno[0] = 1+2*i+1; // y_i
-	    if(!add_constraintex(lp, 1, row, colno, LE, top_bound)) ret = 3;
-	    fprintf(CplexModel, "%+d C%d <= %+f\n", 1, 1+2*i+1, top_bound);
-	    if(!add_constraintex(lp, 1, row, colno, GE, bottom_bound)) ret = 3;
-	    fprintf(CplexModel, "%+d C%d >= %+f\n", 1, 1+2*i+1, bottom_bound);
-	}
+// 	    colno[0] = 1+2*i+1; // y_i
+// 	    if(!add_constraintex(lp, 1, row, colno, LE, top_bound)) ret = 3;
+// 	    fprintf(CplexModel, "%+d C%d <= %+f\n", 1, 1+2*i+1, top_bound);
+// 	    if(!add_constraintex(lp, 1, row, colno, GE, bottom_bound)) ret = 3;
+// 	    fprintf(CplexModel, "%+d C%d >= %+f\n", 1, 1+2*i+1, bottom_bound);
+// 	}
 
-	//convert absolute objective function to constraints
-	int u = 1+(n_macros)*(n_macros+1); // u
-	int v = 1+(n_macros)*(n_macros+1)+1; // v
-	for(int i = 0; i < n_macros; i++)
-	{
-	    int k;
+// 	//convert absolute objective function to constraints
+// 	int u = 1+(n_macros)*(n_macros+1); // u
+// 	int v = 1+(n_macros)*(n_macros+1)+1; // v
+// 	for(int i = 0; i < n_macros; i++)
+// 	{
+// 	    int k;
 
-	    double m_x = m_placedb.m_modules[m_macroId[i]].m_x;
-	    double m_y = m_placedb.m_modules[m_macroId[i]].m_y;
+// 	    double m_x = m_placedb.m_modules[m_macroId[i]].m_x;
+// 	    double m_y = m_placedb.m_modules[m_macroId[i]].m_y;
 
-	    int x_i = 1+2*i;
-	    int y_i = 1+2*i+1;
+// 	    int x_i = 1+2*i;
+// 	    int y_i = 1+2*i+1;
 
-	    // x_i - x_j <= u
-	    // x_i - u <= x_j
-	    k = 0;
-	    colno[k] = x_i; // x_i
-	    row[k++] = 1;
-	    colno[k] = u;
-	    row[k++] = -1;
-	    if(!add_constraintex(lp, k, row, colno, LE, m_x)) ret = 3;
-	    fprintf(CplexModel, "%+d C%d %+d C%d <= %+f\n", 1, x_i, -1, u, m_x);
+// 	    // x_i - x_j <= u
+// 	    // x_i - u <= x_j
+// 	    k = 0;
+// 	    colno[k] = x_i; // x_i
+// 	    row[k++] = 1;
+// 	    colno[k] = u;
+// 	    row[k++] = -1;
+// 	    if(!add_constraintex(lp, k, row, colno, LE, m_x)) ret = 3;
+// 	    fprintf(CplexModel, "%+d C%d %+d C%d <= %+f\n", 1, x_i, -1, u, m_x);
 
-	    // -x_i + x_j <= u
-	    // -x_i - u <= -x_j
-	    k = 0;
-	    row[k++] = -1;
-	    row[k++] = -1;
-	    if(!add_constraintex(lp, k, row, colno, LE, -m_x)) ret = 3;
-	    fprintf(CplexModel, "%+d C%d %+d C%d <= %+f\n", -1, x_i, -1, u, -m_x);
+// 	    // -x_i + x_j <= u
+// 	    // -x_i - u <= -x_j
+// 	    k = 0;
+// 	    row[k++] = -1;
+// 	    row[k++] = -1;
+// 	    if(!add_constraintex(lp, k, row, colno, LE, -m_x)) ret = 3;
+// 	    fprintf(CplexModel, "%+d C%d %+d C%d <= %+f\n", -1, x_i, -1, u, -m_x);
 
-	    // y_i - y_j <= v
-	    // y_i - v <= y_j
-	    k = 0;
-	    colno[k] = y_i;
-	    row[k++] = 1;
-	    colno[k] = v;
-	    row[k++] = -1;
-	    if(!add_constraintex(lp, k, row, colno, LE, m_y)) ret = 3;
-	    fprintf(CplexModel, "%+d C%d %+d C%d <= %+f\n", 1, y_i, -1, v, m_y);
+// 	    // y_i - y_j <= v
+// 	    // y_i - v <= y_j
+// 	    k = 0;
+// 	    colno[k] = y_i;
+// 	    row[k++] = 1;
+// 	    colno[k] = v;
+// 	    row[k++] = -1;
+// 	    if(!add_constraintex(lp, k, row, colno, LE, m_y)) ret = 3;
+// 	    fprintf(CplexModel, "%+d C%d %+d C%d <= %+f\n", 1, y_i, -1, v, m_y);
 
-	    // -y_i + y_j <= v
-	    // -y_i - v <= -y_j
-	    k = 0;
-	    row[k++] = -1;
-	    row[k++] = -1;
-	    if(!add_constraintex(lp, k, row, colno, LE, -m_y)) ret = 3;
-	    fprintf(CplexModel, "%+d C%d %+d C%d <= %+f\n", -1, y_i, -1, v, -m_y);
-	}
+// 	    // -y_i + y_j <= v
+// 	    // -y_i - v <= -y_j
+// 	    k = 0;
+// 	    row[k++] = -1;
+// 	    row[k++] = -1;
+// 	    if(!add_constraintex(lp, k, row, colno, LE, -m_y)) ret = 3;
+// 	    fprintf(CplexModel, "%+d C%d %+d C%d <= %+f\n", -1, y_i, -1, v, -m_y);
+// 	}
 
-	set_add_rowmode(lp, false);
-    }
+// 	set_add_rowmode(lp, false);
+//     }
 
-    //objective function
-    if(ret == 0)
-    {
-	colno[0] = 1 + n_macros*(n_macros+1); // u
-	colno[1] = 1 + n_macros*(n_macros+1) + 1; // v
+//     //objective function
+//     if(ret == 0)
+//     {
+// 	colno[0] = 1 + n_macros*(n_macros+1); // u
+// 	colno[1] = 1 + n_macros*(n_macros+1) + 1; // v
 	
-	row[0] = row[1] = 1;
+// 	row[0] = row[1] = 1;
 
-	if(!set_obj_fnex(lp, 2, row, colno))
-	    ret = 4;
-    }
+// 	if(!set_obj_fnex(lp, 2, row, colno))
+// 	    ret = 4;
+//     }
 
-    fprintf(CplexModel, "integer\n");
-    for(int i = 0, count = 0; i < n_macros; i++)
-    {
-	for(int j = i+1; j < n_macros; j++)
-	{
-	    fprintf(CplexModel, "C%d\n", 1 + 2*n_macros + 2*count);
-	    fprintf(CplexModel, "C%d\n", 1 + 2*n_macros + 2*count + 1);
-	    count++;
-	}
-    }
-    fprintf(CplexModel, "end\n");
-    fclose(CplexModel);
+//     fprintf(CplexModel, "integer\n");
+//     for(int i = 0, count = 0; i < n_macros; i++)
+//     {
+// 	for(int j = i+1; j < n_macros; j++)
+// 	{
+// 	    fprintf(CplexModel, "C%d\n", 1 + 2*n_macros + 2*count);
+// 	    fprintf(CplexModel, "C%d\n", 1 + 2*n_macros + 2*count + 1);
+// 	    count++;
+// 	}
+//     }
+//     fprintf(CplexModel, "end\n");
+//     fclose(CplexModel);
 
-    if(ret == 0)
-    {
-	set_minim(lp);
+//     if(ret == 0)
+//     {
+// 	set_minim(lp);
 
-	set_timeout(lp, 60);
+// 	set_timeout(lp, 60);
 
-	int ret = write_lp(lp, "model.lp");
+// 	int ret = write_lp(lp, "model.lp");
 
-	//set_verbose(lp, IMPORTANT);
+// 	//set_verbose(lp, IMPORTANT);
 
-	set_presolve(lp, PRESOLVE_ROWS | PRESOLVE_COLS | PRESOLVE_LINDEP, get_presolveloops(lp));
-	while(true)
-	{
-	    ret = solve(lp);
-	    if(ret == OPTIMAL || ret == SUBOPTIMAL) break;
-	}
-	//printf("ret = %d\n", ret);
+// 	set_presolve(lp, PRESOLVE_ROWS | PRESOLVE_COLS | PRESOLVE_LINDEP, get_presolveloops(lp));
+// 	while(true)
+// 	{
+// 	    ret = solve(lp);
+// 	    if(ret == OPTIMAL || ret == SUBOPTIMAL) break;
+// 	}
+// 	//printf("ret = %d\n", ret);
 
-	if(ret == OPTIMAL || ret == SUBOPTIMAL) {bSuccess = true; ret = 0;}
-	else ret = 5;
-    }
-
-
-    if( bSuccess )
-    {
-	//printf("get optimal\n");
-	get_variables(lp, row);	
-
-	/*int count = 0;
-	for(int i = 0; i < n_macros; i++)
-	{
-	    double x_i = row[2*i];
-	    double y_i = row[2*i+1];
-	    double w_i = m_placedb.m_modules[m_macroId[i]].m_width;
-	    double h_i = m_placedb.m_modules[m_macroId[i]].m_height;
-	    for(int j = i+1; j < n_macros; j++)
-	    {
-		double x_j = row[2*j];
-		double y_j = row[2*j+1];
-		double w_j = m_placedb.m_modules[m_macroId[j]].m_width;
-		double h_j = m_placedb.m_modules[m_macroId[j]].m_height;
-		int p_ij = row[2*n_macros+2*count];
-		int q_ij = row[2*n_macros+2*count+1];
-	    	//printf("p_%d_%d=%d, q_%d_%d=%d\n", i, j, p_ij, i, j, q_ij);
-
-		if(p_ij == 0 && q_ij == 0)
-		{
-		    if(!(x_i + w_i <= x_j)) printf("x_%d + w_%d > x_%d\n", i, i, j);
-		}else if(p_ij == 1 && q_ij == 0)
-		{
-		    if(!(y_i + h_i <= y_j)) printf("y_%d + h_%d > y_%d\n", i, i, j);
-		}else if(p_ij == 0 && q_ij == 1)
-		{
-		    if(!(x_i - w_j >= x_j)) printf("x_%d + w_%d < x_%d\n", i, j, j);
-		}else if(p_ij == 1 && q_ij == 1)
-		{
-		    if(!(y_i - h_j >= y_j)) printf("y_%d - h_%d < y_%d\n", i, j, j);
-		}
-
-		count++;
-	    }
-	}*/
-	for(int i = 0; i < n_macros; i++)
-	{
-	    //printf("%d(%lf, %lf) => (%lf, %lf)\n", m_macroId[i], m_placedb.m_modules[m_macroId[i]].m_width, m_placedb.m_modules[m_macroId[i]].m_height, row[2*i]-xShift, row[2*i+1]-yShift);
-	    m_placedb.SetModuleLocation( m_macroId[i], row[2*i]-xShift , row[2*i+1]-yShift );
-	}
-	//print_solution(lp, 1);
-
-	// plot macros
-	FILE* plotter = fopen("lpmacroshifter.plt", "w");
-	if(plotter == NULL){
-	    printf("cannot open file\n");
-	    exit(0);
-	}
-
-	fprintf(plotter, "\nset title \"%s\" font \"Times, 22\"\n\n", "Macro Shifter Result");
-	fprintf(plotter, "set size ratio 1\n");
-	fprintf(plotter, "set nokey\n\n");
-	fprintf(plotter, "plot[:][:] '-' w l lt 1, '-' w l lt 3\n\n");
-
-	fprintf(plotter, "# outline\n\n");
-	fprintf(plotter, "0,0\n\n");
-	fprintf(plotter, "%lf, %lf\n", m_placedb.m_coreRgn.left, m_placedb.m_coreRgn.bottom);
-	fprintf(plotter, "%lf, %lf\n", m_placedb.m_coreRgn.right, m_placedb.m_coreRgn.bottom);
-	fprintf(plotter, "%lf, %lf\n", m_placedb.m_coreRgn.right, m_placedb.m_coreRgn.top);
-	fprintf(plotter, "%lf, %lf\n", m_placedb.m_coreRgn.left, m_placedb.m_coreRgn.top);
-	fprintf(plotter, "%lf, %lf\n", m_placedb.m_coreRgn.left, m_placedb.m_coreRgn.bottom);
-	fprintf(plotter, "\n");
-
-	fprintf(plotter, "EOF\n\n");
-
-	fprintf(plotter, "# blocks\n\n");
-	fprintf(plotter, "0,0\n\n");
-	for(int i = 0; i < n_macros; i++)
-	{
-	    double m_x = m_placedb.m_modules[m_macroId[i]].m_x;
-	    double m_rx = m_x + m_placedb.m_modules[m_macroId[i]].m_width;
-	    double m_y = m_placedb.m_modules[m_macroId[i]].m_y;
-	    double m_ry = m_y + m_placedb.m_modules[m_macroId[i]].m_height;
-	    fprintf(plotter, "%lf, %lf\n", m_x , m_y );
-	    fprintf(plotter, "%lf, %lf\n", m_rx, m_y );
-	    fprintf(plotter, "%lf, %lf\n", m_rx, m_ry);
-	    fprintf(plotter, "%lf, %lf\n", m_x , m_ry);
-	    fprintf(plotter, "%lf, %lf\n", m_x , m_y );
-	    fprintf(plotter, "\n");
-	}
-
-	fprintf(plotter, "EOF\npause -1\n");
-	pclose(plotter);
+// 	if(ret == OPTIMAL || ret == SUBOPTIMAL) {bSuccess = true; ret = 0;}
+// 	else ret = 5;
+//     }
 
 
-	//Fix macros if 'makeFixed' is true
-	if( makeFixed )
-	{
-	    for( unsigned int i = 0 ; i < m_macro_ids.size() ; i++ )
-	    {
-		const int moduleIndex = m_macro_ids[i];
-		m_placedb.m_modules[moduleIndex].m_isFixed;
-	    }
-	}
-    }
-    /*else
-    {
-	//MacroShifterRestoreOrigPosition();
-	exit(0);
-    }*/
+//     if( bSuccess )
+//     {
+// 	//printf("get optimal\n");
+// 	get_variables(lp, row);	
 
-    if(row != NULL)
-	free(row);
-    if(colno != NULL)
-	free(colno);
+// 	/*int count = 0;
+// 	for(int i = 0; i < n_macros; i++)
+// 	{
+// 	    double x_i = row[2*i];
+// 	    double y_i = row[2*i+1];
+// 	    double w_i = m_placedb.m_modules[m_macroId[i]].m_width;
+// 	    double h_i = m_placedb.m_modules[m_macroId[i]].m_height;
+// 	    for(int j = i+1; j < n_macros; j++)
+// 	    {
+// 		double x_j = row[2*j];
+// 		double y_j = row[2*j+1];
+// 		double w_j = m_placedb.m_modules[m_macroId[j]].m_width;
+// 		double h_j = m_placedb.m_modules[m_macroId[j]].m_height;
+// 		int p_ij = row[2*n_macros+2*count];
+// 		int q_ij = row[2*n_macros+2*count+1];
+// 	    	//printf("p_%d_%d=%d, q_%d_%d=%d\n", i, j, p_ij, i, j, q_ij);
 
-    if(lp!= NULL)
-	delete_lp(lp);
+// 		if(p_ij == 0 && q_ij == 0)
+// 		{
+// 		    if(!(x_i + w_i <= x_j)) printf("x_%d + w_%d > x_%d\n", i, i, j);
+// 		}else if(p_ij == 1 && q_ij == 0)
+// 		{
+// 		    if(!(y_i + h_i <= y_j)) printf("y_%d + h_%d > y_%d\n", i, i, j);
+// 		}else if(p_ij == 0 && q_ij == 1)
+// 		{
+// 		    if(!(x_i - w_j >= x_j)) printf("x_%d + w_%d < x_%d\n", i, j, j);
+// 		}else if(p_ij == 1 && q_ij == 1)
+// 		{
+// 		    if(!(y_i - h_j >= y_j)) printf("y_%d - h_%d < y_%d\n", i, j, j);
+// 		}
 
-    //Restore module width
-    RestoreModuleWidth();
+// 		count++;
+// 	    }
+// 	}*/
+// 	for(int i = 0; i < n_macros; i++)
+// 	{
+// 	    //printf("%d(%lf, %lf) => (%lf, %lf)\n", m_macroId[i], m_placedb.m_modules[m_macroId[i]].m_width, m_placedb.m_modules[m_macroId[i]].m_height, row[2*i]-xShift, row[2*i+1]-yShift);
+// 	    m_placedb.SetModuleLocation( m_macroId[i], row[2*i]-xShift , row[2*i+1]-yShift );
+// 	}
+// 	//print_solution(lp, 1);
+
+// 	// plot macros
+// 	FILE* plotter = fopen("lpmacroshifter.plt", "w");
+// 	if(plotter == NULL){
+// 	    printf("cannot open file\n");
+// 	    exit(0);
+// 	}
+
+// 	fprintf(plotter, "\nset title \"%s\" font \"Times, 22\"\n\n", "Macro Shifter Result");
+// 	fprintf(plotter, "set size ratio 1\n");
+// 	fprintf(plotter, "set nokey\n\n");
+// 	fprintf(plotter, "plot[:][:] '-' w l lt 1, '-' w l lt 3\n\n");
+
+// 	fprintf(plotter, "# outline\n\n");
+// 	fprintf(plotter, "0,0\n\n");
+// 	fprintf(plotter, "%lf, %lf\n", m_placedb.m_coreRgn.left, m_placedb.m_coreRgn.bottom);
+// 	fprintf(plotter, "%lf, %lf\n", m_placedb.m_coreRgn.right, m_placedb.m_coreRgn.bottom);
+// 	fprintf(plotter, "%lf, %lf\n", m_placedb.m_coreRgn.right, m_placedb.m_coreRgn.top);
+// 	fprintf(plotter, "%lf, %lf\n", m_placedb.m_coreRgn.left, m_placedb.m_coreRgn.top);
+// 	fprintf(plotter, "%lf, %lf\n", m_placedb.m_coreRgn.left, m_placedb.m_coreRgn.bottom);
+// 	fprintf(plotter, "\n");
+
+// 	fprintf(plotter, "EOF\n\n");
+
+// 	fprintf(plotter, "# blocks\n\n");
+// 	fprintf(plotter, "0,0\n\n");
+// 	for(int i = 0; i < n_macros; i++)
+// 	{
+// 	    double m_x = m_placedb.m_modules[m_macroId[i]].m_x;
+// 	    double m_rx = m_x + m_placedb.m_modules[m_macroId[i]].m_width;
+// 	    double m_y = m_placedb.m_modules[m_macroId[i]].m_y;
+// 	    double m_ry = m_y + m_placedb.m_modules[m_macroId[i]].m_height;
+// 	    fprintf(plotter, "%lf, %lf\n", m_x , m_y );
+// 	    fprintf(plotter, "%lf, %lf\n", m_rx, m_y );
+// 	    fprintf(plotter, "%lf, %lf\n", m_rx, m_ry);
+// 	    fprintf(plotter, "%lf, %lf\n", m_x , m_ry);
+// 	    fprintf(plotter, "%lf, %lf\n", m_x , m_y );
+// 	    fprintf(plotter, "\n");
+// 	}
+
+// 	fprintf(plotter, "EOF\npause -1\n");
+// 	pclose(plotter);
+
+
+// 	//Fix macros if 'makeFixed' is true
+// 	if( makeFixed )
+// 	{
+// 	    for( unsigned int i = 0 ; i < m_macro_ids.size() ; i++ )
+// 	    {
+// 		const int moduleIndex = m_macro_ids[i];
+// 		m_placedb.m_modules[moduleIndex].m_isFixed;
+// 	    }
+// 	}
+//     }
+//     /*else
+//     {
+// 	//MacroShifterRestoreOrigPosition();
+// 	exit(0);
+//     }*/
+
+//     if(row != NULL)
+// 	free(row);
+//     if(colno != NULL)
+// 	free(colno);
+
+//     if(lp!= NULL)
+// 	delete_lp(lp);
+
+//     //Restore module width
+//     RestoreModuleWidth();
     
-    return bSuccess;
-}
+//     return bSuccess;
+// }
 
 bool CTetrisLegal::AggressiveMacroDiamondSearch( const int& cellid,
 	vector<CLegalLocation>& legalLocations )
@@ -2100,7 +2124,11 @@ void CTetrisLegal::GetMacroLegalLocationsTowardOrig(
     fclose( ofile );
     //@test code
 #endif
-    const double site_step = m_placedb.m_sites[0].m_step;
+    //const double site_step;
+    double site_step;
+    // (kaie) 2009-07-11 Layer by layer legalization
+    if (!m_bLayerByLayerLegal) site_step = m_placedb.m_sites[0].m_step;
+    else site_step = m_placedb.m_sites3d[m_layer][0].m_step;
     
     const Module& curModule = m_placedb.m_modules[cellid];
 
@@ -2254,7 +2282,12 @@ void CTetrisLegal::GetMacroLegalLocationsTowardLeft(
 	std::vector<Jin::CLegalLocation>& legalLocations,
 	const double& left_bound )
 {
-    const double site_step = m_placedb.m_sites[0].m_step;
+    //const double site_step = m_placedb.m_sites[0].m_step;
+    double site_step;
+    // (kaie) 2009-07-11 Layer by layer legalization
+    if(m_bLayerByLayerLegal) site_step = m_placedb.m_sites[0].m_step;
+    else site_step = m_placedb.m_sites3d[m_layer][0].m_step;
+
     const Module& curModule = m_placedb.m_modules[cellid];
 
     if( curModule.m_height <= m_placedb.m_rowHeight )
@@ -2435,21 +2468,19 @@ bool Jin::LessXCoorMacroFirst::operator()( const int& mid1, const int& mid2 )
 
     //Both modules are macros or cells,
     //sort them according to their x coordinates
-    if( bMacro1 && bMacro2 ) // kaie
+    if( bMacro1 == bMacro2 )
     {
-	if (m1.m_area == m2.m_area) // kaie
-	{
 	if( m1.m_x == m2.m_x )
 	{
 	    if( m1.m_width == m2.m_width )
-		return m1.m_height > m2.m_height;
+		return m1.m_height < m2.m_height;
 	    else
 		return m1.m_width > m2.m_width;
 	}
 	else
 	    return m1.m_x < m2.m_x;
-	}else
-	    return m1.m_area > m2.m_area;
+	// }else
+	//     return m1.m_area > m2.m_area;
     }
     //One of these two modules are macros,
     //the macro module has higher priority
@@ -2466,9 +2497,9 @@ bool Jin::LessXCoorMacroFirst::operator()( const int& mid1, const int& mid2 )
 	if( m1.m_x == m2.m_x )
 	{
 	    if( m1.m_width == m2.m_width )
-		return m1.m_height > m2.m_height;
+		return m1.m_height < m2.m_height;
 	    else
-		return m1.m_width > m2.m_width;
+		return m1.m_width < m2.m_width;
 	}
 	else
 	{
@@ -2676,7 +2707,12 @@ void CTetrisLegal::CalculateNewLocation(const double& prelegal_factor,
 
 void CTetrisLegal::PrepareNonMacroLeftRightFreeSites(const vector<int>& macro_ids)
 {
-    m_free_sites = m_placedb.m_sites;
+    // (kaie) 2009-07-11 Layer by layer legalization
+    if(!m_bLayerByLayerLegal)
+    	m_free_sites = m_placedb.m_sites;
+    else
+	m_free_sites = m_placedb.m_sites3d[m_layer];
+    
     m_right_free_sites.clear();
 
     for( unsigned int i = 0 ; i < macro_ids.size() ; i++ ) 
@@ -2890,7 +2926,8 @@ CTetrisLegal::CTetrisLegal( CPlaceDB& placedb ) :
     m_bMacroLegalized(false),
     m_tetrisDir(0),         // 2007-07-10 (donnie)
     m_resultTetrisDir(0),   //   ..
-    m_resultTetrisDiff(0)   //   ..
+    m_resultTetrisDiff(0),   //   ..
+    m_bLayerByLayerLegal(false)	// (kaie) 2009-07-11
 {
 
     //Added by Jin 20070308
@@ -2980,6 +3017,32 @@ bool CTetrisLegal::SolveAndReturn( const double& util,
 	return true;
     }
     return false;
+}
+
+// (kaie) 2009-07-11 Layer by layer legalization
+bool CTetrisLegal::SolveLayerByLayer( const int nlayers,
+	const double& util,
+	const bool& bMacroLegal,
+	const bool& bRobust,
+	const double& stop_prelegal_factor	)
+{
+	m_bLayerByLayerLegal = true;
+
+	bool succ = true;
+	
+	for(int i = 0; i < nlayers; i++)
+	{
+		printf("layer %d ", i);
+		m_layer = i;
+		
+		// initialize sites
+		m_free_sites = m_placedb.m_sites3d[m_layer];
+		m_site_bottom = m_free_sites.front().m_bottom;
+		m_site_height = m_free_sites.front().m_height;
+		
+		succ = succ && Solve(util, bMacroLegal, bRobust, stop_prelegal_factor);
+	}
+	return succ;
 }
 
 
@@ -3677,7 +3740,11 @@ void CTetrisLegal::RestoreModuleWidth(void)
 
 void CTetrisLegal::ExpandModuleWidthToSiteStep(void)
 {
-    double site_step = m_placedb.m_sites.front().m_step;
+    double site_step;
+    // (kaie) 2009-07-11 Layer by layer legalization
+    if(!m_bLayerByLayerLegal) site_step = m_placedb.m_sites.front().m_step;
+    else site_step = m_placedb.m_sites3d[m_layer].front().m_step;
+	
     for( unsigned int i = 0 ; i < m_placedb.m_modules.size() ; i++ )
     {
 	double orig_width = m_placedb.m_modules[i].m_width;
@@ -3723,7 +3790,7 @@ bool CTopDownLegal::Legal( CRect& rect, vector<int>& blocks )
     double smallest = (m_pDB->m_coreRgn.right-m_pDB->m_coreRgn.left)*(m_pDB->m_coreRgn.top-m_pDB->m_coreRgn.bottom)/part;
 
     printf( "Legal (%.0f %.0f) - (%.0f %.0f) A= %g   block# %d\n", 
-	    rect.left, rect.bottom, rect.right, rect.top, space, (int)blocks.size() );
+	    rect.left, rect.bottom, rect.right, rect.top, space, blocks.size() );
 
     // find the cutline
     CRect subRect1 = rect, subRect2 = rect;

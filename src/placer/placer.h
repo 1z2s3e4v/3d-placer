@@ -62,6 +62,7 @@ public:
 
     /* connect to NTUplace Datebase */
     void set_ntuplace_param(CPlaceDB&);
+    void create_placedb(CPlaceDB&);
     void create_placedb(CPlaceDB&, int dieId);
     void load_from_placedb(CPlaceDB&);
     /* GlobalPlace + Legal + DetailPlace*/
@@ -69,7 +70,7 @@ public:
     void global_place(bool& isLegal, double& totalHPWL);
     void legal_place();
     void detail_place();
-    void ntu_d2d_global();
+    void ntu_d2d_global(bool& isLegal, double& totalHPWL);
     void ntu_d2d_legal_detail();
 
     void create_aux_form(AUX&, int dieId, string caseName);

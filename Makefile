@@ -1,5 +1,6 @@
 CC=g++
 CG=gcc
+#LIB=src/lib/liblpsolve55.a
 LDFLAGS=-std=c++11 -lm -g -fomit-frame-pointer -funroll-loops -ffast-math -funit-at-a-time -fPIC -DNDEBUG -pthread
 CLDFLAGS=-fomit-frame-pointer -funroll-loops -ffast-math -funit-at-a-time -fPIC -DYY_NEVER_INTERACTIVE -DPARSER_LP -DINVERSE_ACTIVE=INVERSE_LUSOL -DRoleIsExternalInvEngine
 SOURCES=src/main/main.cpp src/parser/parser.cpp src/dataModel/dm.cpp src/dataModel/module.cpp src/utility/paramHdl.cpp src/utility/message.cpp src/utility/drawHtml.cpp src/utility/aux.cpp src/utility/hgr.cpp src/placer/placer.cpp \
@@ -24,7 +25,7 @@ CINCLUDES=${LP}/colamd.h ${LP}/lp_Hash.h ${LP}/lp_mipbb.h ${LP}/lp_pricePSE.h ${
 all: $(CSOURCES) $(SOURCES) bin/$(EXECUTABLE)
 
 bin/$(EXECUTABLE): $(COBJECTS) $(OBJECTS) 
-	$(CC) -static $(LDFLAGS) $(COBJECTS) $(OBJECTS) -ldl -o $@
+	$(CC) -static $(LDFLAGS) $(COBJECTS) $(OBJECTS) $(LIB) -ldl -o $@
 	mkdir -p output
 
 .c.o: %.c ${CINCLUDES}

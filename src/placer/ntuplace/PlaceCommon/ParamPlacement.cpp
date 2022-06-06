@@ -143,6 +143,10 @@ CParamPlacement::CParamPlacement()
 
     //Added by Jin 20081013
     bTiming = false;
+
+    // Added by Frank 20220605
+    b3d = false;
+    nlayer = 1;
 }
 
 void CParamPlacement::Print()
@@ -205,6 +209,9 @@ void CParamPlacement::Print()
     
     //cout << "\nCell Matching:\n";
     //cout << "  stop              = " << cellMatchingStop << endl;
+
+    cout << "  qp                = " << TrueFalse( b3d ) << endl;
+    cout << "  nlayer            = " << nlayer << endl;
     cout << "\n";
 
     //Added by Jin 20060510
