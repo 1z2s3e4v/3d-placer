@@ -227,7 +227,7 @@ bool multilevel_nlp( CPlaceDB& placedb,
 	    //
 
 		double layerThickness = (currentDB->m_front - currentDB->m_back) / (double)(currentDB->m_totalLayer);
-		if(currentDB->m_totalLayer > 1){
+		if(currentDB->m_totalLayer > 1 && !param.bLayerPreAssign){
 			currentDB->LayerAssignmentByPartition(currentDB->m_totalLayer);
 		}
                     
@@ -243,8 +243,9 @@ bool multilevel_nlp( CPlaceDB& placedb,
 	    double core_area = (currentDB->m_coreRgn.right-currentDB->m_coreRgn.left) * (currentDB->m_coreRgn.top-currentDB->m_coreRgn.bottom);
 	    vector<double> totalArea3d;
 	    totalArea3d.resize(currentDB->m_totalLayer, 0.0);
-	    for(unsigned int i = 0; i < currentDB->m_modules.size(); i++)
+	    for(unsigned int i = 0; i < currentDB->m_modules.size(); i++){
 	    	totalArea3d[(int)currentDB->m_modules[i].m_z] += currentDB->m_modules[i].m_area;
+		}
 	    for(int l = 0; l < currentDB->m_totalLayer; l++)
 		    printf("Layer%d: %.2f(%.2f/%.2f)\n", l, totalArea3d[l] / core_area, totalArea3d[l], core_area);
 	    //double layerThickness = (currentDB->m_front - currentDB->m_back) / currentDB->m_totalLayer;

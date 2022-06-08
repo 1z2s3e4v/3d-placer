@@ -79,7 +79,7 @@ double MyNLP::m_skewDensityPenalty2 = 1.0;
     m_spreadingForceNullifyRatio = 0.0;
 
     m_smoothR = 5;	// Gaussian smooth R
-    if( gArg.CheckExist( "3d" ) ) // (kaie)
+    if( param.b3d ) // (kaie)
 	m_smoothR = 1;
 
     if( gArg.CheckExist( "nolal" ) )
@@ -6787,14 +6787,12 @@ bool MyNLP::InitObjWeights( double wWire )
     else
 	n = 2 * m_pDB->m_modules.size();
     
-        
     // 2006-02-22 find weights
     
     _weightWire = _weightDensity = 1.0;     // init values to call eval_grad_f
 
     ComputeBinGrad();
     Parallel( eval_grad_f_thread, m_pDB->m_modules.size() );
-
     double totalWireGradient = 0;
     double totalPotentialGradient = 0;
     double totalCongGradient = 0.0;
@@ -6805,16 +6803,19 @@ bool MyNLP::InitObjWeights( double wWire )
     if (param.bCongObj)
     {
 	if( !AdjustForceNet( grad_wire, grad_potential, grad_congestion ) ) // truncation
+		{cout << "\n !AdjustForceNet()\n";
 	    return false;	// bad values in grad_wire or grad_potential
+		}
     }
     else
     {
 	if( !AdjustForce( n, x, grad_wire, grad_potential, grad_potentialZ) ) // truncation
+		{cout << "\n !AdjustForce()\n";
 	    return false;	// bad values in grad_wire or grad_potential
+		}
     }
     //@Brian 2007-04-30
-   
-    int size;
+    int size = n/2;
     if(m_bMoveZ)
 	size = n/3;
     else
@@ -6822,8 +6823,8 @@ bool MyNLP::InitObjWeights( double wWire )
     for(int i = 0; i < size; i++)
     {
 	    // x direction
-	    if(isNaN(grad_wire[2*i])) return false;
-	    if(fabs(grad_wire[2*i]) > DBL_MAX * 0.95) return false;
+	    if(isNaN(grad_wire[2*i])) {cout<<"\n In x direction: grad_wire["<<2*i<<"] isNaN.\n"; return false;}
+	    if(fabs(grad_wire[2*i]) > DBL_MAX * 0.95) {cout<<"\n In x direction: grad_wire["<<2*i<<"] inf.\n"; return false;}
 	    assert(fabs(grad_wire[2*i]) < DBL_MAX * 0.95);
 	    assert(!isNaN(grad_wire[2*i]));
 	    totalWireGradient += fabs(grad_wire[2*i]);
@@ -6833,8 +6834,8 @@ bool MyNLP::InitObjWeights( double wWire )
 		    totalCongGradient += fabs(grad_congestion[2*i]);
 
 	    // y direction
-	    if(isNaN(grad_wire[2*i+1])) return false;
-	    if(fabs(grad_wire[2*i+1]) > DBL_MAX * 0.95) return false;
+	    if(isNaN(grad_wire[2*i+1])) {cout<<"\n In y direction: grad_wire["<<2*i+1<<"] isNaN.\n"; return false;}
+	    if(fabs(grad_wire[2*i+1]) > DBL_MAX * 0.95) {cout<<"\n In y direction: grad_wire["<<2*i+1<<"] inf.\n"; return false;}
 	    assert(fabs(grad_wire[2*i+1]) < DBL_MAX * 0.95);
 	    assert(!isNaN(grad_wire[2*i+1]));
 	    totalWireGradient += fabs(grad_wire[2*i+1]);
@@ -6846,8 +6847,8 @@ bool MyNLP::InitObjWeights( double wWire )
 	    // z direction
 	    if(m_bMoveZ)
 	    {
-	    	if(isNaN(grad_via[i])) return false;
-	    	if(fabs(grad_via[i]) > DBL_MAX * 0.95) return false;
+	    	if(isNaN(grad_via[i])){cout<<"\n In m_bMoveZ: grad_via["<<i<<"] isNaN.\n"; return false;}
+	    	if(fabs(grad_via[i]) > DBL_MAX * 0.95) {cout<<"\n In m_bMoveZ: grad_via["<<i<<"] inf.\n"; return false;}
 	    	assert(fabs(grad_via[i]) < DBL_MAX * 0.95);
 	    	assert(!isNaN(grad_via[i]));
 	    	//totalWireGradient += fabs(grad_via[i]);
@@ -6877,24 +6878,31 @@ bool MyNLP::InitObjWeights( double wWire )
             totalCongGradient += fabs(grad_congestion[i]);
         //@Brian 2007-04-30
     }*/
-    
-    if( fabs( totalWireGradient ) > DBL_MAX * 0.95 ) 
+    if( fabs( totalWireGradient ) > DBL_MAX * 0.95 ) {
+		cout<<"\n totalWireGradient inf.\n";
 	return false;
-    if( fabs( totalPotentialGradient ) > DBL_MAX * 0.95 ) 
+	}
+    if( fabs( totalPotentialGradient ) > DBL_MAX * 0.95 ) {
+		cout<<"\n totalPotentialGradient inf.\n";
 	return false;
-	
+	}
     //Brian 2007-04-30
-    if( fabs( totalCongGradient ) > DBL_MAX * 0.95 ) 
+    if( fabs( totalCongGradient ) > DBL_MAX * 0.95 ) {
+		cout<<"\n totalCongGradient inf.\n";
 	return false;
+	}
     //@Brian 2007-04-30
-
     //(kaie) 2009-10-19
     if(m_bMoveZ)
     {
-    	if( fabs( totalViaGradient) > DBL_MAX * 0.95 )
+    	if( fabs( totalViaGradient) > DBL_MAX * 0.95 ){
+			cout<<"\n totalViaGradient inf.\n";
 	    return false;
-    	if( fabs( totalPotentialZGradient) > DBL_MAX * 0.95 )
+		}
+    	if( fabs( totalPotentialZGradient) > DBL_MAX * 0.95 ){
+			cout<<"\n totalPotentialZGradient inf.\n";
 	    return false;
+		}
     }
     //@(kaie) 2009-10-19
     // Fix density weight, change wire weight 
@@ -6928,12 +6936,11 @@ bool MyNLP::InitObjWeights( double wWire )
 	if(m_bMoveZ)
 	{
 	    double _weightTSV = (double)m_potentialGridSize;
-		_weightTSV = 0.5; /// frank: temp value
+		_weightTSV = param.dWeightTSV; /// frank: temp value
 	    // gArg.GetDouble("TSV", &_weightTSV);
 	    //m_weightTSV = _weightTSV * wWire;
 	    //m_weightTSV = _weightTSV;
 	    m_weightTSV = _weightTSV * (totalWireGradient/*-totalViaGradient*/) / totalViaGradient;
-	    m_weightTSV = 0.5; /// frank: temp value
 		//m_weightTSV = wWire * _weightTSV;
 	    //m_weightTSV = (m_pDB->m_coreRgn.right - m_pDB->m_coreRgn.left) / sqrt(m_pDB->m_totalLayer);
 	    printf("weight TSV = %lf\n", m_weightTSV);
@@ -6949,7 +6956,6 @@ bool MyNLP::InitObjWeights( double wWire )
         assert( wWire == 0 || _weightWire > 0 );
     }
     //@Brian 2007-04-23
-    
 //    printf( " INIT: LogSumExp WL= %.0f, gradWL= %.0f\n", totalWL, totalWireGradient );
 //    printf( " INIT: DensityPenalty= %.0f, gradPenalty= %.0f\n", density, totalPotentialGradient ); 
 
@@ -6957,7 +6963,6 @@ bool MyNLP::InitObjWeights( double wWire )
 	for( unsigned int i=0; i<m_weightDensity[k].size(); i++ )
 	    for( unsigned int j=0; j<m_weightDensity[k][i].size(); j++ )
 		m_weightDensity[k][i][j] = _weightDensity;
-    
     return true;
 }
   

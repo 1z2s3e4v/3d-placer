@@ -23,9 +23,10 @@ void Placer_C::run(){
     init_run_dir();
     // init place
     //init_place();
+    //order_place();
+    //random_d2dplace();
     //ntu_d2dplace();
     pin3d_ntuplace();
-	//order_place();
     //true3d_placement();
 
     // update the HPWL
@@ -53,8 +54,8 @@ void Placer_C::true3d_placement(){
     double wl1 = 0; // gp-wire
     part_time_start = (float)clock() / CLOCKS_PER_SEC;
     cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1]" << RESET << ": Global Placement.\n";
-    //global_place(isLegal, wl1); /////////////////////////////////////////////// main function
-    ntu_d2d_global(isLegal, wl1);
+    global_place(isLegal, wl1); /////////////////////////////////////////////// main function
+    //ntu_d2d_global(isLegal, wl1);
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Global: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << wl1 << ".\n";
@@ -82,43 +83,47 @@ void Placer_C::global_place(bool& isLegal, double& totalHPWL){ // Analytical Glo
     else 
         mincut_k_partition();
     cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
-    
+    cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
+
+    // Init spreading and layer assignment
     rand_place(0);
     rand_place(1);
     rand_ball_place();
 
-    // die0
-    CPlaceDB placedb;
-    create_placedb(placedb);
-    set_ntuplace_param(placedb);
     // 3d
     param.b3d = true;
     param.nlayer = 2;
-    if(1){
-        placedb.m_totalLayer = param.nlayer;
-        placedb.m_sites3d.resize(placedb.m_totalLayer);
-        placedb.m_sites3d[0].resize(0);
-        double row_bottom = placedb.m_coreRgn.bottom;
-		double row_height = placedb.m_rowHeight;
-		double row_step = placedb.m_sites[0].m_step;
-		int count = 0;
-        while(true){
-		    if(row_bottom + row_height > placedb.m_coreRgn.top) break;
-		    placedb.m_sites3d[0].push_back(CSiteRow(row_bottom, row_height, row_step ));
-		    placedb.m_sites3d[0].back().m_interval.push_back(placedb.m_coreRgn.left);
-		    placedb.m_sites3d[0].back().m_interval.push_back(placedb.m_coreRgn.right);
-		    placedb.m_sites3d[0].back().m_macro = placedb.m_sites[0].m_macro;
-		    if(count %2 == 0)
-			    placedb.m_sites3d[0].back().m_orient = OR_FS;
-		    char row_name[256];
-		    sprintf(row_name, "CORE_ROW_%d", count);
-		    placedb.m_sites3d[0].back().m_name = string(row_name);
-		    row_bottom += row_height;
-		    count++;
-		}
-        for(int l = 1; l < placedb.m_totalLayer; l++)
-        	placedb.m_sites3d[l] = placedb.m_sites3d[0];
+    param.bLayerPreAssign = true;
+    param.dWeightTSV = 0.5;
+
+    // Setting placedb
+    CPlaceDB placedb;
+    create_placedb(placedb);
+    set_ntuplace_param(placedb);
+    // Setting placement region (Current: die0*2) /// TODO: setting die0 & die1
+    placedb.m_totalLayer = param.nlayer;
+    placedb.m_sites3d.resize(placedb.m_totalLayer);
+    placedb.m_sites3d[0].resize(0);
+    double row_bottom = placedb.m_coreRgn.bottom;
+    double row_height = placedb.m_rowHeight;
+    double row_step = placedb.m_sites[0].m_step;
+    int count = 0;
+    while(true){
+        if(row_bottom + row_height > placedb.m_coreRgn.top) break;
+        placedb.m_sites3d[0].push_back(CSiteRow(row_bottom, row_height, row_step ));
+        placedb.m_sites3d[0].back().m_interval.push_back(placedb.m_coreRgn.left);
+        placedb.m_sites3d[0].back().m_interval.push_back(placedb.m_coreRgn.right);
+        placedb.m_sites3d[0].back().m_macro = placedb.m_sites[0].m_macro;
+        if(count %2 == 0)
+            placedb.m_sites3d[0].back().m_orient = OR_FS;
+        char row_name[256];
+        sprintf(row_name, "CORE_ROW_%d", count);
+        placedb.m_sites3d[0].back().m_name = string(row_name);
+        row_bottom += row_height;
+        count++;
     }
+    for(int l = 1; l < placedb.m_totalLayer; l++)
+        placedb.m_sites3d[l] = placedb.m_sites3d[0];
     //placedb.ShowDBInfo();
 	//CPlaceUtil::GetTotalOverlapArea( placedb ); // 2007-07-22 (donnie)
     placedb.RemoveFixedBlockSite();
@@ -216,40 +221,6 @@ void Placer_C::ntu_d2d_global(bool& isLegal, double& totalHPWL){
     isLegal = multilevel_nlp( placedb_die1, 5, 1.0 ); // multilevel_nlp(placedb, gCType, gWeightLevelDecreaingRate)
     load_from_placedb(placedb_die1);
 
-    // // run ntuplace (nolegal and nodetail) for die0
-    // if(_pChip->get_die(0)->get_cells().size() > 0){
-    //     AUX aux0;
-    //     create_aux_form(aux0, 0, "die0");
-    //     add_project_pin(aux0, 1);
-    //     // check nets
-    //     aux0.remove_open_net();
-    //     aux0.write_files();
-    //     run_ntuplace3("die0", "-nolegal -nodetail");
-    //     read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
-    // }
-    // // run ntuplace (noglobal) for die1 
-    // if(_pChip->get_die(1)->get_cells().size() > 0){
-    //     AUX aux1;
-    //     create_aux_form(aux1, 1, "die1");
-    //     add_project_pin(aux1, 0);
-    //     // check nets
-    //     aux1.remove_open_net();
-    //     aux1.write_files();
-    //     run_ntuplace3("die1", "-nolegal -nodetail");
-    //     read_pl_and_set_pos(_RUNDIR+"die1.ntup.pl", 1);
-    // }
-    // // run ntuplace for terminals
-    // if(cal_ball_num() > 0){
-    //     AUX aux2;
-    //     create_aux_form_for_ball(aux2, "ball");
-    //     add_project_pin(aux2, 0);
-    //     add_project_pin(aux2, 1);
-    //     // check nets
-    //     aux2.remove_open_net();
-    //     aux2.write_files();
-    //     run_ntuplace3("ball");
-    //     read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
-    // }
     totalHPWL = cal_HPWL();
 }
 void Placer_C::ntu_d2d_legal_detail(){
@@ -404,6 +375,9 @@ void Placer_C::create_placedb(CPlaceDB& placedb){
         int moduleId = placedb.GetModuleId( cell->get_name() );
         placedb.SetModuleLocation( moduleId, cell->get_posX(), cell->get_posY());
 		placedb.SetModuleOrientation( moduleId, 0 ); // orientInt('N')=0
+        if(param.bLayerPreAssign){
+            placedb.SetModuleLayerAssign( moduleId, cell->get_posZ());
+        }
     }
     placedb.ClearModuleNameMap();
 
@@ -727,20 +701,71 @@ void Placer_C::pin3d_ntuplace(){
     int total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << total_hpwl << ".\n";
 }
-void Placer_C::ntu_d2dplace(){
-    // init_place or partition
+void Placer_C::random_d2dplace(){
+    cout << BLUE << "[Placer]" << RESET << " - Start Random Placement Flow.\n";
+    double part_time_start=0, total_part_time=0;
+    ////////////////////////////////////////////////////////////////
+    // Partition
+    ////////////////////////////////////////////////////////////////
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1]" << RESET << ": Min-Cut Partition.\n";
+    part_time_start = (float)clock() / CLOCKS_PER_SEC;
     if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
-        mincut_partition();
+        mincut_partition(); // set_die() for each cell
     else 
-        mincut_k_partition();
-    cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
+        mincut_k_partition(); // set_die() for each cell
+    total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
+    cout << BLUE << "[Placer]" << RESET << " - Partition: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
+    cout << BLUE << "[Placer]" << RESET << " - Partition result: " << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << ".\n";
+    ////////////////////////////////////////////////////////////////
+    // Global Placement
+    ////////////////////////////////////////////////////////////////
+    bool isLegal = false; 
+    double wl1 = 0; // gp-wire
+    part_time_start = (float)clock() / CLOCKS_PER_SEC;
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2]" << RESET << ": Global Random Placement.\n";
+    rand_place(0);
+    rand_place(1);
+    rand_ball_place();
+    total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
+    cout << BLUE << "[Placer]" << RESET << " - Global: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
+    ////////////////////////////////////////////////////////////////
+    // Legal + Detail Placement
+    ////////////////////////////////////////////////////////////////
+    part_time_start = (float)clock() / CLOCKS_PER_SEC;
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 3]" << RESET << ": Legalization + Detail Placement.\n";
+    ntu_d2d_legal_detail(); ////////////////////////////////////////////////////// main function
+    total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
+    cout << BLUE << "[Placer]" << RESET << " - LG+DP: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
+    int total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << total_hpwl << ".\n";
+}
+void Placer_C::ntu_d2dplace(){
+    double part_time_start=0, total_part_time=0;
+    cout << BLUE << "[Placer]" << RESET << " - Start NTU_d2d Placement Flow.\n";
+    ////////////////////////////////////////////////////////////////
+    // Partition
+    ////////////////////////////////////////////////////////////////
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1]" << RESET << ": Min-Cut Partition.\n";
+    part_time_start = (float)clock() / CLOCKS_PER_SEC;
+    if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
+        mincut_partition(); // set_die() for each cell
+    else 
+        mincut_k_partition(); // set_die() for each cell
+    total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
+    cout << BLUE << "[Placer]" << RESET << " - Partition: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
+    cout << BLUE << "[Placer]" << RESET << " - Partition result: " << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << ".\n";
+    
     rand_place(0);
     rand_place(1);
     rand_ball_place();
     //init_place_ball();
 
+    ////////////////////////////////////////////////////////////////
     // Run NTUplace
+    ////////////////////////////////////////////////////////////////
     // run ntuplace for die0
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2.1]" << RESET << ": NTUplace for die0.\n";
+    part_time_start = (float)clock() / CLOCKS_PER_SEC;
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux0;
         create_aux_form(aux0, 0, "die0");
@@ -752,6 +777,7 @@ void Placer_C::ntu_d2dplace(){
         read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
     }
     // run ntuplace for die1
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2.2]" << RESET << ": NTUplace for die1.\n";
     if(_pChip->get_die(1)->get_cells().size() > 0){
         AUX aux1;
         create_aux_form(aux1, 1, "die1");
@@ -764,6 +790,7 @@ void Placer_C::ntu_d2dplace(){
         read_pl_and_set_pos(_RUNDIR+"die1.ntup.pl", 1);
     }
     // run ntuplace for terminal
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2.3]" << RESET << ": NTUplace for terminals.\n";
     int countTerminal = 0;
     for(int i=0;i<_pDesign->get_net_num();++i){
         Net_C* net = _pDesign->get_net(i);
@@ -782,6 +809,10 @@ void Placer_C::ntu_d2dplace(){
         run_ntuplace3("ball");
         read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
     }
+    total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
+    cout << BLUE << "[Placer]" << RESET << " - d2d_NTUpalce: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
+    int total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - d2d_NTUpalce: total HPWL = " << total_hpwl << ".\n";
     //string cmd_clean = "rm -rf *.pl *.plt *.log " + _RUNDIR;
     //system(cmd_clean.c_str());
 }

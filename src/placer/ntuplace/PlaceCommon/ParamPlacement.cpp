@@ -147,6 +147,8 @@ CParamPlacement::CParamPlacement()
     // Added by Frank 20220605
     b3d = false;
     nlayer = 1;
+    bLayerPreAssign = false;
+    dWeightTSV = 0.0;
 }
 
 void CParamPlacement::Print()

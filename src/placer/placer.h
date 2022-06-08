@@ -46,7 +46,8 @@ public:
     void init_run_dir();
     void clear();
 
-    /* partition + die-by-die NTUplace3 */
+    /* partition + die-by-die Place */
+    void random_d2dplace();
     void ntu_d2dplace();
     void pin3d_ntuplace();
     void mincut_partition();

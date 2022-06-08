@@ -171,6 +171,8 @@ public:
     // Added by Frank 20220605
     bool b3d;
     int nlayer;
+    bool bLayerPreAssign;
+    double dWeightTSV;
 };
 
 extern CParamPlacement param;	// global variable

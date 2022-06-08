@@ -371,6 +371,7 @@ class CPlaceDB
         m_modules[id].m_z = z;
         m_modules[id].CalcCenter();
     }
+    void SetModuleLayerAssign( const int& id, float z );
     bool MoveModuleCenter( const int& id, float cx, float cy );
     bool MoveModuleCenter( const int& id, float cx, float cy, float cz ); // (kaie) 3d
 
@@ -663,6 +664,33 @@ public:
     void AdjustStandardCellOrientation();
     void AdjustNetConnection();
 
+public: // Added by frank 20220608
+    void HMETIS_PartKway(
+        int     nvtxs,
+        int 	nhedges,
+        int * 	vwgts,
+        int * 	eptr,
+        int * 	eind,
+        int * 	hewgts,
+        int 	nparts,
+        int 	ubfactor,
+        int * 	options,
+        int * 	part,
+        int * 	edgecut 
+        );
+    void HMETIS_PartRecursive	(	
+        int 	nvtxs,
+        int 	nhedges,
+        int * 	vwgts,
+        int * 	eptr,
+        int * 	eind,
+        int * 	hewgts,
+        int 	nparts,
+        int 	ubfactor,
+        int * 	options,
+        int * 	part,
+        int * 	edgecut 
+        );
 };
 
 

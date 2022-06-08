@@ -1736,6 +1736,10 @@ void CPlaceDB::SetModuleLocation( const int& id, float x, float y)
     }
 }
 
+void CPlaceDB::SetModuleLayerAssign( const int& id, float z ){
+	m_modules[id].m_z = z;
+}
+
 bool CPlaceDB::MoveModuleCenter( const int& id, float cx, float cy )
 {
     if( m_modules[id].m_isFixed )
@@ -6017,7 +6021,7 @@ void CPlaceDB::LayerAssignmentByPartition(const int layer)
 
 	//printf("partition...\n");
 	//HMETIS_PartRecursive(nvtxs, nhedges, vwgts, eptr, eind, hewgts, nparts, ubfactor, options, part, edgecut);	
-	////HMETIS_PartKway(nvtxs, nhedges, vwgts, eptr, eind, hewgts, nparts, ubfactor, options, part, edgecut);
+	HMETIS_PartKway(nvtxs, nhedges, vwgts, eptr, eind, hewgts, nparts, ubfactor, options, part, edgecut);
 
 	//printf("Cut: %d\n", *edgecut);
 
@@ -6035,6 +6039,15 @@ void CPlaceDB::LayerAssignmentByPartition(const int layer)
 	//for(int i = 0; i < nparts; i++) printf("%d\n", partition[i]);
 
 	//exit(0);
+}
+void CPlaceDB::HMETIS_PartKway(int nvtxs, int nhedges, int *vwgts, int *eptr, int *eind, 
+		int *hewgts, int nparts, int ubfactor, int *options, int *part, int *edgecut){
+	/// TODO: write file --> run khmetis.exe --> read file
+	
+}
+void CPlaceDB::HMETIS_PartRecursive(int nvtxs, int nhedges, int *vwgts, int *eptr, int *eind, 
+		int *hewgts, int nparts, int ubfactor, int *options, int *part, int *edgecut){
+	/// TODO: write file --> run hmetis.exe --> read file
 }
 
 /*FM Partition*/ // kaie 2009-11-12
