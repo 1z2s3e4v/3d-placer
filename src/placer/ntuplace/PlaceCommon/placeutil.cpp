@@ -777,13 +777,14 @@ void CPlaceUtil::SavePlacement( const CPlaceDB& db, vector<CPoint>& pos )    // 
     pos.clear();
     pos.reserve( db.m_modules.size() );
     for( unsigned int i=0; i<db.m_modules.size(); i++ )
-	pos.push_back( CPoint( db.m_modules[i].m_x, db.m_modules[i].m_y ) );
+	pos.push_back( CPoint( db.m_modules[i].m_x, db.m_modules[i].m_y, db.m_modules[i].m_z ) );
 }
 
 void CPlaceUtil::LoadPlacement( CPlaceDB& db, const vector<CPoint>& pos )   // static
 {
-    for( unsigned int i=0; i<db.m_modules.size(); i++ )
-	db.SetModuleLocation( i, pos[i].x, pos[i].y );
+    for( unsigned int i=0; i<db.m_modules.size(); i++ ){
+	    db.SetModuleLocation( i, pos[i].x, pos[i].y, pos[i].z );
+    }
 }
 
 double CPlaceUtil::GetDisplacement( const vector<CPoint>& p1, const vector<CPoint>& p2 )   // static

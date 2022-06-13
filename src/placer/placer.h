@@ -40,16 +40,16 @@ public:
     
     void run();
     void init_place();
-    void order_place();
+    bool order_place();
     void rand_place(int); // die_by_die
     void rand_ball_place();
     void init_run_dir();
     void clear();
 
     /* partition + die-by-die Place */
-    void random_d2dplace();
-    void ntu_d2dplace();
-    void pin3d_ntuplace();
+    bool random_d2dplace();
+    bool ntu_d2dplace();
+    bool pin3d_ntuplace();
     void mincut_partition();
     void mincut_k_partition();
     void init_place_ball();
@@ -57,8 +57,8 @@ public:
     void run_ntuplace3(string caseName, string otherPara);
     void run_ntuplace4(string caseName);
     void run_hmetis(int k, double ufactor, string caseName); // (k-way part)
-    void read_pl_and_set_pos(string fileName, int dieId);
-    void read_pl_and_set_pos_for_ball(string fileName);
+    bool read_pl_and_set_pos(string fileName, int dieId);
+    bool read_pl_and_set_pos_for_ball(string fileName);
 
 
     /* connect to NTUplace Datebase */
@@ -67,7 +67,7 @@ public:
     void create_placedb(CPlaceDB&, int dieId);
     void load_from_placedb(CPlaceDB&);
     /* GlobalPlace + Legal + DetailPlace*/
-    void true3d_placement();
+    bool true3d_placement();
     void global_place(bool& isLegal, double& totalHPWL);
     void legal_place();
     void detail_place();

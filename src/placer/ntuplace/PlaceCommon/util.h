@@ -252,11 +252,17 @@ public:
         this->x = x;
         this->y = y;
     }
+    CPoint( double x, double y, double z )
+    {
+        this->x = x;
+        this->y = y;
+        this->z = z;
+    }
     void Print()
     {
         cout << "(" << x << "," << y << ")";
     }
-    double x, y;
+    double x, y,z;
 };
 
 

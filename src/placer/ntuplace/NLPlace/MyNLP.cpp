@@ -1786,6 +1786,7 @@ void MyNLP::LayerAssignment()
 void MyNLP::LayerAssignment( const int& n, vector<double>& z, MyNLP* pNLP, int index1, int index2 )
 {
     if( index2 > n ) index2 = n;
+	// cout << "########### layerThickness = " << (pNLP->m_pDB->m_front - pNLP->m_pDB->m_back) / (double)(pNLP->m_pDB->m_totalLayer) << "\n";
     for( int i= index1; i < index2; i++)
     {
 	double layerThickness = (pNLP->m_pDB->m_front - pNLP->m_pDB->m_back) / (double)(pNLP->m_pDB->m_totalLayer);
@@ -1800,6 +1801,8 @@ void MyNLP::LayerAssignment( const int& n, vector<double>& z, MyNLP* pNLP, int i
 
 	assert(fabs(z[i]-z_after) <= 0.5 * layerThickness);
 	
+	// if(fabs(z[i]-z_after) > 0.05)
+	// 	cout << "~~~~~~~~~~~~~~~~~~~~~~~ z[" << i << "] changed from "<< z[i] <<" to " << z_after << "\n";
 	z[i] = z_after;
     }
 }
