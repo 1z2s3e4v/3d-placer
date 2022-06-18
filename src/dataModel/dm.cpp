@@ -82,6 +82,7 @@ void DmMgr_C::run(){
     //output_result(); 
     // visualization (output svg.html)
     draw_layout_result();
+    
     cout << BLUE << "[DM]" << RESET << " - Finish!\n";
 }
 

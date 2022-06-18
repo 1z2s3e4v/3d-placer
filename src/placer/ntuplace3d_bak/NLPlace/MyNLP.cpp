@@ -594,7 +594,6 @@ bool MyNLP::MySolve( double wWire,
 	    printf( "\nFailed to solve it. alpha = %f\n\n", _alpha );
 	if( _alpha < 80 )
 	{
-		printf( "\nFailed to solve it. alpha = %f\n\n", _alpha );
 	    printf( "Fatal error in analytical solver. Exit program.\n" ); 
 	    exit(0);
 	}
@@ -2705,11 +2704,11 @@ bool MyNLP::eval_f(int n, const vector<double>& x, const vector<double>& expX, b
       {*/
     if( bMulti )
     {
-	obj_value = (totalWL * _weightWire) + 0.5 * (density);// + (totalVia * _weightWire * m_weightTSV);   // correct. 
+	obj_value = (totalWL * _weightWire) + 0.5 * (density) + (totalVia * _weightWire * m_weightTSV);   // correct. 
     }
     else
     {
-	obj_value = (totalWL * _weightWire) + 0.5 * (density * _weightDensity);// + (totalVia * _weightWire * m_weightTSV);   // correct. 
+	obj_value = (totalWL * _weightWire) + 0.5 * (density * _weightDensity) + (totalVia * _weightWire * m_weightTSV);   // correct. 
     }
     //}
     //@Brian 2007-06-18

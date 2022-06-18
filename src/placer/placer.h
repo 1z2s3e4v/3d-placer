@@ -41,15 +41,20 @@ public:
     void run();
     void init_place();
     bool order_place();
+    void cell_spreading();
+    void cell_spreading(int); // 2d global
+    bool shrunked_2d_ntuplace(); // 2d place
     void rand_place(int); // die_by_die
     void rand_ball_place();
     void init_run_dir();
     void clear();
 
     /* partition + die-by-die Place */
+    bool coloquinte_place();
     bool random_d2dplace();
     bool ntu_d2dplace();
     bool pin3d_ntuplace();
+    bool shrunk2d_ntuplace();
     void mincut_partition();
     void mincut_k_partition();
     void init_place_ball();
@@ -57,6 +62,7 @@ public:
     void run_ntuplace3(string caseName, string otherPara);
     void run_ntuplace4(string caseName);
     void run_hmetis(int k, double ufactor, string caseName); // (k-way part)
+    bool read_pl_and_set_pos(string fileName);
     bool read_pl_and_set_pos(string fileName, int dieId);
     bool read_pl_and_set_pos_for_ball(string fileName);
 
@@ -68,11 +74,13 @@ public:
     void load_from_placedb(CPlaceDB&);
     /* GlobalPlace + Legal + DetailPlace*/
     bool true3d_placement();
+    bool ntuplace3d(); // ntuplace3d (remember to replace dir 'ntuplace' to 'ntuplace3d_bak')
     void global_place(bool& isLegal, double& totalHPWL);
     void legal_place();
     void detail_place();
     void ntu_d2d_global(bool& isLegal, double& totalHPWL);
-    void ntu_d2d_legal_detail();
+    bool ntu_d2d_legal_detail();
+    bool pin3d_ntu_d2d_legal_detail();
 
     void create_aux_form(AUX&, int dieId, string caseName);
     void create_aux_form_for_ball(AUX&, string caseName);
