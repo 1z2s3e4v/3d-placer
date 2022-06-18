@@ -1,0 +1,9 @@
+UCLA pl 1.0
+
+C1	25	8 : N
+C3	1	32 : N
+C5	0	0 : N
+C2	17	18 : N /FIXED_NI
+C4	17	8 : N /FIXED_NI
+
+

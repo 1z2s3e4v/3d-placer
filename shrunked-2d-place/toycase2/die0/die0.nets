@@ -1,0 +1,25 @@
+UCLA nets 1.0
+# Created	:	Tue Jun  7 23:24:24 2022
+
+# User		:	frankchiang
+
+NumNets :	4
+NumPins :	13
+
+NetDegree : 3	N1
+	C1	O : 4	7
+	C2	I : 9	6
+	C4	I : 7	2
+NetDegree : 4	N2
+	C3	O : 13	4
+	C5	I : 9	5
+	C2	I : 4	4
+	C4	I : 4	8
+NetDegree : 2	N3
+	C1	O : 7	2
+	C3	I : 7	2
+NetDegree : 4	N4
+	C1	O : 13	4
+	C3	I : 4	7
+	C5	I : 4	3
+	C4	I : 13	5
