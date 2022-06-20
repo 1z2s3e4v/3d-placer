@@ -23,7 +23,9 @@ If the program and the output data violate any of these above bullets, you will 
 ## Compile  
 type 'make'  
 ## Execution  
-type 'bin/3d-placer <input.txt> <output.txt>'  
+type 'bin/3d-placer <input.txt> <output.txt>'
+or type 'make c<case_id>' // example: 'make c1'
+or type 'sh run.sh <case_id>' // example: 'sh run.sh 1'
 
 ## Example
 **Compile & Execute:**  
