@@ -1,0 +1,1054 @@
+/*
+ *     This  file  is  part  of  the  Cadence  LEF/DEF  Open   Source
+ *  Distribution,  Product Version 5.5, and is subject to the Cadence
+ *  LEF/DEF Open Source License Agreement.   Your  continued  use  of
+ *  this file constitutes your acceptance of the terms of the LEF/DEF
+ *  Open Source License and an agreement to abide by its  terms.   If
+ *  you  don't  agree  with  this, you must remove this and any other
+ *  files which are part of the distribution and  destroy any  copies
+ *  made.
+ *
+ *     For updates, support, or to become part of the LEF/DEF Community,
+ *  check www.openeda.org for details.
+ */
+
+/*
+ * This is the portion of the lexer that is the same for both LEF and DEF.
+*/
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include "lex.h"
+#include "defrCallBacks.hpp"
+#ifdef WIN32
+#   include <direct.h>
+#else /* not WIN32 */
+#   include <unistd.h>
+#endif /* WIN32 */
+
+#define DONE_EXT ( \
+  nn > 5 && \
+  tolower(History_text[nn-1]) == 't' && \
+  tolower(History_text[nn-2]) == 'x' && \
+  tolower(History_text[nn-3]) == 'e' && \
+  tolower(History_text[nn-4]) == 'd' && \
+  tolower(History_text[nn-5]) == 'n' && \
+  tolower(History_text[nn-6]) == 'e')
+
+extern FILE* defrFile;
+extern char* defrFileName;
+int errors = 0;
+int ntokens = 0;
+int nlines = 1;
+
+/* 8/31/2001 - Wanda da Rosa */
+int def_warnings = 0;
+FILE* defrLog = 0;      /* file pointer to the defRWarning.log */
+static int hasOpenedDefLogFile = 0; /* flag on opening the warning log file */
+
+int defrLineNumber() {
+  return nlines;
+}
+
+
+extern char* defkywd(int num);
+
+/************Some simple file reading routines since ungetc() proves ****/
+/************to be quite slow, and we don't need multiple chars of pushback */
+#ifndef WIN32
+#   include <unistd.h>
+#endif
+
+#define IN_BUF_SIZE 16384
+static int s_o_b;	/* byte count at start of buffer */
+typedef void (*METERCALLBACK)(int);
+METERCALLBACK meters=0; /* TRUE if we are using meters */
+static char buffer[IN_BUF_SIZE];
+static char *next;
+static char *last;
+static int first_buffer; /* First buffer read from the file */
+char commentChar = '#';
+
+void reload_buffer()
+{
+  int nb = 0;
+  s_o_b += last - buffer + 1;
+
+  if (first_buffer) {
+    first_buffer = 0;
+    if ((nb = fread(buffer, 1, 4, defrFile)) != 4) {
+      next = NULL;
+      return;
+    }
+  }
+
+  if(meters) (*meters)(s_o_b);
+
+  if (nb == 0) {
+    /* This is a normal file so just read some bytes. */
+    nb = fread(buffer, 1, IN_BUF_SIZE, defrFile);
+  }
+    
+  if (nb <= 0) {
+    next = NULL;
+ 
+  } else {
+    next = buffer;
+    last = buffer + nb - 1;
+  }
+}   
+
+
+void fake_init() {
+  last = buffer-1;
+  next = buffer;
+  s_o_b = 0;
+  first_buffer = 1;
+}
+
+
+int GETC()
+{
+    if (next > last)
+	reload_buffer();
+    if(next == NULL)
+	return EOF;
+    return *next++;
+}
+
+void UNGETC(char ch)
+{
+     *(--next) = ch;
+}
+
+char *fake_fgets(char *s, int n)
+{
+int i;
+char *old_s = s;
+for(i=0;i<n-1;i++) {
+    int ch = GETC();
+    if (ch == EOF) {
+	if (i == 0) return NULL;
+	break;
+	}
+    *s++ = ch;
+    if (ch == '\n')
+	break;
+    }
+*s = '\0';
+return old_s;
+}
+
+static int input_level = -1; /* points to top of stack */
+static char *stack[20];  /* the stack itself */
+
+/* The following two variables are for communicating with the parser */
+int dumb_mode = 0;	/* read next N tokens in dumb mode  */
+int bit_is_keyword = 0; /* if set, the word BITS is keyword even in dumb mode */
+int by_is_keyword = 0;  /* if set, the word BY is keyword even in dumb mode */
+int do_is_keyword = 0;  /* if set, the word DO is keyword even in dumb mode */
+int new_is_keyword = 0; /* if set, the word NEW is keyword even in dumb mode */
+int nondef_is_keyword = 0; /* if set, the word NONDEFAULTRULE is keyword */
+                           /* even in dumb mode */
+int mustjoin_is_keyword = 0; /* if set, the word MUSTJOIN is keyword */
+                           /* even in dumb mode */
+int step_is_keyword = 0;/* if set, the word STEP is keyword even in dumb mode */
+int no_num = 0;		/* no numbers for the next 'no_num' tokens */
+int real_num = 0;       /* the following number is real */
+int nl_token = FALSE;   /* if TRUE, return newlines as a token */
+
+extern int names_case_sensitive;
+
+extern char defDebug[]; /* can set from command line for debugging */
+
+extern DEFI_LINE_NUMBER_FUNCTION defiLineNumberFunction;
+extern int defiDeltaNumberLines;
+
+int  history_text_size = 2048;
+char *History_text = 0;
+
+void *Keyword_set;		/* hash table of keywords */
+void *def_define_set = NULL;	/* hash table of &define constructs */
+void *def_defines_set = NULL;	/* hash table of string constructs */
+void *def_defineb_set = NULL;	/* hash table of boolean defines */
+void *def_alias_set = NULL;		/* hash table of &alias constructs */
+
+
+/* Ring buffer storage */
+#define RING_SIZE 10
+#define RING_STRING_SIZE 64
+char* ring[RING_SIZE];
+int ringSizes[RING_SIZE];
+int ringPlace;
+
+/* Return a copy of the string allocated from the ring buffer.
+ * We will keep several strings in the buffer and just reuse them.
+ * This could cause problems if we need to use more strings than we
+ * have in the buffer.
+ */
+char* ringCopy(const char* string) {
+  int len = strlen(string) + 1;
+  if (++ringPlace >= RING_SIZE) ringPlace = 0;
+  if (len > ringSizes[ringPlace]) {
+    defFree(ring[ringPlace]);
+    ring[ringPlace] = (char*)defMalloc(len);
+    ringSizes[ringPlace] = len;
+  }
+  strcpy(ring[ringPlace], string);
+  return ring[ringPlace];
+}
+
+
+void initRingBuffer() {
+  int i;
+  ringPlace = 0;
+  for (i = 0; i < RING_SIZE; i++) {
+    ring[i] = (char*)defMalloc(RING_STRING_SIZE);
+    ringSizes[i] = RING_STRING_SIZE;
+  }
+}
+
+
+void lex_un_init() {
+  int i;
+
+  /* We will need to do some table cleanup here */
+
+  if (History_text) {
+    defFree(History_text);
+    History_text = 0;
+  }
+
+  for (i = 0; i < RING_SIZE; i++) {
+    if (ring[i]) defFree(ring[i]);
+    ring[i] = 0;
+    ringSizes[i] = 0;
+  }
+
+  /* 2/6/2002 - pcr 424751, reset errors = 0, so subsequent parse will */
+  /* not be affected */
+  errors = 0;
+
+  /* Close the file */
+  if (defrLog) {
+    fclose(defrLog);
+    defrLog = 0;
+  }
+}
+
+
+void lex_init()
+{
+    static int first = 1;
+    initRingBuffer();
+    if (!History_text) 
+	History_text = (char*)defMalloc(history_text_size + 1) ;
+
+    if(first) {
+       Keyword_set = STR_make_stringtab(TABLE_CALLER_ALLOCS, "keywords",
+	  TABLE_USE_CASE);
+       init_symbol_table(Keyword_set);
+       first = 0;
+       }
+    nlines = 1;
+    fake_init();
+
+}
+
+/* NOTE: we don't allocate these tables until they are used.  The reason
+ * we don't allocate at the beginning of the program is that we don't know
+ * at that point if we should be case sensitive or not. */
+
+void AddStringDefine(char *token, char *string)
+{
+    if (def_defines_set == NULL)
+        def_defines_set = STR_make_stringtab(TABLE_CALLER_ALLOCS,
+	"&defines", names_case_sensitive ? TABLE_USE_CASE: TABLE_IGNORE_CASE);
+    /* Strip off the first and last quotes */
+    string++;
+    string[strlen(string)-1]  = (char ) 0;
+    STR_add_to_stringtab(def_defines_set, strdup(token), strdup(string));
+}
+void AddBooleanDefine(char *token, int val)
+{
+    if (def_defineb_set == NULL)
+        def_defineb_set = STR_make_stringtab(TABLE_CALLER_ALLOCS,
+	"&defineb", names_case_sensitive ? TABLE_USE_CASE : TABLE_IGNORE_CASE);
+    STR_add_to_stringtab(def_defineb_set, strdup(token), &val) ;
+}
+void AddNumDefine(char *token, double val)
+{
+    double *dp = (double *)defMalloc(sizeof(double));
+    *dp = val;
+    if (def_define_set == NULL)
+        def_define_set = STR_make_stringtab(TABLE_CALLER_ALLOCS,
+	"&define", names_case_sensitive ? TABLE_USE_CASE : TABLE_IGNORE_CASE);
+    STR_add_to_stringtab(def_define_set, strdup(token), dp) ;
+}
+
+int
+GetTokenFromStack(char *s)
+{
+    char *ch;		/* utility variable */
+    char *prS;          /* pointing to the previous char or s */
+    char *save = s;	/* for debug printing */
+
+    while(input_level >= 0) {
+	for(ch=stack[input_level]; *ch != 0; ch++)	/* skip white space */
+            if (*ch != ' ' && *ch != '\t' && (nl_token || *ch != '\n') &&
+                *ch != '\r')
+		break;
+	/* did we find anything?  If not, decrement level and try again */
+	if (*ch == 0)
+	    input_level--;
+	else if (*ch == '\n') {
+	    *s++ = *ch; 
+	    *s = 0;
+	    if (defDebug[11]) 
+		printf("Stack[%d] Newline token\n", input_level);
+	    return TRUE;
+	    }
+	else {		/* we found something */
+	    for(; ; ch++)  {
+		if (*ch == ' ' || *ch == '\t' || *ch == '\n' || *ch == 0) {
+                    /* 10/10/2000 - Wanda da Rosa, pcr 341032
+                    ** Take out the last '"', the 1st will be skip later
+                    */
+                    if (*prS == '"') {
+                        *prS = '\0';
+                    }
+                    else
+                        *s++ = '\0';
+		    stack[input_level] = ch;
+		    if (defDebug[11])
+			printf("Stack[%d]: <%s>, dm=%d\n", 
+			input_level, save, dumb_mode);
+		    return TRUE;
+		    }
+                /* 10/10/2000 - Wanda da Rosa, pcr 341032
+                ** Save the location of the previous s
+                */
+                prS = s;
+		*s++ = *ch;
+		}
+	    }
+	}
+    return FALSE;	/* if we get here, we ran out of input levels */
+}
+
+int
+GetToken(char *s)
+{
+    int ch;
+    int prCh;
+    ntokens++;
+
+    /* 10/29/2001 - Wanda da Rosa */    /* 8/24/2000 - Wanda da Rosa */
+    /* continue to parse but do not */
+    /* call the callbakcs */
+    /*if (errors > 0)     */                /* There is a fatal error */
+    /*    return FALSE;   */                /* stop parsing */
+
+    if (input_level >= 0){		/* if we are expanding an alias */
+	if( GetTokenFromStack(s) )	/* try to get a token from it */
+	    return TRUE;		/* if we get one, return it */
+	}				/* but if not, continue */
+
+    /* skip blanks and count lines */
+    while ((ch = GETC()) != EOF) {
+        if (ch == '\n') {
+	    nlines++;
+            /* call the callback line number function if it is set */
+            if (defiLineNumberFunction && (nlines % defiDeltaNumberLines) == 0)
+                defiLineNumberFunction(nlines);
+        }
+        if (ch != ' ' && ch != '\t' && (nl_token || ch != '\n') && ch != '\r')
+	    break;
+        }
+
+    if (ch == EOF) return FALSE;
+
+    if (ch == '\n') {
+	*s++ = ch; 
+	*s = '\0';
+	if (defDebug[11]) printf("Newline token\n");
+	return TRUE;
+	}
+
+    /* now get the token */
+    if (ch == '"') {
+	do {
+            /* 8/22/2000 - Wanda da Rosa, pcr 33334
+            ** save the previous char to allow backslash quote within quote
+            */
+            prCh = ch;
+	    *s++ = ch;
+	    ch = GETC();
+            if ((ch == ';') || (ch == EOF)) {
+               /* 5/30/2002 - Wanda da Rosa pcr 448738
+               ** missing end "
+               */ 
+               return FALSE;
+            }
+	    }
+	while ((ch != '"') || (prCh == '\\'));
+	*s = '\0';
+	return TRUE;
+	}
+
+    if (names_case_sensitive) {
+	for(; ; ch = GETC())  {
+	    if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' ||
+                ch == EOF)
+		break;
+	    *s++ = ch;
+	    }
+	}
+
+    else { /* we are case insensitive, use a different loop */
+	for(; ; ch = GETC())  {
+	    if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' ||
+                ch == EOF)
+	      break;
+	    *s++ = (ch >= 'a' && ch <= 'z')? (ch -'a' + 'A') : ch;
+	    }
+	}
+   
+  /* If we got this far, the last char was whitespace */
+  *s = '\0';
+  if (ch != EOF)   /* shouldn't ungetc an EOF */
+    UNGETC(ch);
+  return TRUE;
+}
+
+/* creates an upper case copy of an array */
+void uc_array(char *source, char *dest)
+{
+    for(; *source != 0; )
+	*dest++ = toupper(*source++);
+    *dest = 0;
+}
+
+void yyerror(const char *s);
+
+void
+StoreAlias()
+{
+    char aname[256];		/* the name of the alias */
+    char line[10240];		/* a line of the alias contents */
+    char uc_line[10240];	/* uppercase version of the line */
+    char *p;		/* location of &ENDALIAS on the line */
+    char *so_far;	/* contains alias contents as we build it */
+
+    GetToken(aname);
+    GetToken(line);	/* should be "=" */
+    if (strcmp(line,"=") != 0)
+	yyerror("Expecting '='");
+
+    /* now keep getting lines till we get one that contains &ENDALIAS */
+
+    so_far = (char*)defMalloc(1);
+    strcpy(so_far,"");
+    for(p = NULL; p == NULL;){
+	if(fake_fgets(line, 10240) == NULL)
+	    yyerror("End of file in &ALIAS");
+	nlines++;
+        /* call the callback line number function if it is set */
+        if (defiLineNumberFunction && (nlines % defiDeltaNumberLines) == 0)
+            defiLineNumberFunction(nlines);
+	uc_array(line, uc_line);		/* make upper case copy */
+	p = strstr(uc_line, "&ENDALIAS");	/* look for END_ALIAS */
+	if (p != NULL)				/* if we find it */
+	    *(line + (p - uc_line)) = 0;	/* remove it from the line */
+	so_far = (char*)defRealloc(so_far, strlen(so_far) + strlen(line) + 1);
+	strcat(so_far, line);
+	}
+    if (def_alias_set == NULL)
+        def_alias_set = STR_make_stringtab(TABLE_CALLER_ALLOCS,
+	"&alias", names_case_sensitive ? TABLE_USE_CASE : TABLE_IGNORE_CASE);
+    STR_add_to_stringtab(def_alias_set, strdup(aname), so_far);
+}
+
+int amper_lookup(char *token); /* forward reference to this routine */
+
+static char deftoken[4096];	/* global so error message can print it */
+                                /* 5/17/02, pcr 436497, changed from 2048 */
+static char saved_token[256];	/* for an (illegal) usage ';TOKEN' */
+int defPrintTokens = 0;
+
+/* The main routine called by the YACC parser to get the next token.
+ *    Returns 0 if no more tokens are available.
+ *    Returns an integer for keywords (see the yacc_defines.h for values)
+ *    Returns the character itself for punctuation
+ *    Returns NUMBER for numeric looking tokens
+ *    Returns T_STRING for anything else
+ * If the global "dumb_mode" is > 0, it reads the next token in "dumb mode".
+ * In this case, it does not do keyword lookup, or attempt to read a token
+ * as a number; if the token is not punctuation, it's a T_STRING.  Each token
+ * read decrements dumb_mode, so you can instruct the the lexer to read the
+ * next N tokens in dumb mode by setting "dumb_mode" to that value.
+ *
+ * Newlines are in general silently ignored.  If the global nl_token is
+ * true, however, they are returned as the token K_NL.
+ */
+extern int sublex();
+
+
+int yylex() {
+  int v = sublex();
+  if (defPrintTokens) {
+    if (v == 0) {
+      printf("yylex NIL\n");
+    } else if (v < 256) {
+      printf("yylex char %c\n", v);
+    } else if (v == QSTRING) {
+      printf("yylex quoted string '%s'\n", yylval.string);
+    } else if (v == T_STRING) {
+      printf("yylex string '%s'\n", yylval.string);
+    } else if (v == NUMBER) {
+      printf("yylex number %f\n", yylval.dval);
+    } else {
+      printf("yylex keyword %s\n", defkywd(v));
+    }
+  }
+  return v;
+}
+
+int sublex()
+{
+    char uc_token[2048];	/* upper case copy of the token */
+    char fc;
+    char *ch;
+    double numVal, lVal, rVal;
+
+    lVal = strtod("-2147483648", &ch);
+    rVal = strtod("2147483647", &ch);
+
+    /* First, we eat all the things the parser should be unaware of.
+     * This includes:
+     * a) Comments
+     * b) &alias definitions
+     * c) &alias expansions
+     */
+    for(;;) {
+	if(!GetToken(deftoken))	/* get a raw token */
+	    return 0;
+	fc = deftoken[0];
+	/* first, check for # comments or &alias statements.  # comments
+	we ignore, and &alias statements are eaten and recorded by the
+	lexer. */
+        if (fc == commentChar) {
+	    for(fc = GETC();; fc = GETC()) {/* so skip to the end of line */
+	        if (fc == EOF) return 0;
+	        if (fc == '\n') {
+		    nlines++;
+                    /* call the callback line number function if it is set */
+                    if (defiLineNumberFunction &&
+                       (nlines % defiDeltaNumberLines) == 0)
+                        defiLineNumberFunction(nlines);
+		    break;
+	        }
+	    }
+        }
+        else if (fc == '&') {
+	      /* begins with &.  If &alias, read contents and */
+	      /* store them.  Otherwise it's a define, or a macro use. */
+	    char *cptr;
+	    uc_array(deftoken, uc_token);
+	    if (strcmp(uc_token,"&ALIAS") == 0)
+	        StoreAlias();	/* read and store the alias */
+	    else if (def_alias_set && STR_present_in_stringtab(def_alias_set,
+                     deftoken, (int **)&cptr))
+		stack[++input_level] = cptr;
+	    else
+		break;	/* begins with &, but not an &alias defn. or use. */
+	   }
+	else
+	   break;	/* does not begin with commentChar or '&' */
+       }
+
+    if(fc == '\"') {
+	yylval.string = ringCopy(&(deftoken[1]));
+	return QSTRING;
+        }
+
+    /* at this point we've read a token */
+    /* printf("Token is %s\n", deftoken); */
+    dumb_mode--;
+    no_num--;
+     if (isdigit(fc) || fc == '.' || (fc == '-' && deftoken[1] != '\0') ) {
+	char *ch;
+	yylval.dval = strtod(deftoken, &ch);
+	if (no_num < 0 && *ch == '\0') { /* did we use the whole string? */
+            /* check if the integer has exceed the limit */
+            if (real_num)    /* this is for PROPERTYDEF with REAL */
+               return NUMBER;
+	    numVal = strtod(deftoken, &ch);
+            if ((numVal >= lVal) && (numVal <= rVal)) 
+	       return NUMBER;	/* YES, it's really a number */
+            else {
+               char* str = (char*)defMalloc(sizeof(deftoken)+64);
+               sprintf(str,
+               "<Number has exceed the limit for an integer> at line %d Last token was <%s>\n", nlines, deftoken);
+               fflush(stdout);
+               defiError(str);
+               defFree(str);
+               errors++;
+               return NUMBER;
+            }
+        }
+	else {  /* failed integer conversion, try floating point */
+	    yylval.dval = strtol(deftoken, &ch, 10);
+	    if (no_num < 0 && *ch == '\0')  /* did we use the whole string? */
+		return NUMBER;
+	    else {
+		yylval.string = ringCopy(deftoken);  /* NO, it's a string */
+		return T_STRING;
+		}
+	    }
+	}
+    /* if we are dumb mode, all we return is punctuation and strings & numbers*/
+    /* until we see the next '+' or ';' deftoken */
+    if (dumb_mode >= 0) {
+	if (deftoken[1]=='\0' && (fc=='('||fc==')'||fc=='+'||fc==';'||fc=='*')){
+	    if (fc == ';' || fc == '+') {
+		dumb_mode = 0;
+		no_num = 0;
+	      }
+	    return (int)fc;
+	    }
+	if (by_is_keyword  && strcmp(deftoken,"BY") == 0) {
+	    return K_BY; /* even in dumb mode, we must see the BY deftoken */
+	    }
+	if (do_is_keyword  && strcmp(deftoken,"DO") == 0) {
+	    return K_DO; /* even in dumb mode, we must see the DO deftoken */
+	    }
+	if (new_is_keyword  && strcmp(deftoken,"NEW") == 0) {
+	    return K_NEW; /* even in dumb mode, we must see the NEW deftoken */
+	    }
+        if (nondef_is_keyword && strcmp(deftoken, "NONDEFAULTRULE") == 0) {
+	    return K_NONDEFAULTRULE; /* even in dumb mode, we must see the */
+                                     /* NONDEFAULTRULE deftoken */
+            }
+        if (mustjoin_is_keyword && strcmp(deftoken, "MUSTJOIN") == 0) {
+            return K_MUSTJOIN; /* even in dumb mode, we must see the */
+                                     /* MUSTJOIN deftoken */
+            }
+	if (step_is_keyword  && strcmp(deftoken,"STEP") == 0) {
+	    return K_STEP;/* even in dumb mode, we must see the STEP deftoken */
+	    }
+	yylval.string = ringCopy(deftoken);
+	return T_STRING;
+	}
+
+    /* if we get here we are in smart mode.  Parse deftoken */
+    if (isalpha(fc) || fc == '&'){
+	int *result;
+	char *ch, *uch;
+	for(ch = deftoken, uch = uc_token; *ch != '\0'; ch++)
+	    *uch++ = toupper(*ch);
+	*uch = '\0';
+        if (Keyword_set && STR_present_in_stringtab(Keyword_set, uc_token, &result)) {
+	    if (K_HISTORY == *result) {  /* history - get up to ';' */
+		int n;
+		int c;
+		int prev;
+		n = 0;
+		prev = ' ';
+		while (1) {
+		  c = GETC();
+		  if (c == ';' &&
+		      (prev == ' ' || prev == '\t' || prev == '\n')) break;
+		  if (c == '\n') {
+                      nlines++;
+                      /* call the callback line number function if it is set */
+                      if (defiLineNumberFunction &&
+                         (nlines % defiDeltaNumberLines) == 0)
+                          defiLineNumberFunction(nlines);
+                  }
+		  if (n > history_text_size) {
+		       history_text_size *= 2;
+		       if (defDebug[2])
+			 printf("Bigger history %d bytes\n",
+			 history_text_size);
+		       History_text = 
+			(char*)defRealloc(History_text, history_text_size+1);
+		       }
+		  prev = History_text[n++] = c;
+		  }
+	      History_text[n] = '\0';
+
+	    } else if (K_BEGINEXT == *result) { /* extension, get up to end */
+	      int nn;
+	      int cc;
+	      nn = 0;
+	      while (1) {
+		cc = GETC();
+		if (cc == '\n') {
+                   nlines++;
+                   /* call the callback line number function if it is set */
+                   if (defiLineNumberFunction &&
+                      (nlines % defiDeltaNumberLines) == 0)
+                       defiLineNumberFunction(nlines);
+                }
+		if (nn > history_text_size) {
+		     history_text_size *= 2;
+		     if (defDebug[2])
+		       printf("Bigger history %d bytes\n",
+		       history_text_size);
+		     History_text = 
+		      (char*)defRealloc(History_text, history_text_size+1);
+		     }
+		History_text[nn++] = cc;
+		if (DONE_EXT) break;
+		}
+	      History_text[nn] = '\0';
+	      }
+	    return *result;		/* YES, return its value */
+	    }
+	else {  /* we don't have a keyword.  */
+	    if (fc == '&')
+		return amper_lookup(deftoken);
+	    yylval.string = ringCopy(deftoken);  /* NO, it's a string */
+	    return T_STRING;
+	    }
+	}
+    else {  /* it should be a punctuation character */
+	if (deftoken[1] != '\0') {
+	    if (strcmp(deftoken, ">=") == 0) return K_GE;
+	    if (strcmp(deftoken, "<=") == 0) return K_LE;
+	    if (strcmp(deftoken, "<>") == 0) return K_NE;
+	    if (deftoken[0] == ';')
+                { /* we got ';TOKEN' which is not allowed by*/
+		strcpy(saved_token, &deftoken[1]); /*the standard syntax, but */
+		stack[++input_level] = saved_token; /* C3 and GE support. */
+		}
+	    else {
+		char* str = (char*)defMalloc(sizeof(deftoken)+64);
+	        sprintf(str,
+		"Odd punctuation at line %d, deftoken %s, Token ignored.\n",
+		nlines, deftoken);
+		defiError(str);
+		defFree(str);
+	      }
+	    }
+	return (int)deftoken[0];
+	}
+}
+
+/* We have found a deftoken beginning with '&'.  If it has been previously
+   defined, substitute the definition.  Otherwise return it. */
+int amper_lookup(char *tkn)
+{
+    double *dptr;
+    int *result;
+    char *cptr;
+
+    /* printf("Amper_lookup: %s\n", tkn); */
+
+    /* &define returns a number */
+    if (def_define_set && STR_present_in_stringtab(def_define_set, tkn, (int **)&dptr)) {
+	yylval.dval = *dptr;
+	return NUMBER;
+	}
+    /* &defineb returns TRUE or FALSE, encoded as K_TRUE or K_FALSE */
+    if (def_defineb_set && STR_present_in_stringtab(def_defineb_set, tkn, &result))
+	return *result;
+    /* &defines returns a T_STRING */
+    if (def_defines_set && STR_present_in_stringtab(def_defines_set, tkn,
+        (int **)&cptr)) {
+       if (Keyword_set && STR_present_in_stringtab(Keyword_set, cptr, &result))           
+              return(*result);
+	if (cptr[0] == '"')
+	  yylval.string = ringCopy(&(cptr[1]));
+	else
+	  yylval.string = ringCopy(cptr);
+	return (cptr[0] == '\"' ? QSTRING : T_STRING);
+	}
+    /* if none of the above, just return the deftoken. */
+    yylval.string = ringCopy(tkn);
+    return T_STRING;
+}
+
+void
+yyerror(const char *s)
+{
+    char* str = (char*)defMalloc(sizeof(deftoken)+64);
+    sprintf(str,
+    "<%s> at line %d Last token was <%s>\n", s, nlines, deftoken);
+    fflush(stdout);
+    defiError(str);
+    defFree(str);
+    errors++;
+}
+
+extern DEFI_WARNING_LOG_FUNCTION defiWarningLogFunction;
+
+void
+yydefwarning(const char *s)
+{
+    if (defiWarningLogFunction) {
+       char* str = (char*)defMalloc(sizeof(deftoken)+sizeof(s)+64);
+       sprintf(str, "***WARNING*** <%s> at line %d. Last token was <%s>\n",
+               s, nlines, deftoken);
+       (*defiWarningLogFunction)(str);
+       defFree(str);
+    } else if (defrLog) {
+       fprintf(defrLog, "***WARNING*** <%s> at line %d\n",s, nlines);
+       fprintf(defrLog, "Last token was <%s>\n", deftoken);
+    } else {
+       if (!hasOpenedDefLogFile) {
+          if ((defrLog = fopen("defRWarning.log", "w")) == 0) {
+             printf("WARNING: Unable to open the file defRWarning.log in %s.\n",
+             getcwd(NULL, 64));
+             printf("Warning messages will not be printed.\n");
+          } else {
+             hasOpenedDefLogFile = 1;
+             fprintf(defrLog, "Warnings from file: %s\n\n", defrFileName);
+             fprintf(defrLog, "***WARNING*** <%s> at line %d\n",s, nlines);
+             fprintf(defrLog, "Last token was <%s>\n", deftoken);
+          }
+       } else {
+          if ((defrLog = fopen("defRWarning.log", "a")) == 0) {
+             printf("WARNING: Unable to open the file defRWarning.log in %s.\n",
+             getcwd(NULL, 64));
+             printf("Warning messages will not be printed.\n");
+          } else {
+             hasOpenedDefLogFile = 1;
+             fprintf(defrLog, "\nWarnings from file: %s\n\n", defrFileName);
+             fprintf(defrLog, "***WARNING*** <%s> at line %d\n",s, nlines);
+             fprintf(defrLog, "Last token was <%s>\n", deftoken);
+          }
+       }
+    }
+    def_warnings++;
+}
+
+extern DEFI_MALLOC_FUNCTION defiMallocFunction;
+
+void *
+defMalloc(int def_size)
+{
+    if (defiMallocFunction)
+       return (*defiMallocFunction)(def_size);
+    else
+       return (void*)malloc(def_size);
+}
+
+extern DEFI_REALLOC_FUNCTION defiReallocFunction;
+
+void *
+defRealloc(void *name, int def_size)
+{
+    if (defiReallocFunction)
+       return (*defiReallocFunction)(name, def_size);
+    else
+       return (void*)realloc(name, def_size);
+}
+
+extern DEFI_FREE_FUNCTION defiFreeFunction;
+
+void
+defFree(void *name)
+{
+    if (defiFreeFunction)
+       (*defiFreeFunction)(name);
+    else
+       free(name);
+}
+
+char* addr(const char* in) {
+  return (char*)in;
+}
+
+char* defkywd(int num)
+{
+  char* a;
+  switch (num) {
+  case QSTRING: a = addr("QSTRING"); break;
+  case T_STRING: a = addr("T_STRING"); break;
+  case SITE_PATTERN: a = addr("SITE_PATTERN"); break;
+  case NUMBER: a = addr("NUMBER"); break;
+  case K_HISTORY: a = addr("HISTORY"); break;
+  case K_NAMESCASESENSITIVE: a = addr("NAMESCASESENSITIVE"); break;
+  case K_NAMEMAPSTRING: a = addr("NAMEMAPSTRING"); break;
+  case K_DESIGN: a = addr("DESIGN"); break;
+  case K_VIAS: a = addr("VIAS"); break;
+  case K_TECH: a = addr("TECH"); break;
+  case K_UNITS: a = addr("UNITS"); break;
+  case K_ARRAY: a = addr("ARRAY"); break;
+  case K_FLOORPLAN: a = addr("FLOORPLAN"); break;
+  case K_SITE: a = addr("SITE"); break;
+  case K_CANPLACE: a = addr("CANPLACE"); break;
+  case K_CANNOTOCCUPY: a = addr("CANNOTOCCUPY"); break;
+  case K_DIE_AREA: a = addr("DIE_AREA"); break;
+  case K_PINS: a = addr("PINS"); break;
+  case K_DEFAULTCAP: a = addr("DEFAULTCAP"); break;
+  case K_MINPINS: a = addr("MINPINS"); break;
+  case K_WIRECAP: a = addr("WIRECAP"); break;
+  case K_TRACKS: a = addr("TRACKS"); break;
+  case K_GCELLGRID: a = addr("GCELLGRID"); break;
+  case K_DO: a = addr("DO"); break;
+  case K_BY: a = addr("BY"); break;
+  case K_STEP: a = addr("STEP"); break;
+  case K_LAYER: a = addr("LAYER"); break;
+  case K_ROW: a = addr("ROW"); break;
+  case K_RECT: a = addr("RECT"); break;
+  case K_COMPS: a = addr("COMPS"); break;
+  case K_COMP_GEN: a = addr("COMP_GEN"); break;
+  case K_SOURCE: a = addr("SOURCE"); break;
+  case K_WEIGHT: a = addr("WEIGHT"); break;
+  case K_EEQMASTER: a = addr("EEQMASTER"); break;
+  case K_FIXED: a = addr("FIXED"); break;
+  case K_COVER: a = addr("COVER"); break;
+  case K_UNPLACED: a = addr("UNPLACED"); break;
+  case K_PLACED: a = addr("PLACED"); break;
+  case K_FOREIGN: a = addr("FOREIGN"); break;
+  case K_REGION: a = addr("REGION"); break;
+  case K_REGIONS: a = addr("REGIONS"); break;
+  case K_NETS: a = addr("NETS"); break;
+  case K_START_NET: a = addr("START_NET"); break;
+  case K_MUSTJOIN: a = addr("MUSTJOIN"); break;
+  case K_ORIGINAL: a = addr("ORIGINAL"); break;
+  case K_USE: a = addr("USE"); break;
+  case K_STYLE: a = addr("STYLE"); break;
+  case K_PATTERN: a = addr("PATTERN"); break;
+  case K_PATTERNNAME: a = addr("PATTERNNAME"); break;
+  case K_ESTCAP: a = addr("ESTCAP"); break;
+  case K_ROUTED: a = addr("ROUTED"); break;
+  case K_NEW: a = addr("NEW"); break;
+  case K_SNETS: a = addr("SNETS"); break;
+  case K_SHAPE: a = addr("SHAPE"); break;
+  case K_WIDTH: a = addr("WIDTH"); break;
+  case K_VOLTAGE: a = addr("VOLTAGE"); break;
+  case K_SPACING: a = addr("SPACING"); break;
+  case K_NONDEFAULTRULE: a = addr("NONDEFAULTRULE"); break;
+  case K_N: a = addr("N"); break;
+  case K_S: a = addr("S"); break;
+  case K_E: a = addr("E"); break;
+  case K_W: a = addr("W"); break;
+  case K_FN: a = addr("FN"); break;
+  case K_FE: a = addr("FE"); break;
+  case K_FS: a = addr("FS"); break;
+  case K_FW: a = addr("FW"); break;
+  case K_GROUPS: a = addr("GROUPS"); break;
+  case K_GROUP: a = addr("GROUP"); break;
+  case K_SOFT: a = addr("SOFT"); break;
+  case K_MAXX: a = addr("MAXX"); break;
+  case K_MAXY: a = addr("MAXY"); break;
+  case K_MAXHALFPERIMETER: a = addr("MAXHALFPERIMETER"); break;
+  case K_CONSTRAINTS: a = addr("CONSTRAINTS"); break;
+  case K_NET: a = addr("NET"); break;
+  case K_PATH: a = addr("PATH"); break;
+  case K_SUM: a = addr("SUM"); break;
+  case K_DIFF: a = addr("DIFF"); break;
+  case K_SCANCHAINS: a = addr("SCANCHAINS"); break;
+  case K_START: a = addr("START"); break;
+  case K_FLOATING: a = addr("FLOATING"); break;
+  case K_ORDERED: a = addr("ORDERED"); break;
+  case K_STOP: a = addr("STOP"); break;
+  case K_IN: a = addr("IN"); break;
+  case K_OUT: a = addr("OUT"); break;
+  case K_RISEMIN: a = addr("RISEMIN"); break;
+  case K_RISEMAX: a = addr("RISEMAX"); break;
+  case K_FALLMIN: a = addr("FALLMIN"); break;
+  case K_FALLMAX: a = addr("FALLMAX"); break;
+  case K_WIREDLOGIC: a = addr("WIREDLOGIC"); break;
+  case K_MAXDIST: a = addr("MAXDIST"); break;
+  case K_ASSERTIONS: a = addr("ASSERTIONS"); break;
+  case K_DISTANCE: a = addr("DISTANCE"); break;
+  case K_MICRONS: a = addr("MICRONS"); break;
+  case K_END: a = addr("END"); break;
+  case K_IOTIMINGS: a = addr("IOTIMINGS"); break;
+  case K_RISE: a = addr("RISE"); break;
+  case K_FALL: a = addr("FALL"); break;
+  case K_VARIABLE: a = addr("VARIABLE"); break;
+  case K_SLEWRATE: a = addr("SLEWRATE"); break;
+  case K_CAPACITANCE: a = addr("CAPACITANCE"); break;
+  case K_DRIVECELL: a = addr("DRIVECELL"); break;
+  case K_FROMPIN: a = addr("FROMPIN"); break;
+  case K_TOPIN: a = addr("TOPIN"); break;
+  case K_PARALLEL: a = addr("PARALLEL"); break;
+  case K_TIMINGDISABLES: a = addr("TIMINGDISABLES"); break;
+  case K_THRUPIN: a = addr("THRUPIN"); break;
+  case K_MACRO: a = addr("MACRO"); break;
+  case K_PARTITIONS: a = addr("PARTITIONS"); break;
+  case K_TURNOFF: a = addr("TURNOFF"); break;
+  case K_FROMCLOCKPIN: a = addr("FROMCLOCKPIN"); break;
+  case K_FROMCOMPPIN: a = addr("FROMCOMPPIN"); break;
+  case K_FROMIOPIN: a = addr("FROMIOPIN"); break;
+  case K_TOCLOCKPIN: a = addr("TOCLOCKPIN"); break;
+  case K_TOCOMPPIN: a = addr("TOCOMPPIN"); break;
+  case K_TOIOPIN: a = addr("TOIOPIN"); break;
+  case K_SETUPRISE: a = addr("SETUPRISE"); break;
+  case K_SETUPFALL: a = addr("SETUPFALL"); break;
+  case K_HOLDRISE: a = addr("HOLDRISE"); break;
+  case K_HOLDFALL: a = addr("HOLDFALL"); break;
+  case K_VPIN: a = addr("VPIN"); break;
+  case K_SUBNET: a = addr("SUBNET"); break;
+  case K_XTALK: a = addr("XTALK"); break;
+  case K_PIN: a = addr("PIN"); break;
+  case K_SYNTHESIZED: a = addr("SYNTHESIZED"); break;
+  case K_DEFINE: a = addr("DEFINE"); break;
+  case K_DEFINES: a = addr("DEFINES"); break;
+  case K_DEFINEB: a = addr("DEFINEB"); break;
+  case K_IF: a = addr("IF"); break;
+  case K_THEN: a = addr("THEN"); break;
+  case K_ELSE: a = addr("ELSE"); break;
+  case K_FALSE: a = addr("FALSE"); break;
+  case K_TRUE: a = addr("TRUE"); break;
+  case K_EQ: a = addr("EQ"); break;
+  case K_NE: a = addr("NE"); break;
+  case K_LE: a = addr("LE"); break;
+  case K_LT: a = addr("LT"); break;
+  case K_GE: a = addr("GE"); break;
+  case K_GT: a = addr("GT"); break;
+  case K_OR: a = addr("OR"); break;
+  case K_AND: a = addr("AND"); break;
+  case K_NOT: a = addr("NOT"); break;
+  case K_SPECIAL: a = addr("SPECIAL"); break;
+  case K_DIRECTION: a = addr("DIRECTION"); break;
+  case K_RANGE: a = addr("RANGE"); break;
+  case K_FPC: a = addr("FPC"); break;
+  case K_HORIZONTAL: a = addr("HORIZONTAL"); break;
+  case K_VERTICAL: a = addr("VERTICAL"); break;
+  case K_ALIGN: a = addr("ALIGN"); break;
+  case K_MIN: a = addr("MIN"); break;
+  case K_MAX: a = addr("MAX"); break;
+  case K_EQUAL: a = addr("EQUAL"); break;
+  case K_BOTTOMLEFT: a = addr("BOTTOMLEFT"); break;
+  case K_TOPRIGHT: a = addr("TOPRIGHT"); break;
+  case K_ROWS: a = addr("ROWS"); break;
+  case K_TAPER: a = addr("TAPER"); break;
+  case K_TAPERRULE: a = addr("TAPERRULE"); break;
+  case K_VERSION: a = addr("VERSION"); break;
+  case K_DIVIDERCHAR: a = addr("DIVIDERCHAR"); break;
+  case K_BUSBITCHARS: a = addr("BUSBITCHARS"); break;
+  case K_PROPERTYDEFINITIONS: a = addr("PROPERTYDEFINITIONS"); break;
+  case K_STRING: a = addr("STRING"); break;
+  case K_REAL: a = addr("REAL"); break;
+  case K_INTEGER: a = addr("INTEGER"); break;
+  case K_PROPERTY: a = addr("PROPERTY"); break;
+  case K_BEGINEXT: a = addr("BEGINEXT"); break;
+  case K_ENDEXT: a = addr("ENDEXT"); break;
+  case K_COMPONENT: a = addr("COMPONENT"); break;
+  case K_PINPROPERTIES: a = addr("PINPROPERTIES"); break;
+  case K_COMMONSCANPINS: a = addr("COMMONSCANPINS"); break;
+  case K_SNET: a = addr("SNET"); break;
+  case K_COMPONENTPIN: a = addr("COMPONENTPIN"); break;
+  case K_REENTRANTPATHS: a = addr("REREENTRANTPATHS"); break;
+  case K_ON: a = addr("ON"); break;
+  case K_OFF: a = addr("OFF"); break;
+  case K_X: a = addr("X"); break;
+  case K_Y: a = addr("Y"); break;
+  case K_NETLIST: a = addr("NETLIST"); break;
+  case K_DIST: a = addr("DIST"); break;
+  case K_USER: a = addr("USER"); break;
+  case K_TIMING: a = addr("TIMING"); break;
+  default:
+    a = addr("bogus");
+  }
+  return a;
+
+}
