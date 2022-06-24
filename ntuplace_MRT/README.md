@@ -1,8 +1,9 @@
 # NTUplace3  
 
 ### Compile:  
-   cd ntuplace_MRT/build;  
-   cmake  
+   mkdir build  
+   cd build  
+   cmake ..  
    make -j 16  
 ### Binary:  
   ntuplace/ntuplace-r  
