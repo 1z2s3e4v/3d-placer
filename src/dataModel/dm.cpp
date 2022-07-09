@@ -82,6 +82,7 @@ void DmMgr_C::run(){
     //output_result(); 
     // visualization (output svg.html)
     draw_layout_result();
+    draw_layout_result_plt();
     
     cout << BLUE << "[DM]" << RESET << " - Finish!\n";
 }
@@ -329,3 +330,139 @@ void DmMgr_C::draw_layout_result(){// output in dir "./draw/<case-name>.html"
     draw_svg->end_svg();
     cout << BLUE << "[DM]" << RESET << " - Visualize the layout in \'" << outFile << "\'.\n";
 }
+
+void plotBoxPLT( ofstream& stream, double x1, double y1, double x2, double y2 )
+{
+    stream << x1 << ", " << y1 << endl << x2 << ", " << y1 << endl
+           << x2 << ", " << y2 << endl << x1 << ", " << y2 << endl
+           << x1 << ", " << y1 << endl << endl;
+}
+
+void DmMgr_C::draw_layout_result_plt(){// output in dir "./draw/<case-name>.html"
+    string outfilename = "./draw/" + _paramHdl.get_case_name() + ".plt";
+    system("mkdir -p ./draw/");
+    ofstream outfile( outfilename.c_str() , ios::out );
+
+    outfile << " " << endl;
+    // outfile << "set multiplot layout 1, 2" << endl;
+    outfile << "set size ratio 0.5" << endl;
+    outfile << "set nokey" << endl << endl;
+
+    // Output HPWL Result Text
+    vector<long long int> vHPWL(2,0);
+    long long int totalHPWL = 0;
+    for(int i=0;i<_pDesign->get_net_num();++i){
+        Net_C* net = _pDesign->get_net(i);
+        vHPWL[0] += net->get_HPWL(0);
+        vHPWL[1] += net->get_HPWL(1);
+        totalHPWL += net->get_HPWL(0) + net->get_HPWL(1);
+    }
+
+    vector<Cell_C*> cell_list_top, cell_list_bot;
+    vector<Pin_C*> pin_list_top, pin_list_bot;
+    for(int i=0;i<_pDesign->get_cell_num();++i){
+        Cell_C* cell = _pDesign->get_cell(i);
+        if (cell->get_dieId() == 0) {
+            cell_list_top.push_back(cell);
+            for(int j=0;j<cell->get_pin_num();++j){
+                Pin_C* pin = cell->get_pin(j);
+                pin_list_top.push_back(pin);
+            }
+        } else {
+            cell_list_bot.push_back(cell);
+            for(int j=0;j<cell->get_pin_num();++j){
+                Pin_C* pin = cell->get_pin(j);
+                pin_list_bot.push_back(pin);
+            }
+        }
+
+    }
+
+    double bot_chip_offset = _pChip->get_width() + 5;
+
+    outfile << "set title \"WL_{Total} = " << totalHPWL << "\"" << endl;
+    outfile << "set label 1 \"WL_{Top} = " << vHPWL[0] << "\" at " << _pChip->get_width() * 0.1 << "," << _pChip->get_height() * -0.15 <<" left" << endl;
+    outfile << "set label 2 \"WL_{Bot} = " << vHPWL[1] << "\" at " << _pChip->get_width() * 1.1 + 5 << "," << _pChip->get_height() * -0.15 <<" left" << endl << endl;
+
+    // for(int i=0; i<cell_list_top.size(); i++){
+    //     outfile << "set label " << i + 2 << " \"" << cell_list_top[i]->get_name() << "\" at " << cell_list_top[i]->get_posX() + cell_list_top[i]->get_width() / 2 << "," << cell_list_top[i]->get_posY() + cell_list_top[i]->get_height() / 2 << " center front" << endl;
+    // }
+    // outfile << "set xrange [0:" << _pChip->get_width() << "]" << endl;
+    // outfile << "set yrange [0:" << _pChip->get_height() << "]" << endl;
+    // outfile << "plot[:][:] '-' w l lt 3 lw 2, '-' with filledcurves closed fc \"grey90\" fs border lc \"red\", '-' with filledcurves closed fc \"yellow\" fs border lc \"black\", '-' w l lt 1" << endl << endl;
+    outfile << "plot[:][:]  '-' w l lt 3 lw 2, '-' with filledcurves closed fc \"grey90\" fs border lc \"red\", '-' with filledcurves closed fc \"yellow\" fs border lc \"black\", '-' w l lt 1, '-' w l lt 3 lw 2, '-' with filledcurves closed fc \"grey90\" fs border lc \"red\", '-' with filledcurves closed fc \"yellow\" fs border lc \"black\", '-' w l lt 1" << endl << endl;
+    
+    outfile << "# bounding box" << endl;
+    plotBoxPLT( outfile, 0, 0, _pChip->get_width(), _pChip->get_height() );
+    outfile << "EOF" << endl;
+
+    outfile << "# cells" << endl;
+    for(int i=0; i<cell_list_top.size(); i++){
+        plotBoxPLT( outfile, cell_list_top[i]->get_posX(), cell_list_top[i]->get_posY(), cell_list_top[i]->get_posX() + cell_list_top[i]->get_width(), cell_list_top[i]->get_posY() + cell_list_top[i]->get_height() );
+    }
+    outfile << "EOF" << endl;
+
+    outfile << "# pins" << endl;
+    for(int i=0; i<pin_list_top.size(); i++){
+        // plotBoxPLT( outfile, pin_list_top[i]->get_x(), pin_list_top[i]->get_y(), pin_list_top[i]->get_x() + 1 / 10, pin_list_top[i]->get_y() + 1);
+        plotBoxPLT( outfile, pin_list_top[i]->get_x(), pin_list_top[i]->get_y(), pin_list_top[i]->get_x() + pin_list_top[i]->get_cell()->get_height(0) / 10, pin_list_top[i]->get_y() + pin_list_top[i]->get_cell()->get_height(0) / 10);
+    }
+    outfile << "EOF" << endl;
+
+    // Draw HPWL
+    outfile << "# nets" << endl;
+    int dieId = 0;
+    for(int i=0;i<_pDesign->get_net_num();++i){
+        Net_C* net = _pDesign->get_net(i);
+        double ll_x = net->get_ll(dieId).x, ll_y = net->get_ll(dieId).y, ur_x = net->get_ur(dieId).x, ur_y = net->get_ur(dieId).y;
+        plotBoxPLT( outfile, ll_x, ll_y, ur_x, ur_y);
+    }
+    outfile << "EOF" << endl;
+
+    // outfile << "set title \"WL_{Bot} = " << vHPWL[1] << "\"" << endl;
+    // outfile << "unset label" << endl;
+    // for(int i=0; i<cell_list_bot.size(); i++){
+    //     outfile << "set label " << i + 2 << " \"" << cell_list_bot[i]->get_name() << "\" at " << cell_list_bot[i]->get_posX() + cell_list_bot[i]->get_width() / 2 << "," << cell_list_bot[i]->get_posY() + cell_list_bot[i]->get_height() / 2 << " center front" << endl;
+    // }
+
+    
+    // outfile << "plot[:][:] '-' w l lt 3 lw 2, '-' with filledcurves closed fc \"grey90\" fs border lc \"red\", '-' with filledcurves closed fc \"yellow\" fs border lc \"black\", '-' w l lt 1" << endl << endl;
+    // outfile << "plot[:][:]  '-' w l lt 3 lw 2, '-' with filledcurves closed fc \"grey90\" fs border lc \"red\", '-' with filledcurves closed fc \"yellow\" fs border lc \"black\", '-' w l lt 1" << endl << endl;
+    
+    outfile << "# bounding box" << endl;
+    plotBoxPLT( outfile, bot_chip_offset, 0, bot_chip_offset + _pChip->get_width(), _pChip->get_height() );
+    outfile << "EOF" << endl;
+
+    outfile << "# cells" << endl;
+    for(int i=0; i<cell_list_bot.size(); i++){
+        plotBoxPLT( outfile, bot_chip_offset + cell_list_bot[i]->get_posX(), cell_list_bot[i]->get_posY(), bot_chip_offset + cell_list_bot[i]->get_posX() + cell_list_bot[i]->get_width(), cell_list_bot[i]->get_posY() + cell_list_bot[i]->get_height() );
+    }
+    outfile << "EOF" << endl;
+
+    outfile << "# pins" << endl;
+    for(int i=0; i<pin_list_bot.size(); i++){
+        // plotBoxPLT( outfile, pin_list_bot[i]->get_x(), pin_list_bot[i]->get_y(), pin_list_bot[i]->get_x() + 1, pin_list_bot[i]->get_y() + 1);
+        plotBoxPLT( outfile, bot_chip_offset + pin_list_bot[i]->get_x(), pin_list_bot[i]->get_y(), bot_chip_offset + pin_list_bot[i]->get_x() + pin_list_bot[i]->get_cell()->get_height(1) / 10, pin_list_bot[i]->get_y() + pin_list_bot[i]->get_cell()->get_height(1) / 10);
+    }
+    outfile << "EOF" << endl;
+
+    // Draw HPWL
+    outfile << "# nets" << endl;
+    dieId = 1;
+    for(int i=0;i<_pDesign->get_net_num();++i){
+        Net_C* net = _pDesign->get_net(i);
+        double ll_x = net->get_ll(dieId).x, ll_y = net->get_ll(dieId).y, ur_x = net->get_ur(dieId).x, ur_y = net->get_ur(dieId).y;
+        plotBoxPLT( outfile, bot_chip_offset + ll_x, ll_y, bot_chip_offset + ur_x, ur_y);
+    }
+    outfile << "EOF" << endl;
+
+    outfile << "pause -1 'Press any key to close.'" << endl;
+    outfile.close();
+
+
+    
+    
+   
+}
+
+
