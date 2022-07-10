@@ -44,12 +44,14 @@ public:
     void cell_spreading();
     void cell_spreading(int); // 2d global
     bool shrunked_2d_ntuplace(); // 2d place
+    bool shrunked_2d_ntuplace(string); // 2d place
     void rand_place(int); // die_by_die
     void rand_ball_place();
     void init_run_dir();
     void clear();
 
     /* partition + die-by-die Place */
+    bool pseudo3d_ntuplace();
     bool coloquinte_place();
     bool random_d2dplace();
     bool ntu_d2dplace();
@@ -74,6 +76,7 @@ public:
     void load_from_placedb(CPlaceDB&);
     /* GlobalPlace + Legal + DetailPlace*/
     bool true3d_placement();
+    bool half3d_placement();
     bool ntuplace3d(); // ntuplace3d (remember to replace dir 'ntuplace' to 'ntuplace3d_bak')
     void global_place(bool& isLegal, double& totalHPWL);
     void legal_place();

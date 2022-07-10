@@ -133,6 +133,7 @@ public:
     double dLpNorm_P;
     bool bUseLSE;
     bool bWireModelParameterAssigned;
+    bool bUseWAE;
 
     //Stable-LSE
     bool bUseSLSE;
@@ -173,6 +174,7 @@ public:
     int nlayer;
     bool bLayerPreAssign;
     double dWeightTSV;
+    double stepZ;
 };
 
 extern CParamPlacement param;	// global variable

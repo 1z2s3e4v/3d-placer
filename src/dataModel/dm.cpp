@@ -97,9 +97,10 @@ void DmMgr_C::print_result(){
         totalHPWL += (long long)net->get_HPWL(0) + (long long)net->get_HPWL(1);
     }
     cout << "------------------------ HPWL Result ------------------------\n";
-    cout << "Top-Die HPWL = " << vHPWL[0] << "\n";
-    cout << "Bot-Die HPWL = " << vHPWL[1] << "\n";
-    cout << "Total   HPWL = " << totalHPWL << "\n";
+    cout << "Top-Die  HPWL   = " << vHPWL[0] << "\n";
+    cout << "Bot-Die  HPWL   = " << vHPWL[1] << "\n";
+    cout << "Total    HPWL   = " << totalHPWL << "\n";
+    cout << "Terminal Usage  = " << _pChip->get_d2d_nets().size() << "/" << _pChip->get_max_ball_num() << "\n";
 }
 
 void DmMgr_C::print_info(){
