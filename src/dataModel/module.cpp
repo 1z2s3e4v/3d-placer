@@ -381,6 +381,7 @@ void Chip_C::set_ball(int ballSizeX, int ballSizeY, int ballSpace){
     _ballSizeX = ballSizeX;
     _ballSizeY = ballSizeY;
     _ballSpace = ballSpace;
+    _maxBallNum = ((_sizeX-_ballSpace) / (_ballSizeX+_ballSpace)) * ((_sizeY-_ballSpace) / (_ballSizeY+_ballSpace));
 }
 int Chip_C::get_die_num(){
     return _vDie.size();
@@ -405,6 +406,9 @@ int Chip_C::get_ball_spacing(){
 }
 vector<Net_C*>& Chip_C::get_d2d_nets(){
     return _vD2DNets;
+}
+int Chip_C::get_max_ball_num(){
+    return _maxBallNum;
 }
 //-----------------------------------------------------------------------------------------------------//
 Design_C::Design_C(){}

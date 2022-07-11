@@ -122,6 +122,7 @@ CParamPlacement::CParamPlacement()
     dLpNorm_P = 300; // default "P" for lp-norm / "alpha" in LSE
     bUseLSE = true;
     bWireModelParameterAssigned = false;
+    bUseWAE = false;
 
     // 2006-06-14
     nThread = 1;
@@ -149,6 +150,7 @@ CParamPlacement::CParamPlacement()
     nlayer = 1;
     bLayerPreAssign = false;
     dWeightTSV = 0.0;
+    stepZ = 0.2;
 }
 
 void CParamPlacement::Print()
@@ -192,6 +194,7 @@ void CParamPlacement::Print()
     cout << "  use lse           = " << TrueFalse( bUseLSE ) << endl;
     cout << "  macro shifter     = " << TrueFalse( bRunMacroShifter ) << endl;
     cout << "  perturb           = " << TrueFalse( bPerturb ) << endl;
+    cout << "  use wae           = " << TrueFalse( bUseWAE ) << endl;
     //cout << "  bin size          = " << binSize << endl;
     cout << "  step size         = " << step << endl;
     cout << "  wire weight       = " << weightWire << endl;

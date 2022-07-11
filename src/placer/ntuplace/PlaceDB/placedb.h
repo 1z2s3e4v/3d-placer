@@ -205,6 +205,7 @@ class Module
     float  m_z, m_cz; //(kaie) 2009-07-05 vertical position
 	string m_name;
 	float  m_width, m_height;
+    vector<float> m_widths, m_heights;
     float  m_thickness;
 	float  m_area;
 	char   m_orient;	    // 2005-10-20 (donnie) current orientation  2007-07-17 (donnie) save memory
@@ -476,6 +477,9 @@ public:
 
     //double m_rowHeight;			// height of the rows
     float m_rowHeight;			// height of the rows
+    vector<int> m_rowHeights;	
+    vector<int> m_rowNums;	
+    vector<float> m_maxUtils;
 
 //    private: 
 //	by indark

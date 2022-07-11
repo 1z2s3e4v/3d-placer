@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <algorithm>
 #include <assert.h>
+#include <cmath>
 using namespace std;
 
 //typedef tuple<int, int, int> Pos; // layer(tier/die), row, col
@@ -210,6 +211,7 @@ class Chip_C{
     int _ballSizeY;
     int _ballSpace;
     vector<Net_C*> _vD2DNets; // inter-tier vias
+    int _maxBallNum;
 public:
     Chip_C();
     Chip_C(int, int, int); // sizeX, sizeY, dieNum
@@ -224,6 +226,7 @@ public:
     int get_ball_height();
     int get_ball_spacing();
     vector<Net_C*>& get_d2d_nets();
+    int get_max_ball_num();
 };
 
 class Design_C{

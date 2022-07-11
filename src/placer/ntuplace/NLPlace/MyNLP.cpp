@@ -223,7 +223,7 @@ double MyNLP::m_skewDensityPenalty2 = 1.0;
     // @kaie 2009-08-29
 
     // (kaie) 2010-10-18 Weighted-Average-Exponential Wirelength Model
-    if( gArg.CheckExist("WAE") )
+    if( param.bUseWAE )
     {
 	    m_nets_weighted_sum_exp_xi_over_alpha.resize( m_pDB->m_nets.size(), 0 );
 	    m_nets_weighted_sum_exp_yi_over_alpha.resize( m_pDB->m_nets.size(), 0 );
@@ -563,41 +563,41 @@ bool MyNLP::MySolve( double wWire,
     int counter = 0;
     while( true )
     {
-	counter++;
+		counter++;
 
-	// save the block position
-	vector< CPoint > blockPositions;
-	CPlaceUtil::SavePlacement( *m_pDB, blockPositions );
-	
-	get_starting_point( x, z );
-	Parallel( BoundXThread, m_pDB->m_modules.size() );
-	
-	if(m_bMoveZ) // kaie z-direction move
-	    Parallel( BoundZThread, m_pDB->m_modules.size() );
+		// save the block position
+		vector< CPoint > blockPositions;
+		CPlaceUtil::SavePlacement( *m_pDB, blockPositions );
+		
+		get_starting_point( x, z );
+		Parallel( BoundXThread, m_pDB->m_modules.size() );
+		
+		if(m_bMoveZ) // kaie z-direction move
+			Parallel( BoundZThread, m_pDB->m_modules.size() );
 
-	bool succ = GoSolve( wWire, target_density, currentLevel, &isLegal );
+		bool succ = GoSolve( wWire, target_density, currentLevel, &isLegal );
 
-	if( succ )
-	{
-	    //Added by Jin 20070305
-	    //if( param.bShow && gArg.CheckExist( "congopt" ) )
-	    //{
-	    //	m_fixed_point_method.RestoreAllPseudoModuleAndNet();
-	    //}
-	    //@Added by Jin 20070305
-	    break;
-	}
-	_alpha -= 5;
-	CPlaceUtil::LoadPlacement( *m_pDB, blockPositions );
+		if( succ )
+		{
+			//Added by Jin 20070305
+			//if( param.bShow && gArg.CheckExist( "congopt" ) )
+			//{
+			//	m_fixed_point_method.RestoreAllPseudoModuleAndNet();
+			//}
+			//@Added by Jin 20070305
+			break;
+		}
+		_alpha -= 5;
+		CPlaceUtil::LoadPlacement( *m_pDB, blockPositions );
 
-	if( param.bShow )
-	    printf( "\nFailed to solve it. alpha = %f\n\n", _alpha );
-	if( _alpha < 80 )
-	{
-		printf( "\nFailed to solve it. alpha = %f\n\n", _alpha );
-	    printf( "Fatal error in analytical solver. Exit program.\n" ); 
-	    exit(0);
-	}
+		if( param.bShow )
+			printf( "\nFailed to solve it. alpha = %f\n\n", _alpha );
+		if( _alpha < 80 )
+		{
+			printf( "\nFailed to solve it. alpha = %f\n\n", _alpha );
+			printf( "Fatal error in analytical solver. Exit program.\n" ); 
+			exit(0);
+		}
     }
 
     if( param.bShow )
@@ -641,6 +641,7 @@ bool MyNLP::GoSolve( double wWire,
     ////////////////////////////////////////
 	
     m_currentStep = param.step;
+	m_currentStepZ = param.stepZ;
 
     m_targetUtil += param.targetDenOver;
     if( m_targetUtil > 1.0 )
@@ -1362,7 +1363,7 @@ bool MyNLP::GoSolve( double wWire,
 		if(rowarea < cellarea)
 		{
 		    printf("Row area is not enough!!\n");
-		    exit(0);
+		    ///exit(0);
 		}
 
 		m_pDB->m_sites_for_legal = m_pDB->m_sites;
@@ -1730,7 +1731,7 @@ bool MyNLP::FindBeta( const int& n, const vector<double>& grad_f, const vector<d
 // (kaie) 2009-09-10 3d placement
 void MyNLP::LayerAssignment()
 {
-    vector<double> totalArea;
+	vector<double> totalArea;
     totalArea.resize(m_pDB->m_totalLayer, 0.0);
     double layerThickness = (m_pDB->m_front - m_pDB->m_back) / (double)m_pDB->m_totalLayer;
     vector<int> middleblocks;
@@ -1786,25 +1787,65 @@ void MyNLP::LayerAssignment()
 
 void MyNLP::LayerAssignment( const int& n, vector<double>& z, MyNLP* pNLP, int index1, int index2 )
 {
+	if(param.bShow){
+		cout << "---------------------------- Some LayerAssignment Result---------------------------------\n";
+		for(int i=0;i<z.size();++i){
+			if(i%400 == 0)
+				cout << "cell["<<i<<"].z = " << z[i] << "\n";
+		}
+		cout << "-----------------------------------------------------------------------------------------\n";
+	}
     if( index2 > n ) index2 = n;
-	// cout << "########### layerThickness = " << (pNLP->m_pDB->m_front - pNLP->m_pDB->m_back) / (double)(pNLP->m_pDB->m_totalLayer) << "\n";
-    for( int i= index1; i < index2; i++)
-    {
-	double layerThickness = (pNLP->m_pDB->m_front - pNLP->m_pDB->m_back) / (double)(pNLP->m_pDB->m_totalLayer);
-	//printf("%lf\n", layerThickness);
-	//printf("%lf => ", z[i]);
-	double z_after = z[i] - 0.5 * layerThickness;	
-	double layer = floor(z_after/layerThickness);
-	double offset = fmod(z_after, layerThickness);
-	if(offset > 0.5*layerThickness) layer += 1;
-	z_after = (layer+0.5)*layerThickness;
-	//printf("%lf\n", z_after);
 
-	assert(fabs(z[i]-z_after) <= 0.5 * layerThickness);
-	
-	// if(fabs(z[i]-z_after) > 0.05)
-	// 	cout << "~~~~~~~~~~~~~~~~~~~~~~~ z[" << i << "] changed from "<< z[i] <<" to " << z_after << "\n";
-	z[i] = z_after;
+	bool reverse = false;
+	double cutline = 0.5;
+	if(param.nlayer == 2 && pNLP->m_pDB->m_rowNums.size()==2 && pNLP->m_pDB->m_rowNums.size()==2 && pNLP->m_pDB->m_rowNums.size()==2){ // cad contest 2022
+		// check the more side of two die
+		int lower=0, higher=0;
+		double width_diff_sum = 0;
+		for(int i= index1; i < index2; i++){
+			if(z[i]-0.5 <= 0.5) lower++;
+			else higher++;
+			width_diff_sum += (double)pNLP->m_pDB->m_modules[i].m_widths[0] /  pNLP->m_pDB->m_modules[i].m_widths[1];
+		}
+		double width_diff_avg = width_diff_sum / (index2-index1);
+		int total_space = pNLP->m_pDB->m_rowNums[0]/width_diff_avg*pNLP->m_pDB->m_maxUtils[0] + pNLP->m_pDB->m_rowNums[1]*pNLP->m_pDB->m_maxUtils[1];
+		if(lower > higher){
+			reverse = false;
+			cutline = (double)(pNLP->m_pDB->m_rowNums[0]/width_diff_avg*pNLP->m_pDB->m_maxUtils[0]) / total_space;
+		}
+		else{
+			reverse = true;
+			cutline = (double)(pNLP->m_pDB->m_rowNums[1]*pNLP->m_pDB->m_maxUtils[1]) / total_space;
+		}
+	}
+
+	for( int i= index1; i < index2; i++)
+    {
+		if(param.nlayer == 2 && pNLP->m_pDB->m_rowNums.size()==2 && pNLP->m_pDB->m_rowNums.size()==2 && pNLP->m_pDB->m_rowNums.size()==2){ // cad contest 2022
+			double z_after = z[i] - 0.5; // z_after = [0:1]
+			if(!reverse){ // assigned to top-die if closer to 0
+				if(z_after <= cutline) 
+					z[i] = 0.5;
+				else 
+					z[i] = 1.5;
+			}
+			else{ // assigned to top-die if closer to 1
+				if(z_after >= cutline) 
+					z[i] = 0.5;
+				else 
+					z[i] = 1.5;
+			}
+		} else{ // origin
+			double layerThickness = (pNLP->m_pDB->m_front - pNLP->m_pDB->m_back) / (double)(pNLP->m_pDB->m_totalLayer);
+			double z_after = z[i] - 0.5 * layerThickness;
+			double layer = floor(z_after/layerThickness);
+			double offset = fmod(z_after, layerThickness);
+			if(offset > 0.5*layerThickness) layer += 1;
+			z_after = (layer+0.5)*layerThickness;
+			assert(fabs(z[i]-z_after) <= 0.5 * layerThickness);
+			z[i] = z_after;
+		}
     }
 }
 
@@ -2102,7 +2143,8 @@ void MyNLP::LineSearch( const int& n, /*const*/ vector<double>& x, vector<double
     if(m_bMoveZ)
     {
 	avgGradZ = sqrt( totalGradZ / size );
-	m_stepSizeZ = (m_potentialGridThickness) / avgGradZ * m_currentStep;
+	m_stepSizeZ = (m_potentialGridThickness) / avgGradZ * m_currentStepZ;
+	cout << "####################################### m_stepSizeZ=" << m_stepSizeZ << ", avgGradZ="<<avgGradZ<< "\n";
 	//printf("sz = %lf\n", m_stepSizeZ);
     }
     
@@ -2420,7 +2462,7 @@ void MyNLP::UpdateNetsSumExp( const vector<double>& x, const vector<double>& z, 
 	}
 	// @kaie 2009-08-29
 
-	if( gArg.CheckExist("WAE") ) // (kaie) 2010-10-18 Weighted-Average-Exponential Wirelength Model
+	if( param.bUseWAE ) // (kaie) 2010-10-18 Weighted-Average-Exponential Wirelength Model
         {
             double weighted_sum_exp_xi_over_alpha;
             double weighted_sum_exp_inv_xi_over_alpha;
@@ -2529,7 +2571,7 @@ double MyNLP::GetLogSumExpWL( const vector<double>& x,	    // unuse
     {
 	if( pNLP->m_pDB->m_nets[n].size() == 0 )
 	    continue;
-        if( gArg.CheckExist("WAE" ) )
+        if( param.bUseWAE )
         {
             if( true == param.bNLPNetWt )
             {
@@ -2609,7 +2651,7 @@ double MyNLP::GetLogSumExpWL( const vector<double>& x,	    // unuse
 	    //assert( !isNaN( totalWL ) );
 	}
     }
-    if( gArg.CheckExist("WAE") )
+    if( param.bUseWAE )
         return totalWL;
     else if( param.bUseLSE )
 	return totalWL * pNLP->_alpha;
@@ -2641,39 +2683,39 @@ double MyNLP::GetLogSumExpVia( const vector<double>& z,	    // unuse
 
     for( int n=index1; n<index2; n++ )	// for each net
     {
-	if( pNLP->m_pDB->m_nets[n].size() == 0 )
-	    continue;
-	if( param.bUseLSE )
-	{
-	    /*totalVia += 
-	      log( pNLP->m_nets_sum_exp_zi_over_alpha[n] ) +	    // max(z)
-	      log( pNLP->m_nets_sum_exp_inv_zi_over_alpha[n] ) ;*/  // -min(z)
-	    if ( true == param.bNLPNetWt )
-	    {
-		totalVia += 
-		    NetWeightCalc( pNLP->m_pDB->m_nets[n].size() ) * 
-		    (log( pNLP->m_nets_sum_exp_zi_over_alpha[n] ) +	    // max(z)
-		     log( pNLP->m_nets_sum_exp_inv_zi_over_alpha[n] ) );  // -min(z)
-	   }
-	   else
-	   {
-		totalVia += 
-		    log( pNLP->m_nets_sum_exp_xi_over_alpha[n] ) +	    // max(z)
-		    log( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] );  // -min(z)
-	   }
-	}
-	else
-	{
-	    // LP-norm
-	    double invAlpha = 1.0 / pNLP->_alpha;
-	    totalVia += 
-		pow( pNLP->m_nets_sum_exp_zi_over_alpha[n], invAlpha ) - 
-		pow( pNLP->m_nets_sum_exp_inv_zi_over_alpha[n], -invAlpha );
-	    /*totalVia += 
-	      pow( pNLP->m_nets_sum_exp_zi_over_alpha[n], invAlpha ) - 
-	      pow( pNLP->m_nets_sum_exp_inv_zi_over_alpha[n], -invAlpha );*/
-	    //assert( !isNaN( totalVia ) );
-	}
+		if( pNLP->m_pDB->m_nets[n].size() == 0 )
+			continue;
+		if( param.bUseLSE )
+		{
+			/*totalVia += 
+			log( pNLP->m_nets_sum_exp_zi_over_alpha[n] ) +	    // max(z)
+			log( pNLP->m_nets_sum_exp_inv_zi_over_alpha[n] ) ;*/  // -min(z)
+			if ( true == param.bNLPNetWt )
+			{
+			totalVia += 
+				NetWeightCalc( pNLP->m_pDB->m_nets[n].size() ) * 
+				(log( pNLP->m_nets_sum_exp_zi_over_alpha[n] ) +	    // max(z)
+				log( pNLP->m_nets_sum_exp_inv_zi_over_alpha[n] ) );  // -min(z)
+			}
+			else
+			{
+				totalVia += 
+					log( pNLP->m_nets_sum_exp_xi_over_alpha[n] ) +	    // max(z)
+					log( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] );  // -min(z)
+			}
+		}
+		else
+		{
+			// LP-norm
+			double invAlpha = 1.0 / pNLP->_alpha;
+			totalVia += 
+			pow( pNLP->m_nets_sum_exp_zi_over_alpha[n], invAlpha ) - 
+			pow( pNLP->m_nets_sum_exp_inv_zi_over_alpha[n], -invAlpha );
+			/*totalVia += 
+			pow( pNLP->m_nets_sum_exp_zi_over_alpha[n], invAlpha ) - 
+			pow( pNLP->m_nets_sum_exp_inv_zi_over_alpha[n], -invAlpha );*/
+			//assert( !isNaN( totalVia ) );
+		}
     }
     if( param.bUseLSE )
 	return totalVia * pNLP->_alpha;
@@ -2705,11 +2747,11 @@ bool MyNLP::eval_f(int n, const vector<double>& x, const vector<double>& expX, b
       {*/
     if( bMulti )
     {
-	obj_value = (totalWL * _weightWire) + 0.5 * (density);// + (totalVia * _weightWire * m_weightTSV);   // correct. 
+	obj_value = (totalWL * _weightWire) + 0.5 * (density) + (totalVia * _weightWire * m_weightTSV);   // correct. 
     }
     else
     {
-	obj_value = (totalWL * _weightWire) + 0.5 * (density * _weightDensity);// + (totalVia * _weightWire * m_weightTSV);   // correct. 
+	obj_value = (totalWL * _weightWire) + 0.5 * (density * _weightDensity) + (totalVia * _weightWire * m_weightTSV);   // correct. 
     }
     //}
     //@Brian 2007-06-18
@@ -6945,6 +6987,7 @@ bool MyNLP::InitObjWeights( double wWire )
 	    //m_weightTSV = _weightTSV * wWire;
 	    //m_weightTSV = _weightTSV;
 	    m_weightTSV = _weightTSV * (totalWireGradient/*-totalViaGradient*/) / totalViaGradient;
+		//m_weightTSV = 0.0001;
 		//m_weightTSV = wWire * _weightTSV;
 	    //m_weightTSV = (m_pDB->m_coreRgn.right - m_pDB->m_coreRgn.left) / sqrt(m_pDB->m_totalLayer);
 	    printf("weight TSV = %lf\n", m_weightTSV);

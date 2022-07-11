@@ -141,6 +141,7 @@ private:
   vector<double> grad_potentialZ;
   int m_ite;
   double m_currentStep;
+  double m_currentStepZ;
 
   // kaie
   vector<double> grad_via;
