@@ -107,6 +107,9 @@ private:
   vector<double> x_u;
   vector<double> _expX;
   vector<double> _expPins;
+  vector<double> xMax;
+  vector<double> yMax;
+  vector<double> zMax;
   
   // kaie 2009-08-29
   vector<double> z;

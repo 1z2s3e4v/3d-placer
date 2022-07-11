@@ -145,11 +145,11 @@ double MyNLP::m_skewDensityPenalty2 = 1.0;
     if(param.b3d) // (kaie) number of layers
     	m_pDB->m_totalLayer = param.nlayer;
     else
-	m_pDB->m_totalLayer = 1;
+		m_pDB->m_totalLayer = 1;
     if(param.b3d && !gArg.CheckExist("noZ"))
-	m_bMoveZ = true;
+		m_bMoveZ = true;
     else
-	m_bMoveZ = false;
+		m_bMoveZ = false;
 
     // scale between 0 to 10
     const double range = 10.0;
@@ -167,6 +167,8 @@ double MyNLP::m_skewDensityPenalty2 = 1.0;
     _expPins.resize( 2 * m_pDB->m_pins.size() );
     x_l.resize( 2 * m_pDB->m_modules.size() );
     x_u.resize( 2 * m_pDB->m_modules.size() );
+	xMax.resize( m_pDB->m_modules.size() );
+	yMax.resize( m_pDB->m_modules.size() );
 
     // (kaie) 2009-09-12 add z direction
     z.resize( m_pDB->m_modules.size() );
@@ -181,21 +183,22 @@ double MyNLP::m_skewDensityPenalty2 = 1.0;
     	zBest.resize( m_pDB->m_modules.size() );
     	_expZ.resize( m_pDB->m_modules.size() );
     	_expPinsZ.resize( m_pDB->m_pins.size() );
+		zMax.resize( m_pDB->m_modules.size() );
     }else
     {
-	grad_f.resize( 2 * m_pDB->m_modules.size() );
-	last_grad_f.resize( 2 * m_pDB->m_modules.size() );
-	walk_direction.resize( 2 * m_pDB->m_modules.size(), 0);
-	last_walk_direction.resize(2 * m_pDB->m_modules.size(), 0);
+		grad_f.resize( 2 * m_pDB->m_modules.size() );
+		last_grad_f.resize( 2 * m_pDB->m_modules.size() );
+		walk_direction.resize( 2 * m_pDB->m_modules.size(), 0);
+		last_walk_direction.resize(2 * m_pDB->m_modules.size(), 0);
     }
     // @kaie 2009-08-29
 
     if( m_bXArch ) // 2006-09-12 (donnie)
     {	
-	_expXplusY.resize( m_pDB->m_modules.size() );   // exp( x+y /k )  for cells
-	_expXminusY.resize( m_pDB->m_modules.size() );  // exp( x-y /k )  for cells
-	_expPinXplusY.resize( m_pDB->m_pins.size() );   // exp( x+y /k )  for pins
-	_expPinXminusY.resize( m_pDB->m_pins.size() );  // exp( x-y /k )  for pins
+		_expXplusY.resize( m_pDB->m_modules.size() );   // exp( x+y /k )  for cells
+		_expXminusY.resize( m_pDB->m_modules.size() );  // exp( x-y /k )  for cells
+		_expPinXplusY.resize( m_pDB->m_pins.size() );   // exp( x+y /k )  for pins
+		_expPinXminusY.resize( m_pDB->m_pins.size() );  // exp( x-y /k )  for pins
     }
 
     /* 
@@ -233,10 +236,10 @@ double MyNLP::m_skewDensityPenalty2 = 1.0;
 
     if( m_bXArch ) // 2006-09-12 (donnie)
     {
-	m_nets_sum_exp_x_plus_y_over_alpha.resize( m_pDB->m_nets.size(), 0 );
-	m_nets_sum_exp_x_minus_y_over_alpha.resize( m_pDB->m_nets.size(), 0 );
-	m_nets_sum_exp_inv_x_plus_y_over_alpha.resize( m_pDB->m_nets.size(), 0 );
-	m_nets_sum_exp_inv_x_minus_y_over_alpha.resize( m_pDB->m_nets.size(), 0 );
+		m_nets_sum_exp_x_plus_y_over_alpha.resize( m_pDB->m_nets.size(), 0 );
+		m_nets_sum_exp_x_minus_y_over_alpha.resize( m_pDB->m_nets.size(), 0 );
+		m_nets_sum_exp_inv_x_plus_y_over_alpha.resize( m_pDB->m_nets.size(), 0 );
+		m_nets_sum_exp_inv_x_minus_y_over_alpha.resize( m_pDB->m_nets.size(), 0 );
     }
 
     if( param.bUseLSE == false )
@@ -560,6 +563,7 @@ bool MyNLP::MySolve( double wWire,
 		( m_pDB->m_coreRgn.right - m_pDB->m_coreRgn.left )/m_potentialGridSize, 
 		_alpha, wWire );
 
+	m_pDB->UpdatePinNetId();
     int counter = 0;
     while( true )
     {
@@ -1808,11 +1812,11 @@ void MyNLP::LayerAssignment( const int& n, vector<double>& z, MyNLP* pNLP, int i
 			else higher++;
 			width_diff_sum += (double)pNLP->m_pDB->m_modules[i].m_widths[0] /  pNLP->m_pDB->m_modules[i].m_widths[1];
 		}
-		double width_diff_avg = width_diff_sum / (index2-index1);
-		int total_space = pNLP->m_pDB->m_rowNums[0]/width_diff_avg*pNLP->m_pDB->m_maxUtils[0] + pNLP->m_pDB->m_rowNums[1]*pNLP->m_pDB->m_maxUtils[1];
+		double width_diff_avg = width_diff_sum / (index2-index1) * 0.6;
+		int total_space = pNLP->m_pDB->m_rowNums[0]/width_diff_avg/width_diff_avg*pNLP->m_pDB->m_maxUtils[0] + pNLP->m_pDB->m_rowNums[1]*pNLP->m_pDB->m_maxUtils[1];
 		if(lower > higher){
 			reverse = false;
-			cutline = (double)(pNLP->m_pDB->m_rowNums[0]/width_diff_avg*pNLP->m_pDB->m_maxUtils[0]) / total_space;
+			cutline = (double)(pNLP->m_pDB->m_rowNums[0]/width_diff_avg/width_diff_avg*pNLP->m_pDB->m_maxUtils[0]) / total_space;
 		}
 		else{
 			reverse = true;
@@ -2144,7 +2148,8 @@ void MyNLP::LineSearch( const int& n, /*const*/ vector<double>& x, vector<double
     {
 	avgGradZ = sqrt( totalGradZ / size );
 	m_stepSizeZ = (m_potentialGridThickness) / avgGradZ * m_currentStepZ;
-	cout << "####################################### m_stepSizeZ=" << m_stepSizeZ << ", avgGradZ="<<avgGradZ<< "\n";
+	if(param.bShow)
+		cout << "####################################### m_stepSizeZ=" << m_stepSizeZ << ", avgGradZ="<<avgGradZ<< "\n";
 	//printf("sz = %lf\n", m_stepSizeZ);
     }
     
@@ -2195,11 +2200,23 @@ bool MyNLP::get_bounds_info(int n, vector<double>& x_l, vector<double>& x_u )
 
 bool MyNLP::get_starting_point( vector<double>& x, vector<double>& z)
 {
+	xMax.resize(m_pDB->m_nets.size(),0);
+	yMax.resize(m_pDB->m_nets.size(),0);
+	zMax.resize(m_pDB->m_nets.size(),0);
+
     for( unsigned int i=0; i<m_pDB->m_modules.size(); i++ )
     {
-	x[2*i]   = m_pDB->m_modules[i].m_cx;
-	x[2*i+1] = m_pDB->m_modules[i].m_cy;
-	z[i]	 = m_pDB->m_modules[i].m_cz;
+		x[2*i]   = m_pDB->m_modules[i].m_cx;
+		x[2*i+1] = m_pDB->m_modules[i].m_cy;
+		z[i]	 = m_pDB->m_modules[i].m_cz;
+		for(int j=0;j<m_pDB->m_modules[i].m_pinsId.size();++j){
+			int pinId = m_pDB->m_modules[i].m_pinsId[j];
+			int netId = m_pDB->m_pinNetId[pinId];
+			xMax[netId] = max(xMax[netId], m_pDB->m_modules[i].m_cx+m_pDB->m_pins[ pinId ].xOff);
+			yMax[netId] = max(yMax[netId], m_pDB->m_modules[i].m_cy+m_pDB->m_pins[ pinId ].yOff);
+			if(param.b3d) 
+				zMax[netId] = max(zMax[netId], m_pDB->m_modules[i].m_cz);
+		}
     }
     return true;
 }
@@ -2307,35 +2324,35 @@ void MyNLP::UpdateExpValueForEachCell( const int& index2, const vector<double>& 
 	vector<double>& expX, vector<double>& expZ, const double& inAlpha, 
 	const int& index1, MyNLP* pNLP ) 
 {
-    if( param.bUseLSE )
+    if( param.bUseLSE || param.bUseWAE )
     {
-	for( int i=index1; i<index2; i++ )
-	{
-	    expX[2*i]   = exp( x[2*i] / inAlpha );
-	    expX[2*i+1] = exp( x[2*i+1] / inAlpha );
-	    if(pNLP->m_bMoveZ)
-	    	expZ[i]     = exp( z[i] / inAlpha );
-	}
+		for( int i=index1; i<index2; i++ )
+		{
+			expX[2*i]   = exp( x[2*i] / inAlpha );
+			expX[2*i+1] = exp( x[2*i+1] / inAlpha );
+			if(pNLP->m_bMoveZ)
+				expZ[i]     = exp( z[i] / inAlpha );
+		}
 
-	if( m_bXArch ) // 2007-09-12
-	{
-	    for( int i=index1; i<index2; i++ )
-	    {
-		pNLP->_expXplusY[i]   = exp( (x[2*i] + x[2*i+1]) / inAlpha );   // exp( x+y /k )
-		pNLP->_expXminusY[i]  = exp( (x[2*i] - x[2*i+1]) / inAlpha );   // exp( x-y /k )
-	    }
-	}
+		if( m_bXArch ) // 2007-09-12
+		{
+			for( int i=index1; i<index2; i++ )
+			{
+			pNLP->_expXplusY[i]   = exp( (x[2*i] + x[2*i+1]) / inAlpha );   // exp( x+y /k )
+			pNLP->_expXminusY[i]  = exp( (x[2*i] - x[2*i+1]) / inAlpha );   // exp( x-y /k )
+			}
+		}
     }
     else
     {
-	// Lp-norm
-	for( int i=index1; i<index2; i++ )
-	{
-	    expX[2*i]   = pow( x[2*i]   * pNLP->m_posScale, inAlpha ); 
-	    expX[2*i+1] = pow( x[2*i+1] * pNLP->m_posScale, inAlpha );
-	    if(pNLP->m_bMoveZ)
-	    	expZ[i]     = pow( z[i] * pNLP->m_posScale, inAlpha); 
-	}
+		// Lp-norm
+		for( int i=index1; i<index2; i++ )
+		{
+			expX[2*i]   = pow( x[2*i]   * pNLP->m_posScale, inAlpha ); 
+			expX[2*i+1] = pow( x[2*i+1] * pNLP->m_posScale, inAlpha );
+			if(pNLP->m_bMoveZ)
+				expZ[i]     = pow( z[i] * pNLP->m_posScale, inAlpha); 
+		}
     }
 }
 
@@ -2381,13 +2398,17 @@ void MyNLP::UpdateExpValueForEachPin( const int& index2, const vector<double>& x
 	double yy = x[ 2*blockId+1 ] + pNLP->m_pDB->m_pins[ pinId ].yOff;
 	double zz = z[ blockId ];
 
-	if( param.bUseLSE )
+	if( param.bUseLSE || param.bUseWAE )
 	{
-	    expPins[2*pinId]   = exp( xx / inAlpha );
-	    expPins[2*pinId+1] = exp( yy / inAlpha );
+		int netId = pNLP->m_pDB->m_pinNetId[pinId];
+	    expPins[2*pinId]   = exp( (xx-pNLP->xMax[netId]) / inAlpha );
+	    expPins[2*pinId+1] = exp( (yy-pNLP->yMax[netId]) / inAlpha );
 	    if(pNLP->m_bMoveZ)
-	    	expPinsZ[pinId] = exp( zz / inAlpha );
+	    	expPinsZ[pinId] = exp( (zz-pNLP->zMax[netId]) / inAlpha );
 	    
+		//cout << "pin[" << pinId << "]: xx=" << xx << ", xMax[" << netId << "]=" << pNLP->xMax[netId] << "\n";
+		//cout << "pin[" << pinId << "]: yy=" << yy << ", yMax[" << netId << "]=" << pNLP->yMax[netId] << "\n";
+
 	    if( m_bXArch ) // 2006-09-12
 	    {
 		pNLP->_expPinXplusY[pinId]  = exp( (xx+yy) / inAlpha );
@@ -2569,8 +2590,7 @@ double MyNLP::GetLogSumExpWL( const vector<double>& x,	    // unuse
 
     for( int n=index1; n<index2; n++ )	// for each net
     {
-	if( pNLP->m_pDB->m_nets[n].size() == 0 )
-	    continue;
+		if( pNLP->m_pDB->m_nets[n].size() == 0 ) continue;
         if( param.bUseWAE )
         {
             if( true == param.bNLPNetWt )
@@ -2590,66 +2610,64 @@ double MyNLP::GetLogSumExpWL( const vector<double>& x,	    // unuse
                         pNLP->m_nets_weighted_sum_exp_inv_yi_over_alpha[n] / pNLP->m_nets_sum_exp_inv_yi_over_alpha[n]));
             }
         }else if( param.bUseLSE )
-	{
-	    if( false == m_bXArch )
-	    {
-
-		/*totalWL += 
-		  log( pNLP->m_nets_sum_exp_xi_over_alpha[n] ) +	    // max(x)
-		  log( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] ) +  // -min(x)
-		  log( pNLP->m_nets_sum_exp_yi_over_alpha[n] ) +	    // max(y)
-		  log( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n] ) ;  // -min(y)*/
-		if ( true == param.bNLPNetWt )
 		{
-		    totalWL += 
-			NetWeightCalc( pNLP->m_pDB->m_nets[n].size() ) * 
-			(log( pNLP->m_nets_sum_exp_xi_over_alpha[n] ) +	    // max(x)
-			 log( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] ) +  // -min(x)
-			 m_yWeight * (log( pNLP->m_nets_sum_exp_yi_over_alpha[n] ) +	    // max(y)
-			     log( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n] ) ) ) ;
-		}
-		else
+			if( false == m_bXArch )
+			{
+				/*totalWL += 
+				log( pNLP->m_nets_sum_exp_xi_over_alpha[n] ) +	    // max(x)
+				log( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] ) +  // -min(x)
+				log( pNLP->m_nets_sum_exp_yi_over_alpha[n] ) +	    // max(y)
+				log( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n] ) ;  // -min(y)*/
+				if ( true == param.bNLPNetWt )
+				{
+					totalWL += 
+					NetWeightCalc( pNLP->m_pDB->m_nets[n].size() ) * 
+					(log( pNLP->m_nets_sum_exp_xi_over_alpha[n] ) +	    // max(x)
+					log( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] ) +  // -min(x)
+					m_yWeight * (log( pNLP->m_nets_sum_exp_yi_over_alpha[n] ) +	    // max(y)
+						log( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n] ) ) ) ;
+				}
+				else
+				{
+					totalWL += 
+					log( pNLP->m_nets_sum_exp_xi_over_alpha[n] ) +	    // max(x)
+					log( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] ) +  // -min(x)
+					m_yWeight * (log( pNLP->m_nets_sum_exp_yi_over_alpha[n] ) +	    // max(y)
+						log( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n] ) ) ;  // -min(y)
+				}
+			}
+			else
+			{
+			// X-HPWL
+			totalWL += 
+				(sqrt(2)-1.0) * ( log( pNLP->m_nets_sum_exp_xi_over_alpha[n] ) +	    // max(x)
+						log( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] ) +      // -min(x)
+						log( pNLP->m_nets_sum_exp_yi_over_alpha[n] ) +	    // max(y)
+						log( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n] )       // -min(y)
+						) -
+				(sqrt(2)/2.0-1.0) * ( 
+						log( pNLP->m_nets_sum_exp_x_plus_y_over_alpha[n] ) +	    // max(x+y)
+						log( pNLP->m_nets_sum_exp_inv_x_plus_y_over_alpha[n] ) +      // -min(x+y)
+						log( pNLP->m_nets_sum_exp_x_minus_y_over_alpha[n] ) +	    // max(x-y)
+						log( pNLP->m_nets_sum_exp_inv_x_minus_y_over_alpha[n] )       // -min(x-y)
+						);
+			}
+		} else
 		{
-		    totalWL += 
-			log( pNLP->m_nets_sum_exp_xi_over_alpha[n] ) +	    // max(x)
-			log( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] ) +  // -min(x)
-			m_yWeight * (log( pNLP->m_nets_sum_exp_yi_over_alpha[n] ) +	    // max(y)
-				log( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n] ) ) ;  // -min(y)
+			// LP-norm
+			double invAlpha = 1.0 / pNLP->_alpha;
+			totalWL += 
+			pow( pNLP->m_nets_sum_exp_xi_over_alpha[n], invAlpha ) - 
+			pow( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n], -invAlpha ) +
+			m_yWeight * ( pow( pNLP->m_nets_sum_exp_yi_over_alpha[n], invAlpha ) - 
+				pow( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n], -invAlpha ) );
+			/*totalWL += 
+			pow( pNLP->m_nets_sum_exp_xi_over_alpha[n], invAlpha ) - 
+			pow( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n], -invAlpha ) +
+			pow( pNLP->m_nets_sum_exp_yi_over_alpha[n], invAlpha ) - 
+			pow( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n], -invAlpha );*/
+			//assert( !isNaN( totalWL ) );
 		}
-	    }
-	    else
-	    {
-		// X-HPWL
-		totalWL += 
-		    (sqrt(2)-1.0) * ( log( pNLP->m_nets_sum_exp_xi_over_alpha[n] ) +	    // max(x)
-				      log( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] ) +      // -min(x)
-				      log( pNLP->m_nets_sum_exp_yi_over_alpha[n] ) +	    // max(y)
-				      log( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n] )       // -min(y)
-				    ) -
-		    (sqrt(2)/2.0-1.0) * ( 
-					 log( pNLP->m_nets_sum_exp_x_plus_y_over_alpha[n] ) +	    // max(x+y)
-					 log( pNLP->m_nets_sum_exp_inv_x_plus_y_over_alpha[n] ) +      // -min(x+y)
-					 log( pNLP->m_nets_sum_exp_x_minus_y_over_alpha[n] ) +	    // max(x-y)
-					 log( pNLP->m_nets_sum_exp_inv_x_minus_y_over_alpha[n] )       // -min(x-y)
-					);
-	    }
-	}
-	else
-	{
-	    // LP-norm
-	    double invAlpha = 1.0 / pNLP->_alpha;
-	    totalWL += 
-		pow( pNLP->m_nets_sum_exp_xi_over_alpha[n], invAlpha ) - 
-		pow( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n], -invAlpha ) +
-		m_yWeight * ( pow( pNLP->m_nets_sum_exp_yi_over_alpha[n], invAlpha ) - 
-			pow( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n], -invAlpha ) );
-	    /*totalWL += 
-	      pow( pNLP->m_nets_sum_exp_xi_over_alpha[n], invAlpha ) - 
-	      pow( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n], -invAlpha ) +
-	      pow( pNLP->m_nets_sum_exp_yi_over_alpha[n], invAlpha ) - 
-	      pow( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n], -invAlpha );*/
-	    //assert( !isNaN( totalWL ) );
-	}
     }
     if( param.bUseWAE )
         return totalWL;

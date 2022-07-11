@@ -412,7 +412,7 @@ void Placer_C::global_place(bool& isLegal, double& totalHPWL){ // Analytical Glo
     param.bLayerPreAssign = true;
     param.dWeightTSV = 0.5;
     //param.step = 5;
-    param.stepZ = 15;
+    param.stepZ = 0.2;
 
     // Setting placedb
     CPlaceDB placedb;
@@ -739,7 +739,7 @@ void Placer_C::set_ntuplace_param(CPlaceDB& placedb){
 	// if( pos != string::npos )
 	//     param.outFilePrefix = param.outFilePrefix.substr( pos+1 );
     // 2006-04-26 donnie (for IBM benchmarks)
-    cout << "placedb.m_util =================================== " << placedb.m_util << "\n";
+    //cout << "placedb.m_util =================================== " << placedb.m_util << "\n";
     if( placedb.m_util > 0.79 ){
         if( param.stepAssigned == false ){
             if( param.bShow )

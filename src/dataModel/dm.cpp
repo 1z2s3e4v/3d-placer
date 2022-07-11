@@ -459,11 +459,6 @@ void DmMgr_C::draw_layout_result_plt(){// output in dir "./draw/<case-name>.html
 
     outfile << "pause -1 'Press any key to close.'" << endl;
     outfile.close();
-
-
-    
-    
-   
 }
 
 

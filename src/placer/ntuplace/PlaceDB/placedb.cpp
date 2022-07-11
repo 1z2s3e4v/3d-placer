@@ -5729,22 +5729,21 @@ void CPlaceDB::UpdatePinNetId()
     m_pinNetId.resize( m_pins.size() );
     for( unsigned int i=0; i<m_pins.size(); i++ )
     {
-	int modId = m_pins[i].moduleId;
-	bool found = false;
-	for( unsigned int n=0; n<m_modules[modId].m_netsId.size(); n++ )
-	{
-	    int netId = m_modules[modId].m_netsId[n];
-
-	    for( unsigned int p=0; p<m_nets[netId].size(); p++ )
-	    {
-		if( m_pins[ m_nets[netId][p] ].moduleId == modId )
+		int modId = m_pins[i].moduleId;
+		bool found = false;
+		for( unsigned int n=0; n<m_modules[modId].m_netsId.size(); n++ )
 		{
-		    m_pinNetId[i] = netId;
-		    found = true;
-		}
-	    }
-	}// for each net connected to the module
-	assert( found == true );
+			int netId = m_modules[modId].m_netsId[n];
+			for( unsigned int p=0; p<m_nets[netId].size(); p++ )
+			{
+				if( m_pins[ m_nets[netId][p] ].moduleId == modId )
+				{
+					m_pinNetId[i] = netId;
+					found = true;
+				}
+			}
+		}// for each net connected to the module
+		assert( found == true );
     }
 }
 
