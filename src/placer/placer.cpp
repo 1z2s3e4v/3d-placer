@@ -31,6 +31,7 @@ void Placer_C::run(){
         //place_succ = ntu_d2dplace();
         //place_succ = pin3d_ntuplace();
         place_succ = shrunk2d_ntuplace();
+        // place_succ = shrunk2d_replace();
         //place_succ = true3d_placement(); // our main function
         //place_succ = half3d_placement(); // our main function
         //place_succ = ntuplace3d();// (remember to replace dir 'ntuplace' to 'ntuplace3d_bak')
@@ -106,6 +107,54 @@ bool Placer_C::shrunked_2d_ntuplace(string para){
     aux2D.write_files();
     run_ntuplace3(caseName, para);
     placer_succ = read_pl_and_set_pos(_RUNDIR+caseName+".ntup.pl");
+    if(!placer_succ) return false;
+    return true;
+}
+
+bool Placer_C::shrunked_2d_replace(){
+    for(Cell_C* cell : _vCell)
+        cell->set_die(_pChip->get_die(0));
+    rand_place(0);
+    // run ntuplace with half cell height
+    AUX aux2D;
+    string caseName = "shrunked-2d-replace";
+    // >>> create_aux_form();
+    bool placer_succ;
+    {
+        string aux_dir = _RUNDIR + "/IBM/" + caseName;
+        string cmd = "mkdir -p " + aux_dir;
+        system(cmd.c_str());
+        aux2D = AUX(aux_dir, caseName);
+        // for shrunk 2d
+        int rowH = ceil((_pChip->get_die(0)->get_row_height() + _pChip->get_die(1)->get_row_height())/4.0);
+        // nodes
+        vector<Cell_C*>& v_cells = _vCell;
+        for(Cell_C* cell : v_cells){
+            int cellW = ceil((cell->get_width(0)+cell->get_width(1))/2.0);
+            aux2D.add_node(cell->get_name(), cellW, rowH, cell->get_posX(), cell->get_posY(),0);
+            for(int i=0;i<cell->get_pin_num();++i){
+                Pin_C* pin = cell->get_pin(i);
+                Net_C* net = pin->get_net();
+                if(net != nullptr){
+                    char IO = 'I';
+                    if(!aux2D.check_net_exist(net->get_name())){
+                        aux2D.add_net(net->get_name());
+                        IO='O';
+                    }
+                    Pos pin_offset0 = cell->get_master_cell()->get_pin_offset(_pChip->get_die(0)->get_techId() ,pin->get_id());
+                    Pos pin_offset1 = cell->get_master_cell()->get_pin_offset(_pChip->get_die(1)->get_techId() ,pin->get_id());
+                    Pos pin_offset = Pos(ceil((pin_offset0.x+pin_offset1.x)/2.0),ceil((pin_offset0.y+pin_offset1.y)/4.0));
+                    aux2D.add_pin(net->get_name(), pin->get_cell()->get_name(), IO, pin_offset.x, pin_offset.y);
+                }
+            }
+        }
+        // rows
+        aux2D.set_default_rows(_pChip->get_width(), rowH, _pChip->get_height()/rowH);
+    }// <<< create_aux_form();
+
+    aux2D.write_files();
+    run_replace(caseName);
+    placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + caseName + "/experiment0/tiers/0/" + caseName + ".pl");
     if(!placer_succ) return false;
     return true;
 }
@@ -1275,6 +1324,195 @@ bool Placer_C::shrunk2d_ntuplace(){
     cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << total_hpwl << ".\n";
     return true;
 }
+bool Placer_C::shrunk2d_replace(){
+    double part_time_start=0, total_part_time=0;
+    cout << BLUE << "[Placer]" << RESET << " - Start Pseudo3D Placement Flow (Shrunk2D).\n";
+    
+    bool placer_succ;
+    ////////////////////////////////////////////////////////////////
+    // Init Placement (2D Placement)
+    ////////////////////////////////////////////////////////////////
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1]" << RESET << ": Init 2D Placement.\n";
+    part_time_start = (float)clock() / CLOCKS_PER_SEC;
+    placer_succ = shrunked_2d_replace();
+    if(!placer_succ) return false;
+
+    ////////////////////////////////////////////////////////////////
+    // Partition
+    ////////////////////////////////////////////////////////////////
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2]" << RESET << ": Min-Cut Partition.\n";
+    part_time_start = (float)clock() / CLOCKS_PER_SEC;
+    if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
+        mincut_partition(); // set_die() for each cell
+    else 
+        mincut_k_partition(); // set_die() for each cell
+    total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
+    cout << BLUE << "[Placer]" << RESET << " - Partition: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
+    cout << BLUE << "[Placer]" << RESET << " - Partition result: " << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << ".\n";
+
+    ////////////////////////////////////////////////////////////////
+    // D2D Placement with Pin Projection
+    ////////////////////////////////////////////////////////////////
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 3]" << RESET << ": D2D LG+DP with Pin Projection.\n";
+    part_time_start = (float)clock() / CLOCKS_PER_SEC;
+    // 1. Place balls
+    rand_ball_place();
+    if(cal_ball_num() > 0){
+        AUX aux;
+        // create_aux_form_for_ball_replace(aux, "ball");
+        create_aux_form_for_ball(aux, "ball");
+        add_project_pin(aux, 0);
+        add_project_pin(aux, 1);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        // run_replace("ball");
+        run_ntuplace3("ball");
+        // placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR + "/outputs/IBM/" + "ball" + "/experiment0/tiers/0/" + "ball.pl");
+        placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+        if(!placer_succ) return false;
+    }
+    // 2. Place die0 with projected die1
+    if(_pChip->get_die(0)->get_cells().size() > 0){
+        AUX aux;
+        create_aux_form_replace(aux, 0, "die0");
+        add_project_ball(aux);
+        //add_project_pin(aux, 1);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_replace("die0");
+        placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + "die0" + "/experiment0/tiers/0/" + "die0.pl", 0);
+        if(!placer_succ) return false;
+    }
+    if(cal_ball_num() > 0){
+        AUX aux;
+        create_aux_form_for_ball(aux, "ball");
+        add_project_pin(aux, 0);
+        //add_project_pin(aux, 1);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("ball");
+        placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+        if(!placer_succ) return false;
+    }
+    // 3. Place die1 with projected die0
+    if(_pChip->get_die(1)->get_cells().size() > 0){
+        AUX aux;
+        create_aux_form_replace(aux, 1, "die1");
+        //add_project_pin(aux, 0);
+        add_project_ball(aux);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_replace("die1");
+        placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + "die1" + "/experiment0/tiers/0/" + "die1.pl", 1);
+        if(!placer_succ) return false;
+    }
+    if(cal_ball_num() > 0){
+        AUX aux;
+        create_aux_form_for_ball(aux, "ball");
+        add_project_pin(aux, 0);
+        add_project_pin(aux, 1);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("ball");
+        placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+        if(!placer_succ) return false;
+    }
+    int total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [3.3] total HPWL = " << total_hpwl << ".\n";
+    // 4. Replace die0 again with projected die1 and balls
+    if(_pChip->get_die(0)->get_cells().size() > 0){
+        AUX aux;
+        create_aux_form(aux, 0, "die0");
+        //add_project_pin(aux, 1);
+        add_project_ball(aux);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("die0", "-noglobal");
+        placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
+        if(!placer_succ) return false;
+    }
+    // replace balls
+    if(cal_ball_num() > 0){
+        AUX aux;
+        create_aux_form_for_ball(aux, "ball");
+        add_project_pin(aux, 0);
+        add_project_pin(aux, 1);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("ball");
+        placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+        if(!placer_succ) return false;
+    }
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [3.4] total HPWL = " << total_hpwl << ".\n";
+    // 5. Replace die1 again with projected die1 and balls
+    if(_pChip->get_die(1)->get_cells().size() > 0){
+        AUX aux;
+        create_aux_form(aux, 1, "die1");
+        //add_project_pin(aux, 0);
+        add_project_ball(aux);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("die1", "-noglobal");
+        placer_succ = read_pl_and_set_pos(_RUNDIR+"die1.ntup.pl", 1);
+        if(!placer_succ) return false;
+    }
+    // replace balls
+    if(cal_ball_num() > 0){
+        AUX aux;
+        create_aux_form_for_ball(aux, "ball");
+        add_project_pin(aux, 0);
+        add_project_pin(aux, 1);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("ball");
+        placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+        if(!placer_succ) return false;
+    }
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [3.5] total HPWL = " << total_hpwl << ".\n";
+    // 6. Replace die0 again with projected die1 and balls
+    if(_pChip->get_die(0)->get_cells().size() > 0){
+        AUX aux;
+        create_aux_form(aux, 0, "die0");
+        //add_project_pin(aux, 1);
+        add_project_ball(aux);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("die0", "-noglobal");
+        placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
+        if(!placer_succ) return false;
+    }
+    // replace balls
+    if(cal_ball_num() > 0){
+        AUX aux;
+        create_aux_form_for_ball(aux, "ball");
+        add_project_pin(aux, 0);
+        add_project_pin(aux, 1);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("ball");
+        placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+        if(!placer_succ) return false;
+    }
+    total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
+    cout << BLUE << "[Placer]" << RESET << " - D2D-PL: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << total_hpwl << ".\n";
+    return true;
+}
+
 bool Placer_C::pin3d_ntuplace(){
     double part_time_start=0, total_part_time=0;
     cout << BLUE << "[Placer]" << RESET << " - Start Pseudo3D Placement Flow (Pin3D).\n";
@@ -1779,6 +2017,15 @@ void Placer_C::run_ntuplace3(string caseName, string otherPara){
     system(cmd.c_str());
     cout << BLUE << "[Placer]" << RESET << " - Running ntuplace3 for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
 }
+void Placer_C::run_replace(string caseName){
+    cout << BLUE << "[Placer]" << RESET << " - Running replace for \'" << caseName << "\'...\n";
+
+    string cmd = "cd " + _RUNDIR + "; ../../bin/RePlAce -pcofmax 1.2 -bmflag ibm -bmname " + caseName + "; cd ../..; ls";
+
+    system(cmd.c_str());
+   
+    cout << BLUE << "[Placer]" << RESET << " - Running replace for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
+}
 void Placer_C::run_ntuplace4(string caseName){
     cout << BLUE << "[Placer]" << RESET << " - Running ntuplace4 for \'" << caseName << "\'...\n";
     // ex: ./bin/ntuplace-r -aux ./run_tmp/die0/die0.aux -out ./run_tmp/die0 > ./run_tmp/die0-ntuplace.log
@@ -1821,6 +2068,56 @@ void Placer_C::create_aux_form(AUX &aux, int dieId, string caseName){  // output
 }
 void Placer_C::create_aux_form_for_ball(AUX &aux, string caseName){  // output in dir "./aux/<case-name>/"
     string aux_dir = _RUNDIR + caseName + "/";
+    string cmd = "mkdir -p " + aux_dir;
+    system(cmd.c_str());
+    aux = AUX(aux_dir, caseName);
+    // transform balls to nodes
+    int ball_w = _pChip->get_ball_width() + _pChip->get_ball_spacing();
+    int ball_h = _pChip->get_ball_height() + _pChip->get_ball_spacing();
+    vector<Net_C*>& v_nets = _pDesign->get_nets();
+    for(Net_C* net : v_nets){
+        if(!net->is_cross_net()) continue;
+        int ball_x = net->get_ball_pos().x - _pChip->get_ball_width()/2 - int(_pChip->get_ball_spacing()/2.0+0.5);
+        int ball_y = net->get_ball_pos().y - _pChip->get_ball_height()/2 - int(_pChip->get_ball_spacing()/2.0+0.5);
+        aux.add_node(net->get_name(), ball_w, ball_h, ball_x, ball_y, 0);
+        Pos pin_offset = Pos(ball_w/2, ball_h/2);
+        aux.add_pin(net->get_name(), net->get_name(), 'O', pin_offset.x, pin_offset.y);
+    }
+    // rows
+    int shrink = ceil(_pChip->get_ball_spacing()/2.0);
+    int numRow = (_pChip->get_height()-shrink*2) / ball_h;
+    for(int i=0;i<numRow;++i){
+        aux.add_row(shrink+i*ball_h, ball_h, 1, 1, 0, 0, shrink, _pChip->get_width()-shrink*2);
+    }
+}
+void Placer_C::create_aux_form_replace(AUX &aux, int dieId, string caseName){  // output in dir "./aux/<case-name>/"
+    string aux_dir = _RUNDIR + "/IBM/" + caseName + "/";
+    string cmd = "mkdir -p " + aux_dir;
+    system(cmd.c_str());
+    aux = AUX(aux_dir, caseName);
+    // nodes
+    vector<Cell_C*>& v_cells = _pChip->get_die(dieId)->get_cells();
+    for(Cell_C* cell : v_cells){
+        aux.add_node(cell->get_name(), cell->get_width(), cell->get_height(), cell->get_posX(), cell->get_posY(),0);
+        for(int i=0;i<cell->get_pin_num();++i){
+            Pin_C* pin = cell->get_pin(i);
+            Net_C* net = pin->get_net();
+            if(net != nullptr){
+                char IO = 'I';
+                if(!aux.check_net_exist(net->get_name())){
+                    aux.add_net(net->get_name());
+                    IO='O';
+                }
+                Pos pin_offset = cell->get_master_cell()->get_pin_offset(_pChip->get_die(dieId)->get_techId() ,pin->get_id());
+                aux.add_pin(net->get_name(), pin->get_cell()->get_name(), IO, pin_offset.x, pin_offset.y);
+            }
+        }
+    }
+    // rows
+    aux.set_default_rows(_pChip->get_width(), _pChip->get_die(dieId)->get_row_height(), _pChip->get_die(dieId)->get_row_num());
+}
+void Placer_C::create_aux_form_for_ball_replace(AUX &aux, string caseName){  // output in dir "./aux/<case-name>/"
+    string aux_dir = _RUNDIR + "/IBM/" + caseName + "/";
     string cmd = "mkdir -p " + aux_dir;
     system(cmd.c_str());
     aux = AUX(aux_dir, caseName);
@@ -1902,6 +2199,7 @@ void Placer_C::init_run_dir(){
     string cmd_clean = "rm -rf " + _RUNDIR + "; mkdir -p " + _RUNDIR;
     system(cmd_clean.c_str());
 }
+
 void Placer_C::clear(){
     _pChip = nullptr;
     _pDesign = nullptr;
