@@ -35,6 +35,9 @@ class DmMgr_C{
     Placer_C* _pPlacer;
     long long int _total_WL = 0;
     clock_t _tStart;
+
+    vector<pair<int,int> > _vSortedNetDegree; // <degree, num>
+    vector<pair<int,int> > _vSortedCellDegree; // <degree, num>
 public:
     DmMgr_C();
     DmMgr_C(Parser_C&, ParamHdl_C&, clock_t);

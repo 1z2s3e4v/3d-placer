@@ -1,5 +1,9 @@
 #include "dm.h"
 
+bool sortByVal(const pair<int, int> &a, const pair<int, int> &b){ 
+    return (a.second > b.second); 
+} 
+
 DmMgr_C::DmMgr_C(){};
 DmMgr_C::DmMgr_C(Parser_C& parser, ParamHdl_C& paramHdl, clock_t tStart){
     cout << BLUE << "[DM]" << RESET << " - Construct Data Structure...\n";
@@ -33,11 +37,13 @@ DmMgr_C::DmMgr_C(Parser_C& parser, ParamHdl_C& paramHdl, clock_t tStart){
         }
     }    
     // cells
+    unordered_map<int,int> mCellDegree;
     for(ParserInst& inst : v_inst){
         Cell_C* newCell = new Cell_C(inst.name, _mCellLib[inst.libCellName]);
         _pDesign->add_cell(newCell);
     }
     // nets
+    unordered_map<int,int> mNetDegree;
     for(ParserNet& net : v_net){
         Net_C* newNet = new Net_C(net.name);
         for(ParserPin& pin : net.v_pin){
@@ -45,7 +51,30 @@ DmMgr_C::DmMgr_C(Parser_C& parser, ParamHdl_C& paramHdl, clock_t tStart){
             newNet->add_pin(p_Pin);
         }
         _pDesign->add_net(newNet);
+        // degree
+        auto it = mNetDegree.find(net.numPins);
+        if(it==mNetDegree.end()) mNetDegree[net.numPins] = 1;
+        else mNetDegree[net.numPins]++; 
     }
+    for(auto it : mNetDegree){
+        _vSortedNetDegree.emplace_back(pair<int,int>(it.first,it.second));   
+    }
+    sort(_vSortedNetDegree.begin(), _vSortedNetDegree.end(), sortByVal); 
+    // cells degree
+    vector<Cell_C*> v_cell = _pDesign->get_cells();
+    for(Cell_C* cell : v_cell){
+        int cellDegree = 0;
+        for(int i=0;i<cell->get_pin_num();++i){
+            if(cell->get_pin(i)->get_net() != nullptr) cellDegree++;
+        }
+        auto it = mCellDegree.find(cellDegree);
+        if(it==mCellDegree.end()) mCellDegree[cellDegree] = 1;
+        else mCellDegree[cellDegree]++; 
+    }
+    for(auto it : mCellDegree){
+        _vSortedCellDegree.emplace_back(pair<int,int>(it.first,it.second));   
+    }
+    sort(_vSortedCellDegree.begin(), _vSortedCellDegree.end(), sortByVal); 
     // dies
     ParserDie topDie = parser.get_top_die_info();
     ParserDie botDie = parser.get_bot_die_info();
@@ -71,6 +100,8 @@ void DmMgr_C::init(){
     _vCellLib.clear();
     _mCellLib.clear();
     _vTechName.clear();
+    _vSortedNetDegree.clear();
+    _vSortedCellDegree.clear();
 }
 
 void DmMgr_C::run(){
@@ -82,7 +113,7 @@ void DmMgr_C::run(){
     //output_result(); 
     // visualization (output svg.html)
     draw_layout_result();
-    draw_layout_result_plt();
+    //draw_layout_result_plt();
     
     cout << BLUE << "[DM]" << RESET << " - Finish!\n";
 }
@@ -104,42 +135,47 @@ void DmMgr_C::print_result(){
 }
 
 void DmMgr_C::print_info(){
-    cout << BLUE << "[DM]" << RESET << " - Print information: --------------------------------------------------------------------------------------\n";
+    cout << BLUE << "[DM]" << RESET << " - Print information:  ------------------------------------------------\n";
     cout << "numCell=" << _pDesign->get_cell_num() << ", numNet=" << _pDesign->get_net_num() << ", , numTech=" << _vTechName.size() << "\n";
-    // Cell
-    for(int i=0;i<_pDesign->get_cell_num();++i){
-        Cell_C* cell = _pDesign->get_cell(i);
-        cout << "Cell " << cell->get_name() << "(" << cell->get_master_cell()->get_name() << "), pos(" << cell->get_pos().to_str() << ", size=" <<cell->get_width() << "*" << cell->get_height()
-            << ", Pins=[";
-        for(int j=0;j<cell->get_pin_num();++j){
-            Pin_C* pin = cell->get_pin(j);
-            cout << pin->get_name() << pin->get_pos().xy_to_str();
-            if(j<cell->get_pin_num()-1) cout << ", ";
-            else cout << "]\n";
-        }
-    }
-    // Net
-    for(int i=0;i<_pDesign->get_net_num();++i){
-        Net_C* net = _pDesign->get_net(i);
-        cout << "Net " << net->get_name() << "\n";
-        for(int j=0;j<net->get_pin_num();++j){
-            Pin_C* pin = net->get_pin(j);
-            cout << "  Pin " << pin->get_cell()->get_name() << "/" << pin->get_name() << "\n";
-        }
-    }
     // Dies
     cout << "Chip size = " << _pChip->get_width() << "*" << _pChip->get_height() << "\n";
     for(int i=0;i<_pChip->get_die_num();++i){
-        cout << "Die[" << i << "]: " << "tech=" << _vTechName[_pChip->get_die(i)->get_techId()] << ", maxUtil=" << _pChip->get_die(i)->get_max_util() << ", rowHeight=" << _pChip->get_die(i)->get_row_height() << ", rowNum=" << _pChip->get_die(i)->get_row_num() << "\n";
+        cout << "Die[" << i << "]: " <<  "rowHeight=" << _pChip->get_die(i)->get_row_height() << ", rowNum=" << _pChip->get_die(i)->get_row_num() << "\n";
     }
     // Ball
-    cout << "Ball: " << _pChip->get_ball_width() << "*" << _pChip->get_ball_height() << ", spacing=" << _pChip->get_ball_spacing() << "\n";
-    cout << "-------------------------------------------------------------------------------------------------------------------\n";
+    cout << "Terminal: " << _pChip->get_ball_width() << "*" << _pChip->get_ball_height() << ", spacing=" << _pChip->get_ball_spacing() << ", maxNum=" << _pChip->get_max_ball_num() << "\n";
+    // Net Degree
+    if(_vSortedNetDegree.size() != 0){
+        cout << "Net Degree: " << "max=" << _vSortedNetDegree[0].second << "(deg=" << _vSortedNetDegree[0].first << "), min=" << _vSortedNetDegree.back().second << "(deg=" << _vSortedNetDegree.back().first << ")\n";
+        for(int i=0; i<_vSortedNetDegree.size();++i){
+            if(i<3 || i==_vSortedNetDegree.size()-1)
+                cout << "  degree=" << _vSortedNetDegree[i].first << ": " << _vSortedNetDegree[i].second << " nets\n";
+            else if(i==3)
+                cout << "  ...\n";
+        }
+    }
+    else{
+        cout << "Max Net Degree = 0\n";
+    }
+    // Cell Degree
+    if(_vSortedCellDegree.size() != 0){
+        cout << "Cell Degree: " << "max=" << _vSortedCellDegree[0].second << "(deg=" << _vSortedCellDegree[0].first << "), min=" << _vSortedCellDegree.back().second << "(deg=" << _vSortedCellDegree.back().first << ")\n";
+        for(int i=0; i<_vSortedCellDegree.size();++i){
+            if(i<3 || i==_vSortedCellDegree.size()-1)
+                cout << "  degree=" << _vSortedCellDegree[i].first << ": " << _vSortedCellDegree[i].second << " cells\n";
+            else if(i==3)
+                cout << "  ...\n";
+        }
+    }
+    else{
+        cout << "Max Cell Degree = 0\n";
+    }
+    cout << "--------------------------------------------------------------------------\n";
 }
 void DmMgr_C::dump_info(){
     system("mkdir -p dump");
     ofstream fout("dump/data_info.txt");
-    fout << BLUE << "[DM]" << RESET << " - Print information: --------------------------------------------------------------------------------------\n";
+    fout << BLUE << "[DM]" << RESET << " - Print information: ------------------------------------------------\n";
     fout << "numCell=" << _pDesign->get_cell_num() << ", numNet=" << _pDesign->get_net_num() << ", , numTech=" << _vTechName.size() << "\n";
     // Cell
     for(int i=0;i<_pDesign->get_cell_num();++i){
@@ -169,7 +205,7 @@ void DmMgr_C::dump_info(){
     }
     // Ball
     fout << "Ball: " << _pChip->get_ball_width() << "*" << _pChip->get_ball_height() << ", spacing=" << _pChip->get_ball_spacing() << "\n";
-    fout << "-------------------------------------------------------------------------------------------------------------------\n";
+    fout << "--------------------------------------------------------------------------\n";
     fout.close();
 }
 void DmMgr_C::output_result(string fileName){
