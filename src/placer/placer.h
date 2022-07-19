@@ -34,6 +34,7 @@ class Placer_C{
     map<string,Net_C*>& _mNet;
     clock_t _tStart;
     string _RUNDIR = "./run_tmp/";
+    
 public:
     //Place_C();
     Placer_C(Chip_C*, Design_C*, ParamHdl_C&, clock_t);
@@ -45,6 +46,7 @@ public:
     void cell_spreading(int); // 2d global
     bool shrunked_2d_ntuplace(); // 2d place
     bool shrunked_2d_ntuplace(string); // 2d place
+    bool shrunked_2d_replace();
     void rand_place(int); // die_by_die
     void rand_ball_place();
     void init_run_dir();
@@ -57,11 +59,13 @@ public:
     bool ntu_d2dplace();
     bool pin3d_ntuplace();
     bool shrunk2d_ntuplace();
+    bool shrunk2d_replace();
     void mincut_partition();
     void mincut_k_partition();
     void init_place_ball();
     void run_ntuplace3(string caseName);
     void run_ntuplace3(string caseName, string otherPara);
+    void run_replace(string caseName);
     void run_ntuplace4(string caseName);
     void run_hmetis(int k, double ufactor, string caseName); // (k-way part)
     bool read_pl_and_set_pos(string fileName);
@@ -87,6 +91,8 @@ public:
 
     void create_aux_form(AUX&, int dieId, string caseName);
     void create_aux_form_for_ball(AUX&, string caseName);
+    void create_aux_form_replace(AUX&, int dieId, string caseName);
+    void create_aux_form_for_ball_replace(AUX&, string caseName);
     void add_project_pin(AUX&, int dieID);
     void add_project_ball(AUX&);
     int cal_ball_num();
