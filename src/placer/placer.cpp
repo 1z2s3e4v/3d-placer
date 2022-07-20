@@ -1326,7 +1326,7 @@ bool Placer_C::shrunk2d_ntuplace(){
 }
 bool Placer_C::shrunk2d_replace(){
     double part_time_start=0, total_part_time=0;
-    cout << BLUE << "[Placer]" << RESET << " - Start Pseudo3D Placement Flow (Shrunk2D).\n";
+    cout << BLUE << "[Placer]" << RESET << " - Start Pseudo3D Placement Flow (Shrunk2D-RePlAce).\n";
     
     bool placer_succ;
     ////////////////////////////////////////////////////////////////
@@ -1423,7 +1423,7 @@ bool Placer_C::shrunk2d_replace(){
         if(!placer_succ) return false;
     }
     int total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.3] total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - [3.3] GP total HPWL = " << total_hpwl << ".\n";
     // 4. Replace die0 again with projected die1 and balls
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux;
@@ -1451,7 +1451,7 @@ bool Placer_C::shrunk2d_replace(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.4] total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - [3.4] die0 LG+DP total HPWL = " << total_hpwl << ".\n";
     // 5. Replace die1 again with projected die1 and balls
     if(_pChip->get_die(1)->get_cells().size() > 0){
         AUX aux;
@@ -1479,7 +1479,7 @@ bool Placer_C::shrunk2d_replace(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.5] total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - [3.5] die1 LG+DP total HPWL = " << total_hpwl << ".\n";
     // 6. Replace die0 again with projected die1 and balls
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux;
@@ -1509,7 +1509,7 @@ bool Placer_C::shrunk2d_replace(){
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - D2D-PL: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - D2D-PL: total HPWL = " << total_hpwl << ".\n";
     return true;
 }
 
