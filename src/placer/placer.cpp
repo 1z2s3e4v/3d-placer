@@ -30,8 +30,8 @@ void Placer_C::run(){
         //place_succ = random_d2dplace();
         //place_succ = ntu_d2dplace();
         //place_succ = pin3d_ntuplace();
-        place_succ = shrunk2d_ntuplace();
-        // place_succ = shrunk2d_replace();
+        //place_succ = shrunk2d_ntuplace();
+        place_succ = shrunk2d_replace();
         //place_succ = true3d_placement(); // our main function
         //place_succ = half3d_placement(); // our main function
         //place_succ = ntuplace3d();// (remember to replace dir 'ntuplace' to 'ntuplace3d_bak')
@@ -1973,9 +1973,9 @@ bool Placer_C::read_pl_and_set_pos(string fileName, int dieId){
             if(cell->get_dieId() == dieId){
                 cell->set_xy(Pos(node.x,node.y));
                 //cout << "Place: " << _mCell[node.name]->get_name() << " " << _mCell[node.name]->get_pos().pos3d2str() << "\n";
-                if(!cell->check_drc()){
-                    cout << BLUE << "[Placer]" << RESET << " - " << YELLOW << "Warning! " << RESET << "NTUplaced Cell \'" << cell->get_name() << "\' at " + cell->get_pos().pos3d2str() +" position not valid.\n";
-                }
+                // if(!cell->check_drc()){
+                //     cout << BLUE << "[Placer]" << RESET << " - " << YELLOW << "Warning! " << RESET << "NTUplaced Cell \'" << cell->get_name() << "\' at " + cell->get_pos().pos3d2str() +" position not valid.\n";
+                // }
             }
         }
     }
@@ -2019,11 +2019,8 @@ void Placer_C::run_ntuplace3(string caseName, string otherPara){
 }
 void Placer_C::run_replace(string caseName){
     cout << BLUE << "[Placer]" << RESET << " - Running replace for \'" << caseName << "\'...\n";
-
-    string cmd = "cd " + _RUNDIR + "; ../../bin/RePlAce -pcofmax 1.2 -bmflag ibm -bmname " + caseName + "; cd ../..; ls";
-
+    string cmd = "cd " + _RUNDIR + "; ../../bin/RePlAce-static -pcofmax 1.2 -bmflag ibm -bmname " + caseName + " > " + caseName + "-replace.log" + "; cd ../..";
     system(cmd.c_str());
-   
     cout << BLUE << "[Placer]" << RESET << " - Running replace for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
 }
 void Placer_C::run_ntuplace4(string caseName){

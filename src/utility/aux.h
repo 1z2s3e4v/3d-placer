@@ -9,6 +9,7 @@
 #include <string>
 #include <sstream>
 #include <iostream>
+#include <cmath>
 using namespace std;
 
 struct AuxPin{

@@ -216,7 +216,7 @@ bool AUX::read_pl(string fileName, vector<AuxNode>& vPlacedNode){
         if(count_line == 1 || line[0] == '#' || line == "") continue;
         stringstream ss(line);
         string name, tmp;
-        int x,y;
+        float x,y;
         ss >> name >> x >> y;
         bool fixed = false;
         if(ss >> tmp >> tmp >> tmp){
@@ -224,8 +224,8 @@ bool AUX::read_pl(string fileName, vector<AuxNode>& vPlacedNode){
         }
         AuxNode node;
         node.name = name;
-        node.x = x;
-        node.y = y;
+        node.x = round(x);
+        node.y = round(y);
         if(!fixed){
             vPlacedNode.emplace_back(node);
         }
