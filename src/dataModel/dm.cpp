@@ -108,12 +108,20 @@ void DmMgr_C::run(){
     cout << BLUE << "[DM]" << RESET << " - Start\n";
     // init place
     _pPlacer = new Placer_C(_pChip, _pDesign, _paramHdl, _tStart);
+    if(_paramHdl.check_flag_exist("safe_mode")){
+        _pPlacer->run_safe_mode();
+        print_result();
+        output_result(_paramHdl.get_output_fileName());
+    }
+
     _pPlacer->run();
     // output result
     //output_result(); 
     // visualization (output svg.html)
-    draw_layout_result();
-    //draw_layout_result_plt();
+    if(!_paramHdl.check_flag_exist("no_dump")){
+        draw_layout_result();
+        draw_layout_result_plt();
+    }
     
     cout << BLUE << "[DM]" << RESET << " - Finish!\n";
 }

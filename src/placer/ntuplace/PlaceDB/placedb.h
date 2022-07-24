@@ -428,6 +428,7 @@ class CPlaceDB
 
     int m_nModules;			
     int m_nPins, m_nNets;
+    double m_dCutline; // cutline for layer assignment
 
     void OutputGSRC( const char* filename );
     //void OutputPL( const char* filename, bool setOutOrientN=false, bool bMsg=true );

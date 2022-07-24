@@ -17,6 +17,7 @@ ParamHdl_C::ParamHdl_C(int argc, char** argv){
                     return;
                 }
                 m_paras.emplace(flag, item2);
+                ++i;
             }else{ // invalid flag
                 _isOK = false;
                 return;

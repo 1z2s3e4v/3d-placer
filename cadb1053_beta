@@ -1,0 +1,6 @@
+#!/bin/bash
+if [ $# -eq 2 ]; then
+	./bin/3d-placer $1 $2 -safe_mode -no_dump
+else 
+	echo "Usage: ./cadb1053_beta <input> <output>"
+fi

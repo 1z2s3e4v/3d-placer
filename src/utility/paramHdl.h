@@ -33,9 +33,12 @@ private:
                                      {"debug", "debug_mode, print the debug messages."}, 
                                      {"d", "same as -debug."}, 
                                      {"dump", "dump all messages."},
-                                     {"dump_no_debug", "dump all messages without debug messages."}};
+                                     {"dump_no_debug", "dump all messages without debug messages."},
+                                     {"safe_mode", "run the safe-flow once and than run stronger flow."},
+                                     {"no_dump", "without any dump file"}};
     map<string, string> m_otherFlag{{"time_limit", "time limit, default=3600(s)."}, 
-                                    {"repeat", "repeat the code with n times and store the best result. defalt=1."}};
+                                    {"repeat", "repeat the code with n times and store the best result. defalt=1."},
+                                    {"flow", "placer flow"}};
 };
 
 #endif

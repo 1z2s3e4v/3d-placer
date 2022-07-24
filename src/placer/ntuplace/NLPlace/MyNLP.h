@@ -214,6 +214,16 @@ private:
   	  const CPlaceDB* pDB, const vector<bool>* pUsePin, const vector<double>& expPins,
   	  int id=-1 );
 
+  // (frank) 2022-07-22 3D Weighted-Average-Exponential Wirelength Model
+  static void calc_weighted_sum_exp_using_pin_for_layers(
+  	  const vector<int>::const_iterator& begin, const vector<int>::const_iterator& end,
+  	  const vector<double>& x, const vector<double>& expX,
+      const vector<double>& z, const vector<double>& expZ,
+  	  vector<double>& layer_weighted_sum_exp_xi_over_alpha, vector<double>& layer_weighted_sum_exp_inv_xi_over_alpha,
+  	  vector<double>& layer_weighted_sum_exp_yi_over_alpha, vector<double>& layer_weighted_sum_exp_inv_yi_over_alpha,
+  	  const CPlaceDB* pDB, const vector<bool>* pUsePin, const vector<double>& expPins,
+  	  int id=-1);
+
   // static 2006-09-12 (donnie)
   static void calc_sum_exp_using_pin_XHPWL( 
 	const vector<int>::const_iterator& begin, const vector<int>::const_iterator& end,
@@ -255,6 +265,14 @@ private:
   vector<double> m_nets_sum_exp_inv_xi_over_alpha;
   vector<double> m_nets_sum_exp_inv_yi_over_alpha;
   vector<double> m_nets_sum_exp_inv_zi_over_alpha; // kaie 2009-08-29
+  // 3d hpwl (frank 2022-07-20)
+  vector<vector<double> > m_layer_nets_sum_exp_xi_over_alpha;
+  vector<vector<double> > m_layer_nets_sum_exp_yi_over_alpha;
+  vector<vector<double> > m_layer_nets_sum_exp_zi_over_alpha; 
+  vector<vector<double> > m_layer_nets_sum_exp_inv_xi_over_alpha;
+  vector<vector<double> > m_layer_nets_sum_exp_inv_yi_over_alpha;
+  vector<vector<double> > m_layer_nets_sum_exp_inv_zi_over_alpha; 
+
   void InitModuleNetPinId();
   vector< vector<int> > m_moduleNetPinId;
 
@@ -263,6 +281,11 @@ private:
   vector<double> m_nets_weighted_sum_exp_yi_over_alpha;
   vector<double> m_nets_weighted_sum_exp_inv_xi_over_alpha;
   vector<double> m_nets_weighted_sum_exp_inv_yi_over_alpha;
+  // 3d hpwl (frank 2022-07-20)
+  vector<vector<double> > m_layer_nets_weighted_sum_exp_xi_over_alpha;
+  vector<vector<double> > m_layer_nets_weighted_sum_exp_yi_over_alpha;
+  vector<vector<double> > m_layer_nets_weighted_sum_exp_inv_xi_over_alpha;
+  vector<vector<double> > m_layer_nets_weighted_sum_exp_inv_yi_over_alpha;
 
   // 2006-09-12 (donnie) for X-HPWL
   vector<double> m_nets_sum_exp_x_plus_y_over_alpha;

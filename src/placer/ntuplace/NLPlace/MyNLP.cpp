@@ -216,6 +216,13 @@ double MyNLP::m_skewDensityPenalty2 = 1.0;
     m_nets_sum_exp_yi_over_alpha.resize( m_pDB->m_nets.size(), 0 );
     m_nets_sum_exp_inv_xi_over_alpha.resize( m_pDB->m_nets.size(), 0 );
     m_nets_sum_exp_inv_yi_over_alpha.resize( m_pDB->m_nets.size(), 0 );
+	// frank 2022-07-23 3d
+	if(param.b3d){
+		m_layer_nets_sum_exp_xi_over_alpha.resize( param.nlayer, vector<double>(m_pDB->m_nets.size(), 0) );
+		m_layer_nets_sum_exp_yi_over_alpha.resize( param.nlayer, vector<double>(m_pDB->m_nets.size(), 0) );
+		m_layer_nets_sum_exp_inv_xi_over_alpha.resize( param.nlayer, vector<double>(m_pDB->m_nets.size(), 0) );
+		m_layer_nets_sum_exp_inv_yi_over_alpha.resize( param.nlayer, vector<double>(m_pDB->m_nets.size(), 0) );
+	}
     
     // kaie 2009-08-29 3d placement
     if(m_bMoveZ)
@@ -232,7 +239,15 @@ double MyNLP::m_skewDensityPenalty2 = 1.0;
 	    m_nets_weighted_sum_exp_yi_over_alpha.resize( m_pDB->m_nets.size(), 0 );
 	    m_nets_weighted_sum_exp_inv_xi_over_alpha.resize( m_pDB->m_nets.size(), 0 );
 	    m_nets_weighted_sum_exp_inv_yi_over_alpha.resize( m_pDB->m_nets.size(), 0 );
-    }
+		if(param.b3d){
+			vector<double> tmp_v;
+			tmp_v.resize( m_pDB->m_nets.size(), 0 );
+			m_layer_nets_weighted_sum_exp_xi_over_alpha.resize(param.nlayer, tmp_v);
+			m_layer_nets_weighted_sum_exp_yi_over_alpha.resize(param.nlayer, tmp_v);
+			m_layer_nets_weighted_sum_exp_inv_xi_over_alpha.resize(param.nlayer, tmp_v);
+			m_layer_nets_weighted_sum_exp_inv_yi_over_alpha.resize(param.nlayer, tmp_v);
+		}
+	}
 
     if( m_bXArch ) // 2006-09-12 (donnie)
     {
@@ -1802,44 +1817,22 @@ void MyNLP::LayerAssignment( const int& n, vector<double>& z, MyNLP* pNLP, int i
     if( index2 > n ) index2 = n;
 
 	bool reverse = false;
-	double cutline = 0.5;
-	if(param.nlayer == 2 && pNLP->m_pDB->m_rowNums.size()==2 && pNLP->m_pDB->m_rowNums.size()==2 && pNLP->m_pDB->m_rowNums.size()==2){ // cad contest 2022
+	double cutline = pNLP->m_pDB->m_dCutline;
+	if(param.nlayer == 2 && pNLP->m_pDB->m_rowNums.size()==2){ // cad contest 2022
 		// check the more side of two die
 		int lower=0, higher=0;
-		double width_diff_sum = 0;
 		for(int i= index1; i < index2; i++){
 			if(z[i]-0.5 <= 0.5) lower++;
 			else higher++;
-			width_diff_sum += (double)pNLP->m_pDB->m_modules[i].m_widths[0] /  pNLP->m_pDB->m_modules[i].m_widths[1];
 		}
-		double width_diff_avg = width_diff_sum / (index2-index1) * 0.6;
-		int total_space = pNLP->m_pDB->m_rowNums[0]/width_diff_avg/width_diff_avg*pNLP->m_pDB->m_maxUtils[0] + pNLP->m_pDB->m_rowNums[1]*pNLP->m_pDB->m_maxUtils[1];
-		if(lower > higher){
-			reverse = false;
-			cutline = (double)(pNLP->m_pDB->m_rowNums[0]/width_diff_avg/width_diff_avg*pNLP->m_pDB->m_maxUtils[0]) / total_space;
-		}
-		else{
-			reverse = true;
-			cutline = (double)(pNLP->m_pDB->m_rowNums[1]*pNLP->m_pDB->m_maxUtils[1]) / total_space;
-		}
+		if(lower < higher) cutline = 1-cutline;
 	}
 
 	for( int i= index1; i < index2; i++)
     {
-		if(param.nlayer == 2 && pNLP->m_pDB->m_rowNums.size()==2 && pNLP->m_pDB->m_rowNums.size()==2 && pNLP->m_pDB->m_rowNums.size()==2){ // cad contest 2022
+		if(param.nlayer == 2 && pNLP->m_pDB->m_rowNums.size()==2){ // cad contest 2022
 			double z_after = z[i] - 0.5; // z_after = [0:1]
-			if(!reverse){ // assigned to top-die if closer to 0
-				if(z_after <= cutline) 
-					z[i] = 0.5;
-				else 
-					z[i] = 1.5;
-			}
-			else{ // assigned to top-die if closer to 1
-				if(z_after >= cutline) 
-					z[i] = 0.5;
-				else 
-					z[i] = 1.5;
-			}
+			z[i] = (z_after <= cutline) ? 0.5 : 1.5;
 		} else{ // origin
 			double layerThickness = (pNLP->m_pDB->m_front - pNLP->m_pDB->m_back) / (double)(pNLP->m_pDB->m_totalLayer);
 			double z_after = z[i] - 0.5 * layerThickness;
@@ -2457,71 +2450,90 @@ void MyNLP::UpdateNetsSumExp( const vector<double>& x, const vector<double>& z, 
     double sum_exp_zi_over_alpha;
     double sum_exp_inv_zi_over_alpha;
     if( index2 > (int)pNLP->m_pDB->m_nets.size() )
-	index2 = (int)pNLP->m_pDB->m_nets.size();
+		index2 = (int)pNLP->m_pDB->m_nets.size();
     for( int n=index1; n<index2; n++ )
     {
-	if( pNLP->m_pDB->m_nets[n].size() == 0 )
-	    continue;
+		if( pNLP->m_pDB->m_nets[n].size() == 0 )
+			continue;
 
-	calc_sum_exp_using_pin(
-		pNLP->m_pDB->m_nets[n].begin(), pNLP->m_pDB->m_nets[n].end(), x, z, expX, expZ,
-		sum_exp_xi_over_alpha, sum_exp_inv_xi_over_alpha,
-		sum_exp_yi_over_alpha, sum_exp_inv_yi_over_alpha,
-		sum_exp_zi_over_alpha, sum_exp_inv_zi_over_alpha,
-		pNLP->m_pDB, &pNLP->m_usePin, pNLP->_expPins, pNLP->_expPinsZ);
+		calc_sum_exp_using_pin(
+			pNLP->m_pDB->m_nets[n].begin(), pNLP->m_pDB->m_nets[n].end(), x, z, expX, expZ,
+			sum_exp_xi_over_alpha, sum_exp_inv_xi_over_alpha,
+			sum_exp_yi_over_alpha, sum_exp_inv_yi_over_alpha,
+			sum_exp_zi_over_alpha, sum_exp_inv_zi_over_alpha,
+			pNLP->m_pDB, &pNLP->m_usePin, pNLP->_expPins, pNLP->_expPinsZ);
 
-	pNLP->m_nets_sum_exp_xi_over_alpha[n]     = sum_exp_xi_over_alpha;
-	pNLP->m_nets_sum_exp_yi_over_alpha[n]     = sum_exp_yi_over_alpha;
-	pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] = sum_exp_inv_xi_over_alpha;
-	pNLP->m_nets_sum_exp_inv_yi_over_alpha[n] = sum_exp_inv_yi_over_alpha;
-	
-	// kaie 2009-08-29
-	if(pNLP->m_bMoveZ)
-	{
-	    pNLP->m_nets_sum_exp_zi_over_alpha[n]	  = sum_exp_zi_over_alpha;
-	    pNLP->m_nets_sum_exp_inv_zi_over_alpha[n] = sum_exp_inv_zi_over_alpha;
-	}
-	// @kaie 2009-08-29
-
-	if( param.bUseWAE ) // (kaie) 2010-10-18 Weighted-Average-Exponential Wirelength Model
-        {
-            double weighted_sum_exp_xi_over_alpha;
-            double weighted_sum_exp_inv_xi_over_alpha;
-            double weighted_sum_exp_yi_over_alpha;
-            double weighted_sum_exp_inv_yi_over_alpha;
-	
-
-            calc_weighted_sum_exp_using_pin(
-                pNLP->m_pDB->m_nets[n].begin(), pNLP->m_pDB->m_nets[n].end(), x, expX,
-                weighted_sum_exp_xi_over_alpha, weighted_sum_exp_inv_xi_over_alpha,
-                weighted_sum_exp_yi_over_alpha, weighted_sum_exp_inv_yi_over_alpha,
-                pNLP->m_pDB, &pNLP->m_usePin, pNLP->_expPins);
-
-            pNLP->m_nets_weighted_sum_exp_xi_over_alpha[n]     = weighted_sum_exp_xi_over_alpha;
-            pNLP->m_nets_weighted_sum_exp_yi_over_alpha[n]     = weighted_sum_exp_yi_over_alpha;
-            pNLP->m_nets_weighted_sum_exp_inv_xi_over_alpha[n] = weighted_sum_exp_inv_xi_over_alpha;
-            pNLP->m_nets_weighted_sum_exp_inv_yi_over_alpha[n] = weighted_sum_exp_inv_yi_over_alpha;
-
-        }
+		pNLP->m_nets_sum_exp_xi_over_alpha[n]     = sum_exp_xi_over_alpha;
+		pNLP->m_nets_sum_exp_yi_over_alpha[n]     = sum_exp_yi_over_alpha;
+		pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] = sum_exp_inv_xi_over_alpha;
+		pNLP->m_nets_sum_exp_inv_yi_over_alpha[n] = sum_exp_inv_yi_over_alpha;
 		
-	if( m_bXArch )
-	{
-	    double sum_exp_x_plus_y_over_alpha;
-	    double sum_exp_x_minus_y_over_alpha;
-	    double sum_exp_inv_x_plus_y_over_alpha;
-	    double sum_exp_inv_x_minus_y_over_alpha;
+		// kaie 2009-08-29
+		if(pNLP->m_bMoveZ)
+		{
+			pNLP->m_nets_sum_exp_zi_over_alpha[n]	  = sum_exp_zi_over_alpha;
+			pNLP->m_nets_sum_exp_inv_zi_over_alpha[n] = sum_exp_inv_zi_over_alpha;
+		}
+		// @kaie 2009-08-29
 
-	    calc_sum_exp_using_pin_XHPWL(
-		    pNLP->m_pDB->m_nets[n].begin(), pNLP->m_pDB->m_nets[n].end(), 
-		    pNLP,
-		    sum_exp_x_plus_y_over_alpha,     sum_exp_x_minus_y_over_alpha,	// reuse variables
-		    sum_exp_inv_x_plus_y_over_alpha, sum_exp_inv_x_minus_y_over_alpha );
+		if( param.bUseWAE ) // (kaie) 2010-10-18 Weighted-Average-Exponential Wirelength Model
+		{
+			double weighted_sum_exp_xi_over_alpha;
+			double weighted_sum_exp_inv_xi_over_alpha;
+			double weighted_sum_exp_yi_over_alpha;
+			double weighted_sum_exp_inv_yi_over_alpha;
+	
 
-	    pNLP->m_nets_sum_exp_x_plus_y_over_alpha[n]      = sum_exp_x_plus_y_over_alpha;
-	    pNLP->m_nets_sum_exp_x_minus_y_over_alpha[n]     = sum_exp_x_minus_y_over_alpha;
-	    pNLP->m_nets_sum_exp_inv_x_plus_y_over_alpha[n]  = sum_exp_inv_x_plus_y_over_alpha;
-	    pNLP->m_nets_sum_exp_inv_x_minus_y_over_alpha[n] = sum_exp_inv_x_minus_y_over_alpha;
-	}
+			calc_weighted_sum_exp_using_pin(
+				pNLP->m_pDB->m_nets[n].begin(), pNLP->m_pDB->m_nets[n].end(), x, expX,
+				weighted_sum_exp_xi_over_alpha, weighted_sum_exp_inv_xi_over_alpha,
+				weighted_sum_exp_yi_over_alpha, weighted_sum_exp_inv_yi_over_alpha,
+				pNLP->m_pDB, &pNLP->m_usePin, pNLP->_expPins);
+
+			pNLP->m_nets_weighted_sum_exp_xi_over_alpha[n]     = weighted_sum_exp_xi_over_alpha;
+			pNLP->m_nets_weighted_sum_exp_yi_over_alpha[n]     = weighted_sum_exp_yi_over_alpha;
+			pNLP->m_nets_weighted_sum_exp_inv_xi_over_alpha[n] = weighted_sum_exp_inv_xi_over_alpha;
+			pNLP->m_nets_weighted_sum_exp_inv_yi_over_alpha[n] = weighted_sum_exp_inv_yi_over_alpha;
+
+			if(param.b3d){
+				vector<double> layer_weighted_sum_exp_xi_over_alpha;
+				vector<double> layer_weighted_sum_exp_inv_xi_over_alpha;
+				vector<double> layer_weighted_sum_exp_yi_over_alpha;
+				vector<double> layer_weighted_sum_exp_inv_yi_over_alpha;
+				calc_weighted_sum_exp_using_pin_for_layers(
+					pNLP->m_pDB->m_nets[n].begin(), pNLP->m_pDB->m_nets[n].end(), x, expX, z, expZ,
+					layer_weighted_sum_exp_xi_over_alpha, layer_weighted_sum_exp_inv_xi_over_alpha,
+					layer_weighted_sum_exp_yi_over_alpha, layer_weighted_sum_exp_inv_yi_over_alpha,
+					pNLP->m_pDB, &pNLP->m_usePin, pNLP->_expPins);
+				
+				for(int layer=0;layer<param.nlayer;++layer){
+					pNLP->m_layer_nets_weighted_sum_exp_xi_over_alpha[layer][n]     = layer_weighted_sum_exp_xi_over_alpha[layer];
+					pNLP->m_layer_nets_weighted_sum_exp_yi_over_alpha[layer][n]     = layer_weighted_sum_exp_yi_over_alpha[layer];
+					pNLP->m_layer_nets_weighted_sum_exp_inv_xi_over_alpha[layer][n] = layer_weighted_sum_exp_inv_xi_over_alpha[layer];
+					pNLP->m_layer_nets_weighted_sum_exp_inv_yi_over_alpha[layer][n] = layer_weighted_sum_exp_inv_yi_over_alpha[layer];
+				}
+			}
+
+		}
+			
+		if( m_bXArch )
+		{
+			double sum_exp_x_plus_y_over_alpha;
+			double sum_exp_x_minus_y_over_alpha;
+			double sum_exp_inv_x_plus_y_over_alpha;
+			double sum_exp_inv_x_minus_y_over_alpha;
+
+			calc_sum_exp_using_pin_XHPWL(
+				pNLP->m_pDB->m_nets[n].begin(), pNLP->m_pDB->m_nets[n].end(), 
+				pNLP,
+				sum_exp_x_plus_y_over_alpha,     sum_exp_x_minus_y_over_alpha,	// reuse variables
+				sum_exp_inv_x_plus_y_over_alpha, sum_exp_inv_x_minus_y_over_alpha );
+
+			pNLP->m_nets_sum_exp_x_plus_y_over_alpha[n]      = sum_exp_x_plus_y_over_alpha;
+			pNLP->m_nets_sum_exp_x_minus_y_over_alpha[n]     = sum_exp_x_minus_y_over_alpha;
+			pNLP->m_nets_sum_exp_inv_x_plus_y_over_alpha[n]  = sum_exp_inv_x_plus_y_over_alpha;
+			pNLP->m_nets_sum_exp_inv_x_minus_y_over_alpha[n] = sum_exp_inv_x_minus_y_over_alpha;
+		}
     }
 
     if( param.bUseLSE == false )  // for Lp-norm
@@ -2601,7 +2613,23 @@ double MyNLP::GetLogSumExpWL( const vector<double>& x,	    // unuse
                      pNLP->m_nets_weighted_sum_exp_inv_xi_over_alpha[n] / pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] +
                      m_yWeight * (pNLP->m_nets_weighted_sum_exp_yi_over_alpha[n] / pNLP->m_nets_sum_exp_yi_over_alpha[n] -
                         pNLP->m_nets_weighted_sum_exp_inv_yi_over_alpha[n] / pNLP->m_nets_sum_exp_inv_yi_over_alpha[n]));
-            }else
+            }else if(param.b3d){
+				for(int layer=0;layer<param.nlayer;++layer){
+					if(pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][n] != 0 && pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][n] != 0){
+						totalWL += pNLP->m_layer_nets_weighted_sum_exp_xi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][n] -
+									pNLP->m_layer_nets_weighted_sum_exp_inv_xi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][n];
+					}
+					if(pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][n] != 0 && pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][n] != 0){
+						totalWL += m_yWeight * (pNLP->m_layer_nets_weighted_sum_exp_yi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][n] -
+					 							pNLP->m_layer_nets_weighted_sum_exp_inv_yi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][n]);
+					}
+					// totalWL +=
+					// 	(pNLP->m_layer_nets_weighted_sum_exp_xi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][n] -
+					// 	pNLP->m_layer_nets_weighted_sum_exp_inv_xi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][n] +
+					// 	m_yWeight * (pNLP->m_layer_nets_weighted_sum_exp_yi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][n] -
+					//  		pNLP->m_layer_nets_weighted_sum_exp_inv_yi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][n]));
+				}
+			}else
             {
                 totalWL +=
                     (pNLP->m_nets_weighted_sum_exp_xi_over_alpha[n] / pNLP->m_nets_sum_exp_xi_over_alpha[n] -
@@ -2627,6 +2655,17 @@ double MyNLP::GetLogSumExpWL( const vector<double>& x,	    // unuse
 					m_yWeight * (log( pNLP->m_nets_sum_exp_yi_over_alpha[n] ) +	    // max(y)
 						log( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n] ) ) ) ;
 				}
+				// else if(param.b3d && param.nlayer==2){
+				// 	totalWL += 
+				// 	log( pNLP->m_layer_nets_sum_exp_xi_over_alpha[0][n] ) +	    		// max(x) in die0
+				// 	log( pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[0][n] ) +  		// -min(x) in die0
+				// 	m_yWeight * (log( pNLP->m_layer_nets_sum_exp_yi_over_alpha[0][n] ) +// max(y) in die0
+				// 	log( pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[0][n] ) ) +  		// -min(y) in die0
+				// 	log( pNLP->m_layer_nets_sum_exp_xi_over_alpha[1][n] ) +	    		// max(x) in die1
+				// 	log( pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[1][n] ) +  		// -min(x) in die1
+				// 	m_yWeight * (log( pNLP->m_layer_nets_sum_exp_yi_over_alpha[1][n] ) +// max(y) in die1
+				// 	log( pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[1][n] ) ) ;  		// -min(y) in die1
+				// }
 				else
 				{
 					totalWL += 
@@ -2769,7 +2808,7 @@ bool MyNLP::eval_f(int n, const vector<double>& x, const vector<double>& expX, b
     }
     else
     {
-	obj_value = (totalWL * _weightWire) + 0.5 * (density * _weightDensity) + (totalVia * _weightWire * m_weightTSV);   // correct. 
+	obj_value = (totalWL * _weightWire) + 0.5 * (density * _weightDensity) + (totalVia * _weightWire * m_weightTSV)*0.01;   // correct. 
     }
     //}
     //@Brian 2007-06-18
@@ -4119,6 +4158,62 @@ void MyNLP::calc_weighted_sum_exp_using_pin(
 			weighted_sum_exp_inv_xi_over_alpha += xx * 1.0 / expX[2*blockId];
 			weighted_sum_exp_yi_over_alpha     += yy * expX[2*blockId+1];
 			weighted_sum_exp_inv_yi_over_alpha += yy * 1.0 / expX[2*blockId+1];
+		}
+	}
+}
+
+// (frank) 2022-07-22 3D Weighted-Average-Exponential Wirelength Model
+void MyNLP::calc_weighted_sum_exp_using_pin_for_layers(
+	const vector<int>::const_iterator& begin, const vector<int>::const_iterator& end,
+	const vector<double>& x, const vector<double>& expX,
+	const vector<double>& z, const vector<double>& expZ,
+	vector<double>& layer_weighted_sum_exp_xi_over_alpha, vector<double>& layer_weighted_sum_exp_inv_xi_over_alpha,
+	vector<double>& layer_weighted_sum_exp_yi_over_alpha, vector<double>& layer_weighted_sum_exp_inv_yi_over_alpha,
+	const CPlaceDB* pDB, const vector<bool>* pUsePin, const vector<double>& expPins,
+	int id )
+{
+	layer_weighted_sum_exp_xi_over_alpha.resize(param.nlayer, 0);
+	layer_weighted_sum_exp_inv_xi_over_alpha.resize(param.nlayer, 0);
+	layer_weighted_sum_exp_yi_over_alpha.resize(param.nlayer, 0);
+	layer_weighted_sum_exp_inv_yi_over_alpha.resize(param.nlayer, 0);
+
+	vector<int>::const_iterator ite;
+	int pinId, pinIndex;
+	int blockId;
+	for( ite=begin, pinIndex = 0; ite!=end; ++ite, pinIndex++ )
+	{
+		// for each pin of the net
+		pinId   = *ite;
+		blockId = pDB->m_pins[ pinId ].moduleId;
+
+		int layer = (z[2*blockId] < pDB->m_dCutline)? 0:1;
+
+		double xx = x[2*blockId];
+		double yy = x[2*blockId+1];
+		if( (*pUsePin)[blockId] )
+		{
+			xx += pDB->m_pins[ pinId ].xOff;
+			yy += pDB->m_pins[ pinId ].yOff;
+		}
+
+		if( (*pUsePin)[blockId] /*&& blockId != id*/ )  // macro or self pin
+			//if( blockId != id )
+		{
+			// handle pins
+			layer_weighted_sum_exp_xi_over_alpha[layer]     += xx * expPins[ 2*pinId ];
+			layer_weighted_sum_exp_inv_xi_over_alpha[layer] += xx * 1.0 / expPins[ 2*pinId ];
+			layer_weighted_sum_exp_yi_over_alpha[layer]     += yy * expPins[ 2*pinId+1 ];
+			layer_weighted_sum_exp_inv_yi_over_alpha[layer] += yy * 1.0 / expPins[ 2*pinId+1 ];
+		}
+		else
+		{
+			// use block center
+			//assert( expX[2*blockId] != 0);
+			//assert( expX[2*blockId+1] != 0 );
+			layer_weighted_sum_exp_xi_over_alpha[layer]     += xx * expX[2*blockId];
+			layer_weighted_sum_exp_inv_xi_over_alpha[layer] += xx * 1.0 / expX[2*blockId];
+			layer_weighted_sum_exp_yi_over_alpha[layer]     += yy * expX[2*blockId+1];
+			layer_weighted_sum_exp_inv_yi_over_alpha[layer] += yy * 1.0 / expX[2*blockId+1];
 		}
 	}
 }

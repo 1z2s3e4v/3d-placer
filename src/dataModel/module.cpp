@@ -181,6 +181,7 @@ void Net_C::update_bbox(){
     _vll.resize(2,Pos(INT_MAX,INT_MAX));
     _vur.resize(2,Pos(0,0));
     if(is_cross_net()){
+        // update boundary with ball
         for(int dieId=0;dieId<2;++dieId){
             _vll[dieId].x = min(_vll[dieId].x, _ballPos.x);
             _vll[dieId].y = min(_vll[dieId].y, _ballPos.y);
@@ -196,6 +197,7 @@ void Net_C::update_bbox(){
             }
         }
     }
+    // update boundary with pin
     for(Pin_C* pin : _vPins){
         int dieId = pin->get_cell()->get_dieId();
         _vll[dieId].x = min(_vll[dieId].x, pin->get_x());
