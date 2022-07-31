@@ -315,7 +315,7 @@ int Cell_C::get_width(int techId){
     return _masterCell->get_cell_width(techId);
 }
 int Cell_C::get_height(int techId){
-    return _masterCell->get_cell_width(techId);
+    return _masterCell->get_cell_height(techId);
 }
 int Cell_C::get_pin_num(){
     return _vPins.size();
