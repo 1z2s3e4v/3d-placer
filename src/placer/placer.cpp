@@ -231,7 +231,7 @@ bool Placer_C::ntuplace3d(){
     //ntu_d2d_global(isLegal, wl1);
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Global: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
-    cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << wl1 << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << (int)wl1 << ".\n";
 
     ////////////////////////////////////////////////////////////////
     // Legalization
@@ -276,7 +276,7 @@ bool Placer_C::half3d_placement(){
     global_place(isLegal, wl1); /////////////////////////////////////////////// main function
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Global: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
-    cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << wl1 << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << (int)wl1 << ".\n";
     set_ball(); // set ball for crossed net
     cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
     cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
@@ -476,7 +476,7 @@ bool Placer_C::true3d_placement(){
     global_place(isLegal, wl1); /////////////////////////////////////////////// main function
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Global: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
-    cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << wl1 << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << (int)wl1 << ".\n";
 
     rand_ball_place();
     cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
@@ -510,7 +510,7 @@ void Placer_C::global_place(bool& isLegal, double& totalHPWL){ // Analytical Glo
     param.bLayerPreAssign = true;
     param.dWeightTSV = 0.5;
     //param.step = 5;
-    param.stepZ = 3.5;
+    param.stepZ = 6;
 
     // Setting placedb
     CPlaceDB placedb;
@@ -867,6 +867,7 @@ void Placer_C::set_ntuplace_param(CPlaceDB& placedb){
 	    param.Print();
 }
 void Placer_C::create_placedb(CPlaceDB& placedb){
+    bool add_dummy_node_as_ball = true;
     // .scl
     int rowH = ceil((_pChip->get_die(0)->get_row_height() + _pChip->get_die(1)->get_row_height())/2.0);
     int rowN = _pChip->get_height()/rowH;
@@ -890,7 +891,9 @@ void Placer_C::create_placedb(CPlaceDB& placedb){
     // .node
     vector<Cell_C*>& v_cell = _vCell;
     vector<Net_C*>& v_net = _vNet;
-    int moduleNum = v_cell.size() + v_net.size();
+    int moduleNum = v_cell.size();
+    if(add_dummy_node_as_ball)
+        moduleNum += v_net.size();
     placedb.ReserveModuleMemory(moduleNum);
     for(Cell_C* cell : v_cell){ // Cells
         int cellH = rowH;
@@ -906,12 +909,15 @@ void Placer_C::create_placedb(CPlaceDB& placedb){
             curModule.m_heights[i] = cell->get_height(i);
         }
     }
-    for(Net_C* net: v_net){ // Balls
-        string ballName = net->get_name() + "_ball";
-        placedb.AddModule( ballName, rowH, rowH, false );
-        Module& curModule = placedb.m_modules.back();
-        curModule.m_widths.resize(param.nlayer,rowH);
-        curModule.m_heights.resize(param.nlayer,rowH);
+    if(add_dummy_node_as_ball){
+        for(Net_C* net: v_net){ // Balls
+            string ballName = net->get_name() + "_ball";
+            placedb.AddModule( ballName, 0, 0, false );
+            Module& curModule = placedb.m_modules.back();
+            curModule.m_widths.resize(param.nlayer,0);
+            curModule.m_heights.resize(param.nlayer,0);
+            curModule.m_isVia = true;
+        }
     }
     placedb.m_nModules = moduleNum; //fplan.m_nModules = nNodes + nTerminals;
     placedb.m_modules.resize( placedb.m_modules.size() );
@@ -925,11 +931,18 @@ void Placer_C::create_placedb(CPlaceDB& placedb){
         width_avg1 += (double)cell->get_width(1)/ v_cell.size();
     }
     cutline = ((width_avg1*_pChip->get_die(1)->get_row_height()) / (width_avg1*_pChip->get_die(1)->get_row_height() + width_avg0*_pChip->get_die(0)->get_row_height())) * (_pChip->get_die(0)->get_max_util() / _pChip->get_die(1)->get_max_util());
+    // if(add_dummy_node_as_ball){ 
+    //     cutline *= 0.35;
+    // }
     placedb.m_dCutline = cutline;
     // .nets
     int nPins = 0;
-    for(Net_C* net : _vNet) // Pins + Ball
-        nPins += net->get_pin_num() + 1;
+    for(Net_C* net : _vNet) // Pins 
+        nPins += net->get_pin_num();
+    if(add_dummy_node_as_ball){ // + Balls
+        nPins += _vNet.size();
+    }
+
     placedb.ReserveNetMemory( _vNet.size() );
     placedb.ReservePinMemory( nPins );
     int nReadNets = 0;
@@ -941,38 +954,34 @@ void Placer_C::create_placedb(CPlaceDB& placedb){
         for(int i=0;i<net->get_pin_num();++i){ 
             int moduleId = placedb.GetModuleId( v_pin[i]->get_cell()->get_name() );
             Cell_C* cell = v_pin[i]->get_cell();
-            Pos pin_offset0 = cell->get_master_cell()->get_pin_offset(_pChip->get_die(0)->get_techId() ,v_pin[i]->get_id());
-            Pos pin_offset1 = cell->get_master_cell()->get_pin_offset(_pChip->get_die(1)->get_techId() ,v_pin[i]->get_id());
-            Pos pin_offset = Pos(ceil((pin_offset0.x+pin_offset1.x)/2.0),ceil((pin_offset0.y+pin_offset1.y)/4.0));
+            vector<Pos> pin_offsets(2);
+            pin_offsets[0] = cell->get_master_cell()->get_pin_offset(_pChip->get_die(0)->get_techId() ,v_pin[i]->get_id());
+            pin_offsets[1] = cell->get_master_cell()->get_pin_offset(_pChip->get_die(1)->get_techId() ,v_pin[i]->get_id());
+            Pos pin_offset = Pos(ceil((pin_offsets[0].x+pin_offsets[1].x)/2.0),ceil((pin_offsets[0].y+pin_offsets[1].y)/4.0));
             int pinId = placedb.AddPin( moduleId, pin_offset.x, pin_offset.y );
             net_db.push_back( pinId );
-            // remove duplicated netsIds
-            bool found = false; 
-            for(unsigned int z = 0 ; z < placedb.m_modules[moduleId].m_netsId.size() ; z++ ){
-                if ( nReadNets == placedb.m_modules[moduleId].m_netsId[z] ){
-                    found = true;
-                    break;
-                }
+            placedb.m_pins[pinId].xOffs.resize(param.nlayer,0);
+            placedb.m_pins[pinId].yOffs.resize(param.nlayer,0);
+            for(int i=0;i<param.nlayer;++i){
+                placedb.m_pins[pinId].xOffs[i] = pin_offsets[0].x;
+                placedb.m_pins[pinId].yOffs[i] = pin_offsets[1].y;
             }
-            if (!found) placedb.m_modules[moduleId].m_netsId.push_back( nReadNets );
+            placedb.m_modules[moduleId].m_netsId.push_back( nReadNets );
         }
         // Ball
-        int BallId = placedb.GetModuleId( net->get_name()+"_ball" );
-        int pinId = placedb.AddPin( BallId, 0, 0 );
-        net_db.push_back( pinId );
-            // remove duplicated netsIds
-            bool found = false; 
-            for(unsigned int z = 0 ; z < placedb.m_modules[BallId].m_netsId.size() ; z++ ){
-                if ( nReadNets == placedb.m_modules[BallId].m_netsId[z] ){
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) placedb.m_modules[BallId].m_netsId.push_back( nReadNets );
+        if(add_dummy_node_as_ball){
+            int BallId = placedb.GetModuleId( net->get_name()+"_ball" );
+            int pinId = placedb.AddPin( BallId, 1, 1 );
+            net_db.push_back( pinId );
+            placedb.m_pins[pinId].xOffs.resize(2,1);
+            placedb.m_pins[pinId].yOffs.resize(2,1);
+            placedb.m_modules[BallId].m_netsId.push_back( nReadNets );
+        }
 
         placedb.AddNet( net_db );
         nReadNets++;
     }
+
     placedb.m_nPins = nPins;
 	placedb.m_nNets = _vNet.size();
     placedb.m_pins.resize( placedb.m_pins.size() );
@@ -986,12 +995,14 @@ void Placer_C::create_placedb(CPlaceDB& placedb){
             placedb.SetModuleLayerAssign( moduleId, cell->get_posZ());
         }
     }
-    for(Net_C* net: v_net){
-        int BallId = placedb.GetModuleId( net->get_name()+"_ball" );
-        placedb.SetModuleLocation( BallId, net->get_ball_pos().x, net->get_ball_pos().y);
-        placedb.SetModuleOrientation( BallId, 0 );
-        if(param.bLayerPreAssign){
-            placedb.SetModuleLayerAssign( BallId, 0);
+    if(add_dummy_node_as_ball){ 
+        for(Net_C* net: v_net){ // Balls
+            int BallId = placedb.GetModuleId( net->get_name()+"_ball" );
+            placedb.SetModuleLocation( BallId, net->get_ball_pos().x, net->get_ball_pos().y);
+            placedb.SetModuleOrientation( BallId, 0 );
+            if(param.bLayerPreAssign){
+                placedb.SetModuleLayerAssign( BallId, 0);
+            }
         }
     }
     placedb.ClearModuleNameMap();
@@ -2002,7 +2013,6 @@ void Placer_C::mincut_partition(){
     }
     //cout << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell)num = " << _pChip->get_die(1)->get_cells().size() << "\n";
 
-    // move cells for matching die's max_utilization
     // move cells for matching die's max_utilization
     long long valid_area = (long long)_pChip->get_width() * (long long)_pChip->get_height() * _pChip->get_die(0)->get_max_util();
     //long long total_area = 0;

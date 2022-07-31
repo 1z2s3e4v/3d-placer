@@ -19,6 +19,7 @@
 #include <vector>
 #include <string>
 #include <climits> // kaie
+#include <iomanip>
 using namespace std;
 
 #include <semaphore.h>
@@ -204,6 +205,15 @@ private:
 	  double& sum_exp_zi_over_alpha, double& sum_exp_inv_zi_over_alpha, 
 	  const CPlaceDB* pDB, const vector<bool>* pUsePin, const vector<double>& expPins, const vector<double>& expPinsZ,
 	  int id=-1 );
+  // (frank) 2022-07-31 3D Weighted-Average-Exponential Wirelength Model for F2F HPWL Enhancement
+  static void calc_sum_exp_using_pin_for_layers( 
+	  const vector<int>::const_iterator& begin, const vector<int>::const_iterator& end,
+	  const vector<double>& x, const vector<double>& z, const vector<double>& expX, const vector<double>& expZ,
+	  vector<double>& layer_sum_exp_xi_over_alpha, vector<double>& layer_sum_exp_inv_xi_over_alpha,
+	  vector<double>& layer_sum_exp_yi_over_alpha, vector<double>& layer_sum_exp_inv_yi_over_alpha,
+	  vector<double>& layer_sum_exp_zi_over_alpha, vector<double>& layer_sum_exp_inv_zi_over_alpha, 
+	  const CPlaceDB* pDB, const vector<bool>* pUsePin, const vector<double>& expPins, const vector<double>& expPinsZ,
+	  int id=-1 );
 
   // (kaie) 2010-10-18 Weighted-Average-Exponential Model
   static void calc_weighted_sum_exp_using_pin(
@@ -214,7 +224,7 @@ private:
   	  const CPlaceDB* pDB, const vector<bool>* pUsePin, const vector<double>& expPins,
   	  int id=-1 );
 
-  // (frank) 2022-07-22 3D Weighted-Average-Exponential Wirelength Model
+  // (frank) 2022-07-22 3D Weighted-Average-Exponential Wirelength Model for F2F HPWL Enhancement
   static void calc_weighted_sum_exp_using_pin_for_layers(
   	  const vector<int>::const_iterator& begin, const vector<int>::const_iterator& end,
   	  const vector<double>& x, const vector<double>& expX,

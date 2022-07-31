@@ -130,6 +130,9 @@ class Pin
 	float	absX;
 	float	absY;
 
+    vector<float>	xOffs;
+	vector<float>	yOffs;
+
 	//Added by Jin 20081008
 	int    direction; // 0 output  1 input  -1 not-define
 	//@Added by Jin 20081008
@@ -190,8 +193,8 @@ class Module
 	}
 
 	string GetName()		{ return m_name; } 
-	float GetWidth()		{ return m_width; }
-	float GetHeight()		{ return m_height; }
+	float GetWidth();//		{ return m_width; }
+	float GetHeight();//		{ return m_height; }
     float GetThickness()		{ return m_thickness; }
 	float GetX()			{ return m_x; }
 	float GetY()			{ return m_y; }
@@ -199,6 +202,8 @@ class Module
 	void  SetZ(const float _z)	{ m_z = _z; }
 	float GetArea()			{ return m_area; }
 	short int GetOrient()		{ return m_orient; }
+    float GetWidth(float z);
+	float GetHeight(float z);
 
 	float  m_x, m_y;
 	float  m_cx, m_cy;
@@ -221,6 +226,7 @@ class Module
 	bool   m_isMacro;	    // 2007-01-05 (indark)
 	BLOCK_TYPE m_blockType;	    // 2006-06-22 (donnie)
     bool   m_isNI;          // 2022-05-13 (frank)
+    bool   m_isVia;         // 2022-07-25 (frank) for F2F Terminal
 
 	vector<int> m_pinsId;
 	vector<int> m_netsId;
