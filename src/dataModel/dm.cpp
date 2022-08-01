@@ -120,7 +120,7 @@ void DmMgr_C::run(){
     // visualization (output svg.html)
     if(!_paramHdl.check_flag_exist("no_dump")){
         draw_layout_result();
-        draw_layout_result_plt();
+        draw_layout_result_plt(false);
     }
     
     cout << BLUE << "[DM]" << RESET << " - Finish!\n";
@@ -384,12 +384,14 @@ void plotBoxPLT( ofstream& stream, double x1, double y1, double x2, double y2 )
 }
 
 
-void DmMgr_C::draw_layout_result_plt(){// output in dir "./draw/<case-name>.plt"
+void DmMgr_C::draw_layout_result_plt(bool show_hpwl){// output in dir "./draw/<case-name>.plt"
     string outFile = "./draw/" + _paramHdl.get_case_name() + ".plt";
     system("mkdir -p ./draw/");
     ofstream outfile( outFile.c_str() , ios::out );
 
     outfile << " " << endl;
+    outfile << "set terminal png size 4000,3000" << endl;
+    outfile << "set output " << "\"./draw/" << _paramHdl.get_case_name() << ".png\"" << endl;
     // outfile << "set multiplot layout 1, 2" << endl;
     outfile << "set size ratio 0.5" << endl;
     outfile << "set nokey" << endl << endl;
@@ -418,7 +420,11 @@ void DmMgr_C::draw_layout_result_plt(){// output in dir "./draw/<case-name>.plt"
     // outfile << "set xrange [0:" << _pChip->get_width() << "]" << endl;
     // outfile << "set yrange [0:" << _pChip->get_height() << "]" << endl;
     // outfile << "plot[:][:] '-' w l lt 3 lw 2, '-' with filledcurves closed fc \"grey90\" fs border lc \"red\", '-' with filledcurves closed fc \"yellow\" fs border lc \"black\", '-' w l lt 1" << endl << endl;
-    outfile << "plot[:][:]  '-' w l lt 3 lw 2, '-' with filledcurves closed fc \"grey90\" fs border lc \"red\", '-' w l lt 1" << endl << endl;
+    if (show_hpwl) {
+        outfile << "plot[:][:]  '-' w l lt 3 lw 2, '-' with filledcurves closed fc \"grey90\" fs border lc \"red\", '-' w l lt 1" << endl << endl;
+    } else {
+        outfile << "plot[:][:]  '-' w l lt 3 lw 2, '-' with filledcurves closed fc \"grey90\" fs border lc \"red\"" << endl << endl;
+    }
     
     outfile << "# bounding box" << endl;
     plotBoxPLT( outfile, 0, 0, _pChip->get_width(), _pChip->get_height() ); // top chip
@@ -436,24 +442,29 @@ void DmMgr_C::draw_layout_result_plt(){// output in dir "./draw/<case-name>.plt"
     }
     outfile << "EOF" << endl;
 
-
+    
     // Draw HPWL
-    outfile << "# nets" << endl;
-    int dieId;
-    for(int i=0;i<_pDesign->get_net_num();++i){
-        Net_C* net = _pDesign->get_net(i);
-        dieId = 0;
-        double ll_x = net->get_ll(dieId).x, ll_y = net->get_ll(dieId).y, ur_x = net->get_ur(dieId).x, ur_y = net->get_ur(dieId).y;
-        plotBoxPLT( outfile, ll_x, ll_y, ur_x, ur_y);
-        dieId = 1;
-        ll_x = net->get_ll(dieId).x, ll_y = net->get_ll(dieId).y, ur_x = net->get_ur(dieId).x, ur_y = net->get_ur(dieId).y;
-        plotBoxPLT( outfile, bot_chip_offset + ll_x, ll_y, bot_chip_offset + ur_x, ur_y);
+    if (show_hpwl) {
+        outfile << "# nets" << endl;
+        int dieId;
+        for(int i=0;i<_pDesign->get_net_num();++i){
+            Net_C* net = _pDesign->get_net(i);
+            dieId = 0;
+            double ll_x = net->get_ll(dieId).x, ll_y = net->get_ll(dieId).y, ur_x = net->get_ur(dieId).x, ur_y = net->get_ur(dieId).y;
+            plotBoxPLT( outfile, ll_x, ll_y, ur_x, ur_y);
+            dieId = 1;
+            ll_x = net->get_ll(dieId).x, ll_y = net->get_ll(dieId).y, ur_x = net->get_ur(dieId).x, ur_y = net->get_ur(dieId).y;
+            plotBoxPLT( outfile, bot_chip_offset + ll_x, ll_y, bot_chip_offset + ur_x, ur_y);
+        }
+        outfile << "EOF" << endl;
     }
-    outfile << "EOF" << endl;
+    
     
 
-    outfile << "pause -1 'Press any key to close.'" << endl;
+    // outfile << "pause -1 'Press any key to close.'" << endl;
     outfile.close();
+
+    system(("gnuplot " + outFile).c_str());
 
     cout << BLUE << "[DM]" << RESET << " - Visualize the plt layout in \'" << outFile << "\'.\n";
 }

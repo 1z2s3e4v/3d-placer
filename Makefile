@@ -3,7 +3,7 @@ CG=gcc
 #LIB=src/lib/liblpsolve55.a
 LDFLAGS= -g -std=c++11 -lm -fomit-frame-pointer -funroll-loops -ffast-math -funit-at-a-time -fPIC -DNDEBUG -pthread
 CLDFLAGS=-fomit-frame-pointer -funroll-loops -ffast-math -funit-at-a-time -fPIC -DYY_NEVER_INTERACTIVE -DPARSER_LP -DINVERSE_ACTIVE=INVERSE_LUSOL -DRoleIsExternalInvEngine
-SOURCES=src/main/main.cpp src/parser/parser.cpp src/dataModel/dm.cpp src/dataModel/module.cpp src/utility/paramHdl.cpp src/utility/message.cpp src/utility/drawHtml.cpp src/utility/aux.cpp src/utility/hgr.cpp src/placer/placer.cpp \
+SOURCES=src/main/main.cpp src/parser/parser.cpp src/dataModel/dm.cpp src/dataModel/module.cpp src/dataModel/bin.cpp src/utility/paramHdl.cpp src/utility/message.cpp src/utility/drawHtml.cpp src/utility/aux.cpp src/utility/hgr.cpp src/placer/placer.cpp \
 		src/placer/ntuplace/PlaceCommon/util.cpp src/placer/ntuplace/PlaceCommon/placebin.cpp src/placer/ntuplace/PlaceCommon/placeutil.cpp src/placer/ntuplace/PlaceCommon/ParamPlacement.cpp src/placer/ntuplace/PlaceDB/placedb.cpp \
 		src/placer/ntuplace/Cluster/fccluster.cpp src/placer/ntuplace/Cluster/cluster.cpp src/placer/ntuplace/PlaceCommon/randomplace.cpp src/placer/ntuplace/Legalizer/TetrisLegal.cpp src/placer/ntuplace/NLPlace/mlnlp.cpp \
 		src/placer/ntuplace/NLPlace/smooth.cpp src/placer/ntuplace/PlaceCommon/arghandler.cpp src/placer/ntuplace/PlaceCommon/lap.cpp src/placer/ntuplace/PlaceCommon/lap_wrapper.cpp src/placer/ntuplace/PlaceCommon/BlockMatching.cpp src/placer/ntuplace/lib/hlbfgs/HLBFGS_BLAS.cpp src/placer/ntuplace/lib/hlbfgs/LineSearch.cpp src/placer/ntuplace/lib/hlbfgs/ICFS.cpp src/placer/ntuplace/lib/hlbfgs/HLBFGS.cpp \
@@ -14,7 +14,7 @@ CSOURCES=${LP}/colamd.c ${LP}/lp_Hash.c ${LP}/lp_mipbb.c ${LP}/lp_pricePSE.c ${L
 OBJECTS=$(SOURCES:.cpp=.o)
 COBJECTS=$(CSOURCES:.c=.o)
 EXECUTABLE=3d-placer
-INCLUDES=src/parser/parser.h src/dataModel/dm.h src/dataModel/module.h src/utility/paramHdl.h src/utility/message.h src/utility/drawHtml.h src/utility/aux.h src/utility/hgr.h src/utility/color.h src/placer/placer.h \
+INCLUDES=src/parser/parser.h src/dataModel/dm.h src/dataModel/module.h src/dataModel/bin.h src/utility/paramHdl.h src/utility/message.h src/utility/drawHtml.h src/utility/aux.h src/utility/hgr.h src/utility/color.h src/placer/placer.h \
 		src/placer/ntuplace/PlaceCommon/util.h src/placer/ntuplace/PlaceCommon/placebin.h src/placer/ntuplace/PlaceCommon/placeutil.h src/placer/ntuplace/PlaceCommon/ParamPlacement.h src/placer/ntuplace/PlaceDB/placedb.h \
 		src/placer/ntuplace/Cluster/fccluster.h src/placer/ntuplace/Cluster/cluster.h src/placer/ntuplace/PlaceCommon/randomplace.h src/placer/ntuplace/Legalizer/TetrisLegal.h src/placer/ntuplace/NLPlace/mlnlp.h \
 		src/placer/ntuplace/NLPlace/smooth.h  src/placer/ntuplace/PlaceCommon/arghandler.h src/placer/ntuplace/PlaceCommon/lap.h src/placer/ntuplace/PlaceCommon/lap_wrapper.h src/placer/ntuplace/PlaceCommon/BlockMatching.h src/placer/ntuplace/lib/hlbfgs/HLBFGS_BLAS.h src/placer/ntuplace/lib/hlbfgs/LineSearch.h src/placer/ntuplace/lib/hlbfgs/ICFS.h src/placer/ntuplace/lib/hlbfgs/HLBFGS.h \

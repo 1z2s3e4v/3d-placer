@@ -47,7 +47,7 @@ public:
     void dump_info();
     void output_aux_form(int dieId); // output in dir "./aux/<case-name>/"
     void draw_layout_result(); // output in dir "./draw/<case-name>.html"
-    void draw_layout_result_plt(); // output in dir "./draw/<case-name>.plt"
+    void draw_layout_result_plt(bool show_hpwl); // output in dir "./draw/<case-name>.plt"
     void output_result(string fileName);
     void output_result(); // output the final result with given output name
     void print_result(); // print HPWL result
