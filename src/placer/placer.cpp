@@ -76,8 +76,6 @@ void Placer_C::run(){
                 place_succ = shrunk2d_replace();
             } else if(_paramHdl.get_para("flow") == "true3d"){
                 place_succ = true3d_placement();
-            } else if(_paramHdl.get_para("flow") == "half3d"){
-                place_succ = half3d_placement();
             } else if(_paramHdl.get_para("flow") == "ntuplace3d"){
                 place_succ = ntuplace3d();
             } else{
@@ -254,36 +252,53 @@ bool Placer_C::ntuplace3d(){
     return true;
 }
 
-bool Placer_C::half3d_placement(){
+bool Placer_C::true3d_placement(){
     cout << BLUE << "[Placer]" << RESET << " - Start Half3d Placement Flow.\n";
     double part_time_start=0, total_part_time=0;
+    int total_hpwl = 0;
     ////////////////////////////////////////////////////////////////
-    // Global Placement
+    // Initail Placement
     ////////////////////////////////////////////////////////////////
-    bool isLegal = false; 
-    double wl1 = 0; // gp-wire
     part_time_start = (float)clock() / CLOCKS_PER_SEC;
-    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1]" << RESET << ": Global Placement.\n";
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1]" << RESET << ": Initial Placement.\n";
     // cell spreading
     //cell_spreading();
     shrunked_2d_replace();
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [1.1] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     // die-partition
     mincut_partition();
     init_ball_place();
     cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
     cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [1.2] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
+    cout << BLUE << "[Placer]" << RESET << " - Init: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
+
+    ////////////////////////////////////////////////////////////////
+    // Global Placement
+    ////////////////////////////////////////////////////////////////
+    part_time_start = (float)clock() / CLOCKS_PER_SEC;
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2]" << RESET << ": Global Placement.\n";
+    bool isLegal = false; 
+    double wl1 = 0; // gp-wire
     // 3d analytical global placement
     global_place(isLegal, wl1); /////////////////////////////////////////////// main function
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Global: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
-    cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << (int)wl1 << ".\n";
+    //cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << (int)wl1 << ".\n";
     set_ball(); // set ball for crossed net
     cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
     cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [2] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     
+
     ////////////////////////////////////////////////////////////////
     // D2D Placement with Pin Projection
     ////////////////////////////////////////////////////////////////
+    //pin3d_ntu_d2d_legal_detail()
     bool placer_succ = true;
     cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 3]" << RESET << ": D2D LG+DP with Pin Projection.\n";
     part_time_start = (float)clock() / CLOCKS_PER_SEC;
@@ -301,6 +316,8 @@ bool Placer_C::half3d_placement(){
         placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
         if(!placer_succ) return false;
     }
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [3.1] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     // 2. Place die0 with projected die1
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux;
@@ -326,6 +343,8 @@ bool Placer_C::half3d_placement(){
         placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
         if(!placer_succ) return false;
     }
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [3.2] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     // 3. Place die1 with projected die0
     if(_pChip->get_die(1)->get_cells().size() > 0){
         AUX aux;
@@ -351,8 +370,8 @@ bool Placer_C::half3d_placement(){
         placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
         if(!placer_succ) return false;
     }
-    int total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.3] total HPWL = " << total_hpwl << ".\n";
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [3.3] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     // 4. Replace die0 again with projected die1 and balls
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux;
@@ -380,7 +399,7 @@ bool Placer_C::half3d_placement(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.4] total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - [3.4] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     // 5. Replace die0 again with projected die1 and balls
     if(_pChip->get_die(1)->get_cells().size() > 0){
         AUX aux;
@@ -408,7 +427,7 @@ bool Placer_C::half3d_placement(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.5] total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - [3.5] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     // 6. Replace die0 again with projected die1 and balls
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux;
@@ -438,69 +457,7 @@ bool Placer_C::half3d_placement(){
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - D2D-PL: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << total_hpwl << ".\n";
-    return true;
-}
-
-bool Placer_C::true3d_placement(){
-    cout << BLUE << "[Placer]" << RESET << " - Start True3d Placement Flow.\n";
-    double part_time_start=0, total_part_time=0;
-    ////////////////////////////////////////////////////////////////
-    // Global Placement
-    ////////////////////////////////////////////////////////////////
-    bool isLegal = false; 
-    double wl1 = 0; // gp-wire
-    part_time_start = (float)clock() / CLOCKS_PER_SEC;
-    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1]" << RESET << ": Global Placement.\n";
-    // cell spreading
-    cell_spreading();
-    // die-partition
-    // if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
-         mincut_partition();
-    // else 
-    //     mincut_k_partition();
-    // for(int i=0;i<_vCell.size();++i){
-    //     Cell_C* cell = _vCell[i];
-    //     // if(i<_vCell.size()/2) cell->set_die(_pChip->get_die(0));
-    //     // else cell->set_die(_pChip->get_die(1));
-    //     cell->set_die(_pChip->get_die(rand()%2));
-    // }
-    // Init spreading and layer assignment
-    // rand_place(0);
-    // rand_place(1);
-    rand_ball_place();
-
-    cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
-    cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
-    // 3d analytical global placement
-    global_place(isLegal, wl1); /////////////////////////////////////////////// main function
-    total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
-    cout << BLUE << "[Placer]" << RESET << " - Global: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
-    cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << (int)wl1 << ".\n";
-
-    rand_ball_place();
-    cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
-    cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
-    ////////////////////////////////////////////////////////////////
-    // Legalization
-    ////////////////////////////////////////////////////////////////
-    //legal_place();
-    
-    ////////////////////////////////////////////////////////////////
-    // Detail Placement
-    ////////////////////////////////////////////////////////////////
-    //detail_place();
-    bool place_succ;
-    part_time_start = (float)clock() / CLOCKS_PER_SEC;
-    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2]" << RESET << ": Legalization + Detail Placement.\n";
-    
-    place_succ = pin3d_ntu_d2d_legal_detail(); ////////////////////////////////////////////////////// main function
-    
-    if(!place_succ) return false;
-    total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
-    cout << BLUE << "[Placer]" << RESET << " - LG+DP: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
-    int total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     return true;
 }
 void Placer_C::global_place(bool& isLegal, double& totalHPWL){ // Analytical Global Placement
