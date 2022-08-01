@@ -23,6 +23,7 @@ class HGR{
     vector<vector<int> > _vNetNodes; // netId --> cellIds
     vector<int> _vNodePart; // cellId --> part
     vector<int> _vPartNum; // node num in each part;
+    vector<vector<int> > _vPartNodes;
 
     string _dir;
     string _circuit_name;
@@ -38,6 +39,7 @@ public:
     void read_part_result(int k); 
     int get_part_result(string); // cell name --> part
     int get_part_size(int);
+    vector<int>& get_nodes_by_part(int part);
 };
 
 #endif

@@ -61,6 +61,7 @@ void HGR::read_part_result(int k){
     _vNodePart.resize(_numNode,-1);
     _vPartNum.clear();
     _vPartNum.resize(k,0);
+    _vPartNodes.resize(k,vector<int>());
     string fileName = _dir + _circuit_name + ".hgr.part." + to_string(k);
     ifstream fin(fileName);
     string line;
@@ -71,6 +72,7 @@ void HGR::read_part_result(int k){
             int part;
             ss >> part;
             _vNodePart[i] = part;
+            _vPartNodes[part].emplace_back(i);
             ++_vPartNum[part];
             ++i;
         }
@@ -86,6 +88,11 @@ int HGR::get_part_result(string nodeName){
         cout << BLUE << "[HGR]" << RESET << " - Warning: Cannot find Node \'" << nodeName << "\'.\n";
     return part;
 }
+
 int HGR::get_part_size(int partId){
     return _vPartNum[partId];
+}
+
+vector<int>& HGR::get_nodes_by_part(int part){
+    return _vPartNodes[part];
 }
