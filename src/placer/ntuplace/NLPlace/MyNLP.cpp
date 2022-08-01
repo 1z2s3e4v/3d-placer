@@ -1,5 +1,6 @@
 #include <cmath>
 #include <set>
+#include <sys/types.h>
 #include <vector>
 #include <algorithm>
 #include <cfloat>
@@ -216,6 +217,13 @@ double MyNLP::m_skewDensityPenalty2 = 1.0;
     m_nets_sum_exp_yi_over_alpha.resize( m_pDB->m_nets.size(), 0 );
     m_nets_sum_exp_inv_xi_over_alpha.resize( m_pDB->m_nets.size(), 0 );
     m_nets_sum_exp_inv_yi_over_alpha.resize( m_pDB->m_nets.size(), 0 );
+	// frank 2022-07-23 3d
+	if(param.b3d){
+		m_layer_nets_sum_exp_xi_over_alpha.resize( param.nlayer, vector<double>(m_pDB->m_nets.size(), 0) );
+		m_layer_nets_sum_exp_yi_over_alpha.resize( param.nlayer, vector<double>(m_pDB->m_nets.size(), 0) );
+		m_layer_nets_sum_exp_inv_xi_over_alpha.resize( param.nlayer, vector<double>(m_pDB->m_nets.size(), 0) );
+		m_layer_nets_sum_exp_inv_yi_over_alpha.resize( param.nlayer, vector<double>(m_pDB->m_nets.size(), 0) );
+	}
     
     // kaie 2009-08-29 3d placement
     if(m_bMoveZ)
@@ -232,7 +240,15 @@ double MyNLP::m_skewDensityPenalty2 = 1.0;
 	    m_nets_weighted_sum_exp_yi_over_alpha.resize( m_pDB->m_nets.size(), 0 );
 	    m_nets_weighted_sum_exp_inv_xi_over_alpha.resize( m_pDB->m_nets.size(), 0 );
 	    m_nets_weighted_sum_exp_inv_yi_over_alpha.resize( m_pDB->m_nets.size(), 0 );
-    }
+		if(param.b3d){
+			vector<double> tmp_v;
+			tmp_v.resize( m_pDB->m_nets.size(), 0 );
+			m_layer_nets_weighted_sum_exp_xi_over_alpha.resize(param.nlayer, tmp_v);
+			m_layer_nets_weighted_sum_exp_yi_over_alpha.resize(param.nlayer, tmp_v);
+			m_layer_nets_weighted_sum_exp_inv_xi_over_alpha.resize(param.nlayer, tmp_v);
+			m_layer_nets_weighted_sum_exp_inv_yi_over_alpha.resize(param.nlayer, tmp_v);
+		}
+	}
 
     if( m_bXArch ) // 2006-09-12 (donnie)
     {
@@ -649,16 +665,16 @@ bool MyNLP::GoSolve( double wWire,
 
     m_targetUtil += param.targetDenOver;
     if( m_targetUtil > 1.0 )
-	m_targetUtil = 1.0;
+		m_targetUtil = 1.0;
 
     double time_start = seconds();    
     char filename[100];	    // for gnuplot
 
     int n;
     if(m_bMoveZ)
-	n = 3 * m_pDB->m_modules.size(); // (kaie) 2009-09-12 add z direction
+		n = 3 * m_pDB->m_modules.size(); // (kaie) 2009-09-12 add z direction
     else
-	n = 2 * m_pDB->m_modules.size();
+		n = 2 * m_pDB->m_modules.size();
 
     double designUtil = m_pDB->m_totalMovableModuleVolumn / m_pDB->m_totalFreeSpace;
 
@@ -669,23 +685,23 @@ bool MyNLP::GoSolve( double wWire,
     double lowestUtil = min( 1.0, designUtil + baseUtil );
     if( m_targetUtil > 0 )  // has user-defined target utilization
     {
-	if( m_targetUtil < lowestUtil )
-	{
-	    if( param.bShow )
-		printf( "NOTE: Target utilization (%f) is too low\n", m_targetUtil );
-	    if( gArg.CheckExist( "forceLowUtil" ) == false )
-		m_targetUtil = lowestUtil;
-	}
+		if( m_targetUtil < lowestUtil )
+		{
+			if( param.bShow )
+			printf( "NOTE: Target utilization (%f) is too low\n", m_targetUtil );
+			if( gArg.CheckExist( "forceLowUtil" ) == false )
+			m_targetUtil = lowestUtil;
+		}
     }
     else // no given utilization
     {
-	printf( "No given target utilization.\n" ); //  Distribute blocks evenly
-	m_targetUtil = lowestUtil;
+		printf( "No given target utilization.\n" ); //  Distribute blocks evenly
+		m_targetUtil = lowestUtil;
     }
     if( param.bShow )
     {
-	printf( "INFO: Design utilization: %f\n", designUtil );
-	printf( "DBIN: Target utilization: %f\n", m_targetUtil );
+		printf( "INFO: Design utilization: %f\n", designUtil );
+		printf( "DBIN: Target utilization: %f\n", m_targetUtil );
     }
 
     fill( grad_f.begin(), grad_f.end(), 0.0 ); 
@@ -702,20 +718,20 @@ bool MyNLP::GoSolve( double wWire,
     //Brian 2007-06-18
     if (true == param.bFlatLevelCong )
     {
-	if (true == m_topLevel)
-	    param.bCongObj = true;
-	else
-	    param.bCongObj = false;
+		if (true == m_topLevel)
+			param.bCongObj = true;
+		else
+			param.bCongObj = false;
     }
     //@Brian 2007-06-18
     
     //Added by Jin 20081013
     if( true == m_topLevel )
     {
-	if( gArg.CheckExist( "timing" ) )
-	{
-	    param.bTiming = true;
-	}
+		if( gArg.CheckExist( "timing" ) )
+		{
+			param.bTiming = true;
+		}
     }	
     //@Added by Jin 20081013
 
@@ -822,14 +838,14 @@ bool MyNLP::GoSolve( double wWire,
 
     if( param.bShow )
     {	
-	printf( " %d-%2d HPWL= %.0f\tDen= %.2f %.4f %.4f %.4f Dcost= %4.1f%%  ",  
-		currentLevel, m_ite, m_pDB->CalcHPWL(), 
-		maxDen, totalOverDen, totalOverDenLB, totalOverPotential,
-		density * _weightDensity / obj_value * 100.0 ); 
+		printf( " %d-%2d HPWL= %.0f\tDen= %.2f %.4f %.4f %.4f Dcost= %4.1f%%  ",  
+			currentLevel, m_ite, m_pDB->CalcHPWL(), 
+			maxDen, totalOverDen, totalOverDenLB, totalOverPotential,
+			density * _weightDensity / obj_value * 100.0 ); 
     }
     else
     {
-	printf( " %d-%2d HPWL= %.0f \t", currentLevel, m_ite, m_pDB->CalcHPWL() );
+		printf( " %d-%2d HPWL= %.0f \t", currentLevel, m_ite, m_pDB->CalcHPWL() );
     }
     fflush( stdout );
 
@@ -870,639 +886,644 @@ bool MyNLP::GoSolve( double wWire,
     static double lastTSV = 0; // kaie
     if( currentLevel > 1 )
     {
-	lastHPWL = DBL_MAX;
-	lastTSV = DBL_MAX; // kaie
+		lastHPWL = DBL_MAX;
+		lastTSV = DBL_MAX; // kaie
     }
 
     int congestionIteration = 15;
     if (gArg.CheckExist( "congExpPotential" ) || gArg.CheckExist( "congPotential" ))
-	gArg.GetInt( "congIte", &congestionIteration );
+		gArg.GetInt( "congIte", &congestionIteration );
 
     if( gArg.CheckExist( "gpfig" ) )
     {
-	m_pDB->m_modules_bak = m_pDB->m_modules;
+		m_pDB->m_modules_bak = m_pDB->m_modules;
 
-	// char postfix[10];
-	// sprintf( postfix, "%d-%d", currentLevel, m_ite );
-	// PlotGPFigures( postfix );
+		// char postfix[10];
+		// sprintf( postfix, "%d-%d", currentLevel, m_ite );
+		// PlotGPFigures( postfix );
 
-	char fn[255];
-	sprintf( fn, "base%d", currentLevel );
-	/*CMatrixPlotter::OutputGnuplotFigure( m_basePotential, fn, 
-		"", // title
-		m_potentialGridWidth * m_potentialGridHeight,  // limit
-		true, // scale 
-		0 );  // limit base
-		*/ // comment by kaie 2009-10-09 unused in 3d
+		char fn[255];
+		sprintf( fn, "base%d", currentLevel );
+		/*CMatrixPlotter::OutputGnuplotFigure( m_basePotential, fn, 
+			"", // title
+			m_potentialGridWidth * m_potentialGridHeight,  // limit
+			true, // scale 
+			0 );  // limit base
+			*/ // comment by kaie 2009-10-09 unused in 3d
     }
 
     newDir = true;
     bool bUpdateWeight = true;
     for( int ite=0; ite<maxIte; ite++ )
     {
-	m_ite++;
-	int innerIte = 0;
-	double old_obj = DBL_MAX;
-	double last_obj_value = DBL_MAX;
+		m_ite++;
+		int innerIte = 0;
+		double old_obj = DBL_MAX;
+		double last_obj_value = DBL_MAX;
 
-	m_currentStep = param.step;
+		m_currentStep = param.step;
 
-	if( bUpdateWeight == false )
-	    newDir = false;
-	else
-	    newDir = true;
-	bUpdateWeight = true;
-
-	double lastDensityCost = density;   // for startDecreasing determination
-	while( true )	// inner loop, minimize "f" 
-	{
-	    innerIte++;
-	    swap( last_grad_f, grad_f );    // save for computing the congujate gradient direction
-	    swap( last_walk_direction, walk_direction );
-
-	    // Intra-iteration update
-	    // if (gArg.CheckExist( "congExpPotential" ) || gArg.CheckExist( "congPotential" ))
-	    // {
-		// if( innerIte % congestionIteration == 0 )
-		// {
-		//     Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
-		//     if( gArg.CheckExist( "congExpPotential" ) )
-		// 	UpdateCongestion();
-		//     else if( gArg.CheckExist( "congPotential" ) )
-		//     {
-		// 	UpdateCongestionBasePotential();    
-		// 	SmoothBasePotential3D();
-		// 	UpdateExpBinPotential( m_targetUtil, true );
-		//     }
-		// }
-	    // }
-
-	    //Brian 2007-04-30
-	    if (param.bCongObj)
-		UpdateGradCong();
-	    //@Brian 2007-04-30
-
-	    ComputeBinGrad();
-	    Parallel( eval_grad_f_thread, m_pDB->m_modules.size() );
-
-	    if( !AdjustForce( n, x, grad_f ) ){
-			printf("AdjustForce, NaN or Inf\n");
-			return false;	// NaN or Inf
-		}
-
-	    if( innerIte % checkStep == 0 )
-	    {
-		if( m_useEvalF )
-		{
-		    old_obj = last_obj_value;    // backup the old value
-		    if(m_bMoveZ)
-		        Parallel( LayerAssignmentThread, m_pDB->m_modules.size() );
-		    Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
-		    //m_pDB->CalcHPWL();
-		    //m_pDB->CalcTSV();
-		    if(gArg.CheckExist("wsrtsv"))
-		    	UpdateExpBinPotentialTSV(true);
-		    eval_f( n, x, _expX, true, obj_value );	    
-		    last_obj_value = obj_value;
-		}
-		else // Observe the wirelength change
-		{
-		    if(m_bMoveZ)
-		    	Parallel( LayerAssignmentThread, m_pDB->m_modules.size() );
-		    
-		    Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
-		    m_pDB->CalcHPWL();
-		    //m_pDB->CalcTSV();
-		    if(gArg.CheckExist("wsrtsv"))
-		    	UpdateExpBinPotentialTSV(true);
-		    if( currentLevel > 1 && m_ite == 1 )
-		    {
-			// Wirelength minimization stage
-			//if( (m_pDB->GetHPWL() + m_weightTSV*m_pDB->GetTSVcount()) > (lastHPWL + m_weightTSV*lastTSV) )
-			if( m_pDB->GetHPWL() > lastHPWL )
-			{
-			    lastHPWL = 0;
-			    //lastTSV = 0;
-			    break;
-			}
-		    }
-		    else
-		    {
-			// Block spreading stage
-			//if( (m_pDB->GetHPWL() + m_weightTSV*m_pDB->GetTSVcount()) < (lastHPWL + m_weightTSV*lastTSV) )
-			if( m_pDB->GetHPWL() < lastHPWL )
-			{
-			    lastHPWL = 0;
-			    //lastTSV = 0;
-			    break;
-			}
-		    }
-		    lastHPWL = m_pDB->GetHPWL();
-		    //lastTSV = m_pDB->GetTSVcount();
-		}
-	    }
-
-#if 1
-	    // Output solving progress
-	    if( innerIte % outStep == 0 /*&& innerIte != 0*/ && m_useEvalF )
-	    {
-		if( innerIte % checkStep != 0 )
-		    eval_f( n, x, _expX, true, obj_value );
-		printf( "\n  (%4d): f %g\t w %g\t p %g\tstep= %.5f \t%.1fm ", 
-			innerIte, obj_value, gTotalWL, density, m_stepSize,
-			double(seconds()-time_start)/60.0
-		      );
-		fflush( stdout );
-
-	    }
-#endif
-
-	    if( innerIte % checkStep == 0 )
-	    {
-		printf( "." );
-		fflush( stdout );
-
-		// Early exit when current HPWL > bestLegalHPWL
-		if( !param.bCong && bestLegalWL != DBL_MAX && innerIte % (2 * checkStep) == 0 )
-		{
-		    if(m_bMoveZ)  
-			Parallel( LayerAssignmentThread, m_pDB->m_modules.size() );
-
-		    Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
-		    if( m_pDB->CalcHPWL() > bestLegalWL )   // gWL > LAL-WL
-		    {
-			printf( "X\n" );
-			fflush( stdout );
-			break;	
-		    }
-		}
-		UpdateDensityGrid( n, x, z);  // find the exact bin density
-		totalOverDen = GetTotalOverDensity();
-		totalOverPotential = GetTotalOverPotential();
-		lastTotalOver = over;
-		if( param.bCong )
-		    over = totalOverPotential; // Congestion-driven. Cannot see totalOverDensity 
+		if( bUpdateWeight == false )
+			newDir = false;
 		else
-		    over = min( totalOverPotential, totalOverDen ); 
-		//Brian 2007-06-18
-		if (param.bCongObj)
+			newDir = true;
+		bUpdateWeight = true;
+
+		double lastDensityCost = density;   // for startDecreasing determination
+		while( true )	// inner loop, minimize "f" 
 		{
-		    UpdateDensityGridNet();
-		    lastMaxDenNet = maxDenNet;
-		    maxDenNet = GetMaxDensityNet();
-		    totalOverDenNet = GetTotalOverDensityNet();
-		    totalOverPotentialNet = GetTotalOverPotentialNet();
-		    lastTotalOverNet = overNet;
-		    overNet = min( totalOverPotentialNet, totalOverDenNet );
-		}
-		//@Brian 2007-06-18
+			innerIte++;
+			swap( last_grad_f, grad_f );    // save for computing the congujate gradient direction
+			swap( last_walk_direction, walk_direction );
 
-		/*
-		   if( !startDecreasing
-		   && over < lastTotalOver 
-		//	&& m_ite >= 0 
-		&& innerIte >= 6 )
-		{
-		printf( ">>" );
-		fflush( stdout );
-		startDecreasing = true;
-		}*/
+			// Intra-iteration update
+			// if (gArg.CheckExist( "congExpPotential" ) || gArg.CheckExist( "congPotential" ))
+			// {
+			// if( innerIte % congestionIteration == 0 )
+			// {
+			//     Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
+			//     if( gArg.CheckExist( "congExpPotential" ) )
+			// 	UpdateCongestion();
+			//     else if( gArg.CheckExist( "congPotential" ) )
+			//     {
+			// 	UpdateCongestionBasePotential();    
+			// 	SmoothBasePotential3D();
+			// 	UpdateExpBinPotential( m_targetUtil, true );
+			//     }
+			// }
+			// }
 
-		if( !startDecreasing )
-		{
-		    if( ( innerIte <= 10 && m_ite == 1 ) || 
-			( innerIte <= 5 ) )    // need to wait until "stable"
-			lastDensityCost = density;
-		    else if( density < lastDensityCost * 0.99 )
-		    {
-			printf( ">>" );
-			fflush( stdout );
-			startDecreasing = true;
-		    }	
-		}
+			//Brian 2007-04-30
+			if (param.bCongObj)
+			UpdateGradCong();
+			//@Brian 2007-04-30
 
-		if( startDecreasing && over < target_density && m_ite != 1 )	// no early stop at ite 1
-		    break;  // 2005-03-11 (donnie) Meet the constraint
+			ComputeBinGrad();
+			Parallel( eval_grad_f_thread, m_pDB->m_modules.size() );
 
-		//Brian 2007-06-18
-		if (false == param.bCongObj)
-		{
-		    if( m_useEvalF && obj_value >= m_precision * old_obj)    // Cannot further reduce "f"
-			break;
-		}
-		else
-		{
-		    if ( (m_useEvalF && obj_value >= m_precision * old_obj && lastMaxDenNet < maxDenNet) || 
-			    innerIte >400)
-			break; 
-		}
-		//@Brian 2007-06-18
+			if( !AdjustForce( n, x, grad_f ) ){
+				printf("AdjustForce, NaN or Inf\n");
+				return false;	// NaN or Inf
+			}
 
-	    } // check in the inner loop
+			if( innerIte % checkStep == 0 )
+			{
+				if( m_useEvalF )
+				{
+					old_obj = last_obj_value;    // backup the old value
+					if(m_bMoveZ)
+						LayerAssignment();
+						//Parallel( LayerAssignmentThread, m_pDB->m_modules.size() );
+					Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
+					//m_pDB->CalcHPWL();
+					//m_pDB->CalcTSV();
+					if(gArg.CheckExist("wsrtsv"))
+						UpdateExpBinPotentialTSV(true);
+					eval_f( n, x, _expX, true, obj_value );	    
+					last_obj_value = obj_value;
+				}
+				else // Observe the wirelength change
+				{
+					if(m_bMoveZ)
+						LayerAssignment();
+						//Parallel( LayerAssignmentThread, m_pDB->m_modules.size() );
+					
+					Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
+					m_pDB->CalcHPWL();
+					//m_pDB->CalcTSV();
+					if(gArg.CheckExist("wsrtsv"))
+						UpdateExpBinPotentialTSV(true);
+					if( currentLevel > 1 && m_ite == 1 )
+					{
+					// Wirelength minimization stage
+					//if( (m_pDB->GetHPWL() + m_weightTSV*m_pDB->GetTSVcount()) > (lastHPWL + m_weightTSV*lastTSV) )
+					if( m_pDB->GetHPWL() > lastHPWL )
+					{
+						lastHPWL = 0;
+						//lastTSV = 0;
+						break;
+					}
+					}
+					else
+					{
+					// Block spreading stage
+					//if( (m_pDB->GetHPWL() + m_weightTSV*m_pDB->GetTSVcount()) < (lastHPWL + m_weightTSV*lastTSV) )
+					if( m_pDB->GetHPWL() < lastHPWL )
+					{
+						lastHPWL = 0;
+						//lastTSV = 0;
+						break;
+					}
+					}
+					lastHPWL = m_pDB->GetHPWL();
+					//lastTSV = m_pDB->GetTSVcount();
+				}
+			}
 
-	    if( newDir == true )	
-	    {
-		// gradient direction
-		newDir = false;
-		for( int i=0; i<n; i++ )
-		{
-		    grad_f[i] = -grad_f[i];
-		    walk_direction[i] = grad_f[i];
-		}
-	    }
-	    else
-	    {
-		// conjugate gradient direction
-		if( FindBeta( n, grad_f, last_grad_f, m_beta ) == false ){
-		    printf("FindBeta OVERFLOW!\n");
-		    return false;   // overflow?
-		}
-		Parallel( UpdateGradThread, n );
-	    }
+	#if 1
+			// Output solving progress
+			if( innerIte % outStep == 0 /*&& innerIte != 0*/ && m_useEvalF )
+			{
+				if( innerIte % checkStep != 0 )
+					eval_f( n, x, _expX, true, obj_value );
+				printf( "\n  (%4d): f %g\t w %g\t p %g\tstep= %.5f \t%.1fm ", 
+					innerIte, obj_value, gTotalWL, density, m_stepSize,
+					double(seconds()-time_start)/60.0
+					);
+				fflush( stdout );
 
-	    LineSearch( n, x, walk_direction, m_stepSize ); // Calculate a_k (step size)
-	    Parallel( UpdateXThread, m_pDB->m_modules.size() );	    // Update X. (x_{k+1} = x_{k} + \alpha_k * d_k)
-	    /*double max_z = 0;
-	    for(unsigned int i = 0; i < z.size(); i++)
-	    {
-		    printf("%.2f ", z[i]);
-		    if(fabs(z[i]) > max_z) max_z = fabs(z[i]);
-	    }
-	    for(unsigned int i = 0; i < z.size(); i++)
-	    {
-		    z[i] /= max_z;
-		    printf("%.2f ", z[i]);
-	    }*/
-	    Parallel( BoundXThread, m_pDB->m_modules.size() );
-	    if(m_bMoveZ)
-	    	Parallel( BoundZThread, m_pDB->m_modules.size() );
+			}
+	#endif
 
-	    // New block positions must be ready
-	    // 1. UpdateExpValueForEachCellThread    (wire force)
-	    // 2. UpdateExpValueForEachPinThread     (wire force)
-	    // 3. ComputeNewPotentialGridThread      (spreading force)
-	    Parallel( UpdateNLPDataThread, m_pDB->m_modules.size(), m_pDB->m_pins.size(), m_pDB->m_modules.size() );
+			if( innerIte % checkStep == 0 )
+			{
+				printf( "." );
+				fflush( stdout );
 
-	    // New EXP values must be ready
-	    double time_used = seconds();
-	    Parallel( UpdateNetsSumExpThread, (int)m_pDB->m_nets.size() );
-	    time_wire_force += seconds() - time_used;
+				// Early exit when current HPWL > bestLegalHPWL
+				if( !param.bCong && bestLegalWL != DBL_MAX && innerIte % (2 * checkStep) == 0 )
+				{
+					if(m_bMoveZ)  
+						LayerAssignment();
+						//Parallel( LayerAssignmentThread, m_pDB->m_modules.size() );
 
-	    time_used = seconds();
-	    UpdatePotentialGrid(z);
-	    time_spreading_force += seconds() - time_used;
+					Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
+					if( m_pDB->CalcHPWL() > bestLegalWL )   // gWL > LAL-WL
+					{
+					printf( "X\n" );
+					fflush( stdout );
+					break;	
+					}
+				}
+				UpdateDensityGrid( n, x, z);  // find the exact bin density
+				totalOverDen = GetTotalOverDensity();
+				totalOverPotential = GetTotalOverPotential();
+				lastTotalOver = over;
+				if( param.bCong )
+					over = totalOverPotential; // Congestion-driven. Cannot see totalOverDensity 
+				else
+					over = min( totalOverPotential, totalOverDen ); 
+				//Brian 2007-06-18
+				if (param.bCongObj)
+				{
+					UpdateDensityGridNet();
+					lastMaxDenNet = maxDenNet;
+					maxDenNet = GetMaxDensityNet();
+					totalOverDenNet = GetTotalOverDensityNet();
+					totalOverPotentialNet = GetTotalOverPotentialNet();
+					lastTotalOverNet = overNet;
+					overNet = min( totalOverPotentialNet, totalOverDenNet );
+				}
+				//@Brian 2007-06-18
 
-	    //Brian 2007-04-30
-	    if (true == param.bCongObj)
-	    {
-		Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
-		ComputeNetBoxInfo();
-		ComputeNewPotentialGridNet();
-		UpdatePotentialGridNet();
-	    }
-	    //@Brian 2007-04-30
-	
-	    //Added by Jin 20081013
-	    //Rerun in the end of the inner loop
-	    // if( true == param.bTiming )
-	    // {
-		// Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
-		// m_pDB->m_pTimingAnalysis->RerunSTA();	
-	    // }
-	    //@Added by Jin 20081013
+				/*
+				if( !startDecreasing
+				&& over < lastTotalOver 
+				//	&& m_ite >= 0 
+				&& innerIte >= 6 )
+				{
+				printf( ">>" );
+				fflush( stdout );
+				startDecreasing = true;
+				}*/
 
-	    // donnie 2007-07-10
-	    if( innerIte == forceBreakLoopCount )
-	    {
-		printf( "b" );
-		bUpdateWeight = false;
-		break;
-	    }
-	}// inner loop
+				if( !startDecreasing )
+				{
+					if( ( innerIte <= 10 && m_ite == 1 ) || 
+					( innerIte <= 5 ) )    // need to wait until "stable"
+					lastDensityCost = density;
+					else if( density < lastDensityCost * 0.99 )
+					{
+					printf( ">>" );
+					fflush( stdout );
+					startDecreasing = true;
+					}	
+				}
 
-	if( param.bShow )
-	{
-	    printf( "%d\n", innerIte );
-	    fflush( stdout );
-	}
-	else
-	    printf( "\n" );
-	totalIte += innerIte;
+				if( startDecreasing && over < target_density && m_ite != 1 )	// no early stop at ite 1
+					break;  // 2005-03-11 (donnie) Meet the constraint
 
-	UpdateDensityGrid( n, x, z );
-	maxDen = GetMaxDensity();
-	totalOverDen = GetTotalOverDensity();
-	totalOverDenLB = GetTotalOverDensityLB();
-	totalOverPotential = GetTotalOverPotential();
+				//Brian 2007-06-18
+				if (false == param.bCongObj)
+				{
+					if( m_useEvalF && obj_value >= m_precision * old_obj)    // Cannot further reduce "f"
+					break;
+				}
+				else
+				{
+					if ( (m_useEvalF && obj_value >= m_precision * old_obj && lastMaxDenNet < maxDenNet) || 
+						innerIte >400)
+					break; 
+				}
+				//@Brian 2007-06-18
 
-	//Brian 2007-04-30
-	if (param.bCongObj)
-	{
-	    UpdateDensityGridNet();
-	    maxDenNet = GetMaxDensityNet();
-	    totalOverDenNet = GetTotalOverDensityNet();
-	    totalOverPotentialNet = GetTotalOverPotentialNet();
-	}
-	//@Brian 2007-04-30
+			} // check in the inner loop
 
-	if(m_bMoveZ)
-	    Parallel( LayerAssignmentThread, m_pDB->m_modules.size() );
-	
-	Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );  // update to placeDB
-    
-	//Added by Jin 20081013
-	//Rerun the STA after the inner loop
-	// if( true == param.bTiming )
-	// {
-	//     m_pDB->m_pTimingAnalysis->RerunSTA();	
-	// }
-	//@Added by Jin 20081013
+			if( newDir == true )	
+			{
+				// gradient direction
+				newDir = false;
+				for( int i=0; i<n; i++ )
+				{
+					grad_f[i] = -grad_f[i];
+					walk_direction[i] = grad_f[i];
+				}
+			}
+			else
+			{
+				// conjugate gradient direction
+				if( FindBeta( n, grad_f, last_grad_f, m_beta ) == false ){
+					printf("FindBeta OVERFLOW!\n");
+					return false;   // overflow?
+				}
+				Parallel( UpdateGradThread, n );
+			}
 
-	if( obj_value > DBL_MAX * 0.5 ){
-	    printf("Objective value OVERFLOW!\n");;
-	    return false; // overflow
-	}
+			LineSearch( n, x, walk_direction, m_stepSize ); // Calculate a_k (step size)
+			Parallel( UpdateXThread, m_pDB->m_modules.size() );	    // Update X. (x_{k+1} = x_{k} + \alpha_k * d_k)
+			/*double max_z = 0;
+			for(unsigned int i = 0; i < z.size(); i++)
+			{
+				printf("%.2f ", z[i]);
+				if(fabs(z[i]) > max_z) max_z = fabs(z[i]);
+			}
+			for(unsigned int i = 0; i < z.size(); i++)
+			{
+				z[i] /= max_z;
+				printf("%.2f ", z[i]);
+			}*/
+			Parallel( BoundXThread, m_pDB->m_modules.size() );
+			if(m_bMoveZ)
+				Parallel( BoundZThread, m_pDB->m_modules.size() );
 
-	if( param.bShow )
-	{
-	    printf( " %d-%2d HPWL= %.0f\tDen= %.2f %.4f %.4f %.4f LCPU= %.1fm Dcost= %4.1f%% ", 
-		    currentLevel, m_ite, m_pDB->CalcHPWL(), 
-		    maxDen, totalOverDen, totalOverDenLB, totalOverPotential,
-		    double(seconds()-time_start)/60.0, 
-		    0.5 * density * _weightDensity /obj_value * 100.0 ); 
+			// New block positions must be ready
+			// 1. UpdateExpValueForEachCellThread    (wire force)
+			// 2. UpdateExpValueForEachPinThread     (wire force)
+			// 3. ComputeNewPotentialGridThread      (spreading force)
+			Parallel( UpdateNLPDataThread, m_pDB->m_modules.size(), m_pDB->m_pins.size(), m_pDB->m_modules.size() );
 
-	    /*char filelevel[256];
-	    sprintf(filelevel, "%s.gp-level%d-%d.plt", param.outFilePrefix.c_str(), currentLevel, m_ite);
-	    m_pDB->OutputGnuplotFigure3D(filelevel, false, false);*/
+			// New EXP values must be ready
+			double time_used = seconds();
+			Parallel( UpdateNetsSumExpThread, (int)m_pDB->m_nets.size() );
+			time_wire_force += seconds() - time_used;
 
-	    // if( param.bCong )
-	    // {
-		// // Inter-iteration update
-		// if( gArg.CheckExist( "congExpPotential" ) )
-		//     UpdateCongestion();
-		// else if( gArg.CheckExist( "congPotential" ) )
-		// {
-		//     UpdateCongestionBasePotential();    
-		//     SmoothBasePotential3D();
-		//     UpdateExpBinPotential( m_targetUtil, true );
-		// }
-	    // }
+			time_used = seconds();
+			UpdatePotentialGrid(z);
+			time_spreading_force += seconds() - time_used;
 
-	    // if( gArg.CheckExist( "gpfig" ) )
-	    // {
-		// char postfix[10];
-		// sprintf( postfix, "%d-%d", currentLevel, m_ite );  
-		// PlotGPFigures( postfix );
-	    // }
-	}
-	else
-	{
-	    printf( " %d-%2d HPWL= %.f\tLCPU= %.1fm ", 
-		    currentLevel, m_ite, m_pDB->CalcHPWL(), double(seconds()-time_start)/60.0 );
-	}
-	fflush( stdout );
+			//Brian 2007-04-30
+			if (true == param.bCongObj)
+			{
+				Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
+				ComputeNetBoxInfo();
+				ComputeNewPotentialGridNet();
+				UpdatePotentialGridNet();
+			}
+			//@Brian 2007-04-30
+		
+			//Added by Jin 20081013
+			//Rerun in the end of the inner loop
+			// if( true == param.bTiming )
+			// {
+			// Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
+			// m_pDB->m_pTimingAnalysis->RerunSTA();	
+			// }
+			//@Added by Jin 20081013
 
-
-	bool spreadEnough = totalOverPotential < 1.3;
-	bool increaseOverPotential = totalOverPotential > lastTotalOverPotential;
-	bool increaseMaxDen = maxDen > lastMaxDen;
-	bool enoughIteration = ite > 3;
-	bool notEfficientOptimize = 0.5 * density * _weightDensity / obj_value * 100.0 > 95;
-
-	//Brian 2007-04-30
-	//bool spreadEnoughNet = totalOverPotentialNet < 1.3;	    // commented by donnie
-	//bool increaseOverPotentialNet = totalOverPotentialNet > lastTotalOverPotentialNet; // commented by donnie
-	//bool increaseMaxDenNet = maxDenNet > lastMaxDenNet;	// commented by donnie
-	//@Brian 2007-04-30
-
-	//PrintPotentialGrid();
-	if( enoughIteration && notEfficientOptimize )
-	{
-	    printf( "Failed to further optimize\n" );
-	    break;
-	}
-
-	if( enoughIteration && increaseOverPotential && increaseMaxDen && spreadEnough )
-	{
-	    printf( "Cannot further reduce over potential!\n" ); // skip LAL
-	    break;
-	}
-
-	if( param.bCong && enoughIteration && increaseOverPotential )
-	{
-	    printf( "Cannot further reduce over potential!\n" );
-	    break;
-	}
-
-
-#if 1
-	// 2006-03-06 (CAUTION! Do not use look-ahead legalization when dummy block exists.
-	// TODO: check if there is dummy block (m_modules[].m_isDummy)
-	//int startLALIte = 2;
-	//if( param.bPrototyping )
-	//    startLALIte = 1;
-
-	int startLALIte = 1;
-
-	if( m_bRunLAL 
-		&& startDecreasing  // 2006-10-23
-		&& m_ite >= startLALIte 
-		&& m_lookAheadLegalization 
-		&& over < target_density + 0.20
-		//&& over < target_density + 0.25 
-	  )
-	{
-	    if(m_bMoveZ)
-	    	Parallel( LayerAssignmentThread, m_pDB->m_modules.size() );
-	    
-	    Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
-	    double hpwl = m_pDB->CalcHPWL();
-	    if( hpwl > bestLegalWL && !param.bCong )
-	    {
-		printf( "Stop. Good enough.\n" );
-		break;	// stop placement
-	    }
-
-	    lookAheadLegalCount++;
-	    double oldWL = hpwl;
-	    
-//kaie
-	    m_pDB->m_modules3d.resize(m_pDB->m_totalLayer);
-	    for(int layer = 0; layer < m_pDB->m_totalLayer; layer++)
-		m_pDB->m_modules3d[layer].clear();
-
-	    for(unsigned int i = 0; i < m_pDB->m_modules.size(); i++)
-	    {
-		int layer = (int)m_pDB->m_modules[i].m_z;
-		assert(layer >= 0 && layer <= m_pDB->m_totalLayer);
-		m_pDB->m_modules3d[layer].push_back(i);
-	    }
-
-	    vector<CSiteRow> m_sites_bak = m_pDB->m_sites;
-	    for(unsigned int i = 0; i < m_pDB->m_modules.size(); i++)
-		m_pDB->m_modules[i].m_isFixed = true;
-
-	    bool legalStart = seconds();
-	    bool bLegal = true;
-
-	    for(int layer = 0; layer < m_pDB->m_totalLayer; layer++)
-	    {
-		printf("layer = %d\n", layer);
-		m_pDB->m_layer = layer;
-		m_pDB->m_sites = m_pDB->m_sites3d[layer];
-
-		for(unsigned int i = 0; i < m_pDB->m_modules3d[layer].size(); i++)
-		    m_pDB->m_modules[m_pDB->m_modules3d[layer][i]].m_isFixed = false;
-		m_pDB->RemoveFixedBlockSite();
-
-		double cellarea = 0;
-		for(unsigned int i = 0; i < m_pDB->m_modules3d[layer].size(); i++)
-		    cellarea += m_pDB->m_modules[m_pDB->m_modules3d[layer][i]].m_area;
-		double rowarea = 0;
-		for(unsigned int i = 0; i < m_pDB->m_sites.size(); i++)
-		    for(unsigned int j = 0; j < m_pDB->m_sites[i].m_interval.size(); j+= 2){
-			rowarea += m_pDB->m_rowHeight * (m_pDB->m_sites[i].m_interval[j+1]-m_pDB->m_sites[i].m_interval[j]);
-		}
-		//printf("%.0f , %.0f\n", cellarea, rowarea);
-		if(rowarea < cellarea)
-		{
-		    printf("Row area is not enough!!\n");
-		    ///exit(0);
-		}
-
-		m_pDB->m_sites_for_legal = m_pDB->m_sites;
-
-		CTetrisLegal legal(*m_pDB);
-		legal.m_layer = layer;
-
-		double scale = 0.85; // hpwl driven
-		if( givenTargetUtil < 1.0 && givenTargetUtil > 0 )
-		    scale = 0.9; // with density constraint
-
-		bLegal = bLegal && legal.Solve( givenTargetUtil, false, false, scale );
-
-	    /*CTetrisLegal legal( *m_pDB );
-
-	    double scale = 0.85;    // hpwl driven
-	    if( givenTargetUtil < 1.0 && givenTargetUtil > 0 )
-		scale = 0.9;	    // with density constraint
-
-	    double legalStart = seconds();
-	    m_pDB->RemoveFixedBlockSite(); //indark 
-	    // cell orientation is not optimized in the legalizer
-
-	    bool bLegal = legal.Solve( givenTargetUtil, false, false, scale );*/
-
-		for(unsigned int i = 0; i < m_pDB->m_modules3d[layer].size(); i++)
-		    m_pDB->m_modules[m_pDB->m_modules3d[layer][i]].m_isFixed = true;
-	    }
-
-	    m_pDB->m_sites = m_sites_bak;
-	    for(int layer = 0; layer < m_pDB->m_totalLayer; layer++)
-		for(unsigned int i = 0; i < m_pDB->m_modules3d[layer].size(); i++)
-		    m_pDB->m_modules[m_pDB->m_modules3d[layer][i]].m_isFixed = false;
-
-//@kaie
-
-	    double legalTime = seconds() - legalStart;
-	    totalLegalTime += legalTime;
-
-	    if( param.bShow )
-		printf( "[LAL] %d trial.  CPU Time = %.2f\n", lookAheadLegalCount, legalTime );
-	    if( bLegal )
-	    {
-		m_pDB->Align();	// 2006-04-02
-
-		double WL;
-
-		// if( gArg.CheckExist( "congExpPotential" ) )
-		//     WL = UpdateCongestion();
-		// else if( gArg.CheckExist( "congPotential" ) )
-		//     WL = UpdateCongestionBasePotential();    
-		// else
-		    WL = m_pDB->GetHPWLdensity( givenTargetUtil );
+			// donnie 2007-07-10
+			if( innerIte == forceBreakLoopCount )
+			{
+				printf( "b" );
+				bUpdateWeight = false;
+				break;
+			}
+		}// inner loop
 
 		if( param.bShow )
 		{
-		    if( param.bCong )
-			printf( "[LAL] Overflow= %.0f\n", WL );
-		    else
-		    {
-			m_pDB->ShowDensityInfo();
-			printf( "[LAL] HPWL= %.0f   dHPWL= %.0f (%.2f%%)\n", m_pDB->GetHPWLp2p(), WL, (WL-oldWL)/oldWL*100 );
-		    }
-		    /*char postfix[10];
-		    sprintf( postfix, "%d-%d.lal", currentLevel, m_ite );
-		    PlotGPFigures( postfix );*/
+			printf( "%d\n", innerIte );
+			fflush( stdout );
 		}
-		if( WL < bestLegalWL )
+		else
+			printf( "\n" );
+		totalIte += innerIte;
+
+		UpdateDensityGrid( n, x, z );
+		maxDen = GetMaxDensity();
+		totalOverDen = GetTotalOverDensity();
+		totalOverDenLB = GetTotalOverDensityLB();
+		totalOverPotential = GetTotalOverPotential();
+
+		//Brian 2007-04-30
+		if (param.bCongObj)
 		{
-		    // record the best legal solution
-		    LALnoGoodCount = 0;
-		    if( param.bShow )
-			printf( "[LAL] SAVE BEST! \n" );
+			UpdateDensityGridNet();
+			maxDenNet = GetMaxDensityNet();
+			totalOverDenNet = GetTotalOverDensityNet();
+			totalOverPotentialNet = GetTotalOverPotentialNet();
+		}
+		//@Brian 2007-04-30
 
-		    bestLegalWL = WL;
-		    hasBestLegalSol = true;
-		    for( int i=0; i<(int)m_pDB->m_modules.size(); i++ )
-		    {
-			xBest[2*i] = m_pDB->m_modules[i].m_cx;
-			xBest[2*i+1] = m_pDB->m_modules[i].m_cy;
-		    }	    
+		if(m_bMoveZ)
+			LayerAssignment();
+			//Parallel( LayerAssignmentThread, m_pDB->m_modules.size() );
+		
+		Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );  // update to placeDB
+		
+		//Added by Jin 20081013
+		//Rerun the STA after the inner loop
+		// if( true == param.bTiming )
+		// {
+		//     m_pDB->m_pTimingAnalysis->RerunSTA();	
+		// }
+		//@Added by Jin 20081013
 
-		    // Save the GP file (donnie) 2006-09-06
-		    Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
+		if( obj_value > DBL_MAX * 0.5 ){
+			printf("Objective value OVERFLOW!\n");;
+			return false; // overflow
+		}
 
-		    //m_pDB->m_modules_bak = m_pDB->m_modules; 
-		    bestGPresult = m_pDB->m_modules;
+		if( param.bShow )
+		{
+			printf( " %d-%2d HPWL= %.0f\tDen= %.2f %.4f %.4f %.4f LCPU= %.1fm Dcost= %4.1f%% ", 
+				currentLevel, m_ite, m_pDB->CalcHPWL(), 
+				maxDen, totalOverDen, totalOverDenLB, totalOverPotential,
+				double(seconds()-time_start)/60.0, 
+				0.5 * density * _weightDensity /obj_value * 100.0 ); 
+
+			/*char filelevel[256];
+			sprintf(filelevel, "%s.gp-level%d-%d.plt", param.outFilePrefix.c_str(), currentLevel, m_ite);
+			m_pDB->OutputGnuplotFigure3D(filelevel, false, false);*/
+
+			// if( param.bCong )
+			// {
+			// // Inter-iteration update
+			// if( gArg.CheckExist( "congExpPotential" ) )
+			//     UpdateCongestion();
+			// else if( gArg.CheckExist( "congPotential" ) )
+			// {
+			//     UpdateCongestionBasePotential();    
+			//     SmoothBasePotential3D();
+			//     UpdateExpBinPotential( m_targetUtil, true );
+			// }
+			// }
+
+			// if( gArg.CheckExist( "gpfig" ) )
+			// {
+			// char postfix[10];
+			// sprintf( postfix, "%d-%d", currentLevel, m_ite );  
+			// PlotGPFigures( postfix );
+			// }
 		}
 		else
 		{
-		    // For WL minimization.
-		    if( !param.bCong && (WL-oldWL)/oldWL < 0.075 )
-		    {
-			if( param.bShow )
-			    printf( "[LAL] Stop. Good enough\n" ); 
-			break;
-		    }
-		    LALnoGoodCount++;
-		    if( LALnoGoodCount >= maxNoGoodCount )
-		    {
-			if( param.bShow )
-			    printf( "[LAL] Stop. Too many times\n" );
-			break;
-		    }
+			printf( " %d-%2d HPWL= %.f\tLCPU= %.1fm ", 
+				currentLevel, m_ite, m_pDB->CalcHPWL(), double(seconds()-time_start)/60.0 );
 		}
-	    }
-	}
-#endif	
-
-	if( param.bPrototyping 
-		&& startDecreasing 
-		&& over < target_density 
-		&& ite >= 0 )
-	{
-	    printf( "Meet constraint! (prototyping)\n" );
-	    break;
-	}
-
-	if( /*ite >= 2 &&*/ startDecreasing && over < target_density )
-	{
-	    printf( "Meet constraint!\n" );
-	    break;
-	}
+		fflush( stdout );
 
 
-	if( bUpdateWeight )
-	    UpdateObjWeights();
+		bool spreadEnough = totalOverPotential < 1.3;
+		bool increaseOverPotential = totalOverPotential > lastTotalOverPotential;
+		bool increaseMaxDen = maxDen > lastMaxDen;
+		bool enoughIteration = ite > 3;
+		bool notEfficientOptimize = 0.5 * density * _weightDensity / obj_value * 100.0 > 95;
 
-	//@Brian 2007-04-30
-	lastTotalOverPotential = totalOverPotential;
-	lastMaxDen = maxDen;
+		//Brian 2007-04-30
+		//bool spreadEnoughNet = totalOverPotentialNet < 1.3;	    // commented by donnie
+		//bool increaseOverPotentialNet = totalOverPotentialNet > lastTotalOverPotentialNet; // commented by donnie
+		//bool increaseMaxDenNet = maxDenNet > lastMaxDenNet;	// commented by donnie
+		//@Brian 2007-04-30
 
-	lastTotalOverPotentialNet = totalOverPotentialNet;
-	lastMaxDenNet = maxDenNet;
-	//@Brian 2007-04-30
+		//PrintPotentialGrid();
+		if( enoughIteration && notEfficientOptimize )
+		{
+			printf( "Failed to further optimize\n" );
+			break;
+		}
+
+		if( enoughIteration && increaseOverPotential && increaseMaxDen && spreadEnough )
+		{
+			printf( "Cannot further reduce over potential!\n" ); // skip LAL
+			break;
+		}
+
+		if( param.bCong && enoughIteration && increaseOverPotential )
+		{
+			printf( "Cannot further reduce over potential!\n" );
+			break;
+		}
+
+
+	#if 1
+		// 2006-03-06 (CAUTION! Do not use look-ahead legalization when dummy block exists.
+		// TODO: check if there is dummy block (m_modules[].m_isDummy)
+		//int startLALIte = 2;
+		//if( param.bPrototyping )
+		//    startLALIte = 1;
+
+		int startLALIte = 1;
+
+		if( m_bRunLAL 
+			&& startDecreasing  // 2006-10-23
+			&& m_ite >= startLALIte 
+			&& m_lookAheadLegalization 
+			&& over < target_density + 0.20
+			//&& over < target_density + 0.25 
+		)
+		{
+			if(m_bMoveZ)
+				LayerAssignment();
+				//Parallel( LayerAssignmentThread, m_pDB->m_modules.size() );
+			
+			Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
+			double hpwl = m_pDB->CalcHPWL();
+			if( hpwl > bestLegalWL && !param.bCong )
+			{
+			printf( "Stop. Good enough.\n" );
+			break;	// stop placement
+			}
+
+			lookAheadLegalCount++;
+			double oldWL = hpwl;
+			
+	//kaie
+			m_pDB->m_modules3d.resize(m_pDB->m_totalLayer);
+			for(int layer = 0; layer < m_pDB->m_totalLayer; layer++)
+				m_pDB->m_modules3d[layer].clear();
+
+			for(unsigned int i = 0; i < m_pDB->m_modules.size(); i++)
+			{
+				int layer = (int)m_pDB->m_modules[i].m_z;
+				assert(layer >= 0 && layer <= m_pDB->m_totalLayer);
+				m_pDB->m_modules3d[layer].push_back(i);
+			}
+
+			vector<CSiteRow> m_sites_bak = m_pDB->m_sites;
+			for(unsigned int i = 0; i < m_pDB->m_modules.size(); i++)
+			m_pDB->m_modules[i].m_isFixed = true;
+
+			bool legalStart = seconds();
+			bool bLegal = true;
+
+			for(int layer = 0; layer < m_pDB->m_totalLayer; layer++)
+			{
+			printf("layer = %d\n", layer);
+			m_pDB->m_layer = layer;
+			m_pDB->m_sites = m_pDB->m_sites3d[layer];
+
+			for(unsigned int i = 0; i < m_pDB->m_modules3d[layer].size(); i++)
+				m_pDB->m_modules[m_pDB->m_modules3d[layer][i]].m_isFixed = false;
+			m_pDB->RemoveFixedBlockSite();
+
+			double cellarea = 0;
+			for(unsigned int i = 0; i < m_pDB->m_modules3d[layer].size(); i++)
+				cellarea += m_pDB->m_modules[m_pDB->m_modules3d[layer][i]].m_area;
+			double rowarea = 0;
+			for(unsigned int i = 0; i < m_pDB->m_sites.size(); i++)
+				for(unsigned int j = 0; j < m_pDB->m_sites[i].m_interval.size(); j+= 2){
+				rowarea += m_pDB->m_rowHeight * (m_pDB->m_sites[i].m_interval[j+1]-m_pDB->m_sites[i].m_interval[j]);
+			}
+			//printf("%.0f , %.0f\n", cellarea, rowarea);
+			if(rowarea < cellarea)
+			{
+				printf("Row area is not enough!!\n");
+				///exit(0);
+			}
+
+			m_pDB->m_sites_for_legal = m_pDB->m_sites;
+
+			CTetrisLegal legal(*m_pDB);
+			legal.m_layer = layer;
+
+			double scale = 0.85; // hpwl driven
+			if( givenTargetUtil < 1.0 && givenTargetUtil > 0 )
+				scale = 0.9; // with density constraint
+
+			bLegal = bLegal && legal.Solve( givenTargetUtil, false, false, scale );
+
+			/*CTetrisLegal legal( *m_pDB );
+
+			double scale = 0.85;    // hpwl driven
+			if( givenTargetUtil < 1.0 && givenTargetUtil > 0 )
+			scale = 0.9;	    // with density constraint
+
+			double legalStart = seconds();
+			m_pDB->RemoveFixedBlockSite(); //indark 
+			// cell orientation is not optimized in the legalizer
+
+			bool bLegal = legal.Solve( givenTargetUtil, false, false, scale );*/
+
+			for(unsigned int i = 0; i < m_pDB->m_modules3d[layer].size(); i++)
+				m_pDB->m_modules[m_pDB->m_modules3d[layer][i]].m_isFixed = true;
+			}
+
+			m_pDB->m_sites = m_sites_bak;
+			for(int layer = 0; layer < m_pDB->m_totalLayer; layer++)
+			for(unsigned int i = 0; i < m_pDB->m_modules3d[layer].size(); i++)
+				m_pDB->m_modules[m_pDB->m_modules3d[layer][i]].m_isFixed = false;
+
+	//@kaie
+
+			double legalTime = seconds() - legalStart;
+			totalLegalTime += legalTime;
+
+			if( param.bShow )
+			printf( "[LAL] %d trial.  CPU Time = %.2f\n", lookAheadLegalCount, legalTime );
+			if( bLegal )
+			{
+			m_pDB->Align();	// 2006-04-02
+
+			double WL;
+
+			// if( gArg.CheckExist( "congExpPotential" ) )
+			//     WL = UpdateCongestion();
+			// else if( gArg.CheckExist( "congPotential" ) )
+			//     WL = UpdateCongestionBasePotential();    
+			// else
+				WL = m_pDB->GetHPWLdensity( givenTargetUtil );
+
+			if( param.bShow )
+			{
+				if( param.bCong )
+				printf( "[LAL] Overflow= %.0f\n", WL );
+				else
+				{
+				m_pDB->ShowDensityInfo();
+				printf( "[LAL] HPWL= %.0f   dHPWL= %.0f (%.2f%%)\n", m_pDB->GetHPWLp2p(), WL, (WL-oldWL)/oldWL*100 );
+				}
+				/*char postfix[10];
+				sprintf( postfix, "%d-%d.lal", currentLevel, m_ite );
+				PlotGPFigures( postfix );*/
+			}
+			if( WL < bestLegalWL )
+			{
+				// record the best legal solution
+				LALnoGoodCount = 0;
+				if( param.bShow )
+				printf( "[LAL] SAVE BEST! \n" );
+
+				bestLegalWL = WL;
+				hasBestLegalSol = true;
+				for( int i=0; i<(int)m_pDB->m_modules.size(); i++ )
+				{
+				xBest[2*i] = m_pDB->m_modules[i].m_cx;
+				xBest[2*i+1] = m_pDB->m_modules[i].m_cy;
+				}	    
+
+				// Save the GP file (donnie) 2006-09-06
+				Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
+
+				//m_pDB->m_modules_bak = m_pDB->m_modules; 
+				bestGPresult = m_pDB->m_modules;
+			}
+			else
+			{
+				// For WL minimization.
+				if( !param.bCong && (WL-oldWL)/oldWL < 0.075 )
+				{
+				if( param.bShow )
+					printf( "[LAL] Stop. Good enough\n" ); 
+				break;
+				}
+				LALnoGoodCount++;
+				if( LALnoGoodCount >= maxNoGoodCount )
+				{
+				if( param.bShow )
+					printf( "[LAL] Stop. Too many times\n" );
+				break;
+				}
+			}
+			}
+		}
+	#endif	
+
+		if( param.bPrototyping 
+			&& startDecreasing 
+			&& over < target_density 
+			&& ite >= 0 )
+		{
+			printf( "Meet constraint! (prototyping)\n" );
+			break;
+		}
+
+		if( /*ite >= 2 &&*/ startDecreasing && over < target_density )
+		{
+			printf( "Meet constraint!\n" );
+			break;
+		}
+
+
+		if( bUpdateWeight )
+			UpdateObjWeights();
+
+		//@Brian 2007-04-30
+		lastTotalOverPotential = totalOverPotential;
+		lastMaxDen = maxDen;
+
+		lastTotalOverPotentialNet = totalOverPotentialNet;
+		lastMaxDenNet = maxDenNet;
+		//@Brian 2007-04-30
 
     }// outer loop
 
@@ -1519,7 +1540,8 @@ bool MyNLP::GoSolve( double wWire,
     // m_pDB->OutputGnuplotFigure3D( filegp, false, false);
     if(m_bMoveZ)
     {
-    	Parallel( LayerAssignmentThread, m_pDB->m_modules.size() );
+    	LayerAssignment();
+		//Parallel( LayerAssignmentThread, m_pDB->m_modules.size() );
     	//LayerAssignment();
     }
     Parallel( UpdateBlockPositionThread, m_pDB->m_modules.size() );
@@ -1733,61 +1755,61 @@ bool MyNLP::FindBeta( const int& n, const vector<double>& grad_f, const vector<d
 }
 
 // (kaie) 2009-09-10 3d placement
-void MyNLP::LayerAssignment()
-{
-	vector<double> totalArea;
-    totalArea.resize(m_pDB->m_totalLayer, 0.0);
-    double layerThickness = (m_pDB->m_front - m_pDB->m_back) / (double)m_pDB->m_totalLayer;
-    vector<int> middleblocks;
-    double threshould_factor = 0.1;
-    double threshould_b = threshould_factor * layerThickness;
-    double threshould_t = (1.0-threshould_factor) * layerThickness;
+// void MyNLP::LayerAssignment()
+// {
+// 	vector<double> totalArea;
+//     totalArea.resize(m_pDB->m_totalLayer, 0.0);
+//     double layerThickness = (m_pDB->m_front - m_pDB->m_back) / (double)m_pDB->m_totalLayer;
+//     vector<int> middleblocks;
+//     double threshould_factor = 0.1;
+//     double threshould_b = threshould_factor * layerThickness;
+//     double threshould_t = (1.0-threshould_factor) * layerThickness;
 
-    double coreArea = (m_pDB->m_coreRgn.right - m_pDB->m_coreRgn.left) * (m_pDB->m_coreRgn.top - m_pDB->m_coreRgn.bottom);
+//     double coreArea = (m_pDB->m_coreRgn.right - m_pDB->m_coreRgn.left) * (m_pDB->m_coreRgn.top - m_pDB->m_coreRgn.bottom);
 
-    for(unsigned int i = 0; i < m_pDB->m_modules.size(); i++)
-    {
-	if(m_pDB->m_modules[i].m_isFixed)
-		totalArea[(int)(floor((z[i] - 0.5*layerThickness)/layerThickness))] += m_pDB->m_modules[i].m_area;
-	else
-	{
-		z[i] -= 0.5 * layerThickness;
-		double layer = floor(z[i]/layerThickness);
-		double offset = fmod(z[i], layerThickness);
-		if(offset < threshould_b)
-		{
-			z[i] = (layer+0.5) * layerThickness;
-			totalArea[layer] += m_pDB->m_modules[i].m_area;
-		}
-		else if(offset > threshould_t)
-		{
-			z[i] = (layer+1.5) * layerThickness;
-			totalArea[layer+1] += m_pDB->m_modules[i].m_area;
-		}
-		else
-			middleblocks.push_back(i);
-	}
-    }
+//     for(unsigned int i = 0; i < m_pDB->m_modules.size(); i++)
+//     {
+// 		if(m_pDB->m_modules[i].m_isFixed)
+// 			totalArea[(int)(floor((z[i] - 0.5*layerThickness)/layerThickness))] += m_pDB->m_modules[i].m_area;
+// 		else
+// 		{
+// 			z[i] -= 0.5 * layerThickness;
+// 			double layer = floor(z[i]/layerThickness);
+// 			double offset = fmod(z[i], layerThickness);
+// 			if(offset < threshould_b)
+// 			{
+// 				z[i] = (layer+0.5) * layerThickness;
+// 				totalArea[layer] += m_pDB->m_modules[i].m_area;
+// 			}
+// 			else if(offset > threshould_t)
+// 			{
+// 				z[i] = (layer+1.5) * layerThickness;
+// 				totalArea[layer+1] += m_pDB->m_modules[i].m_area;
+// 			}
+// 			else
+// 				middleblocks.push_back(i);
+// 		}
+//     }
 
-    for(unsigned int i = 0; i < totalArea.size(); i++) 
-	printf("%d: %lf\n", i, totalArea[i]/coreArea);
+//     for(unsigned int i = 0; i < totalArea.size(); i++) 
+// 		printf("%d: %lf\n", i, totalArea[i]/coreArea);
 
-    printf("%lf\n", m_targetUtil);
-    for(unsigned int i = 0; i < middleblocks.size(); i++)
-    {
-	int blockId = middleblocks[i];
-	//z[blockId] -= 0.5 * layerThickness;
-	double layer = floor(z[blockId]/layerThickness);
-	double offset = fmod(z[blockId], layerThickness);
-	//printf("%d, %lf, %lf\n", blockId, z[blockId], layer);
-	if(offset > 0.5 && (totalArea[(int)layer+1] + m_pDB->m_modules[blockId].m_area < coreArea * m_targetUtil * 0.9))
-		layer += 1;
-	else if((totalArea[(int)layer+1] < totalArea[(int)layer]) && (totalArea[(int)layer] + m_pDB->m_modules[blockId].m_area > coreArea * m_targetUtil * 0.9))
-		layer += 1;
-	totalArea[(int)layer] += m_pDB->m_modules[blockId].m_area;
-	z[blockId] = (layer + 0.5 * layerThickness);
-    }
-}
+//     printf("%lf\n", m_targetUtil);
+//     for(unsigned int i = 0; i < middleblocks.size(); i++)
+//     {
+// 		int blockId = middleblocks[i];
+// 		//z[blockId] -= 0.5 * layerThickness;
+// 		double layer = floor(z[blockId]/layerThickness);
+// 		double offset = fmod(z[blockId], layerThickness);
+// 		//printf("%d, %lf, %lf\n", blockId, z[blockId], layer);
+// 		if(offset > 0.5 && (totalArea[(int)layer+1] + m_pDB->m_modules[blockId].m_area < coreArea * m_targetUtil * 0.9))
+// 			layer += 1;
+// 		else if((totalArea[(int)layer+1] < totalArea[(int)layer]) && (totalArea[(int)layer] + m_pDB->m_modules[blockId].m_area > coreArea * m_targetUtil * 0.9))
+// 			layer += 1;
+// 		totalArea[(int)layer] += m_pDB->m_modules[blockId].m_area;
+// 		z[blockId] = (layer + 0.5 * layerThickness);
+//     }
+// }
 
 void MyNLP::LayerAssignment( const int& n, vector<double>& z, MyNLP* pNLP, int index1, int index2 )
 {
@@ -1801,45 +1823,23 @@ void MyNLP::LayerAssignment( const int& n, vector<double>& z, MyNLP* pNLP, int i
 	}
     if( index2 > n ) index2 = n;
 
+	//cout << "---------------------------------------- index: " << index1 << " ~ " << index2 << "\n";
 	bool reverse = false;
-	double cutline = 0.5;
-	if(param.nlayer == 2 && pNLP->m_pDB->m_rowNums.size()==2 && pNLP->m_pDB->m_rowNums.size()==2 && pNLP->m_pDB->m_rowNums.size()==2){ // cad contest 2022
+	double cutline = pNLP->m_pDB->m_dCutline;
+	if(param.nlayer == 2 && pNLP->m_pDB->m_rowNums.size()==2){ // cad contest 2022
 		// check the more side of two die
 		int lower=0, higher=0;
-		double width_diff_sum = 0;
 		for(int i= index1; i < index2; i++){
-			if(z[i]-0.5 <= 0.5) lower++;
+			z[i] -= 0.5; // z_after = [0:1]
+			if(z[i] <= 0.5) lower++;
 			else higher++;
-			width_diff_sum += (double)pNLP->m_pDB->m_modules[i].m_widths[0] /  pNLP->m_pDB->m_modules[i].m_widths[1];
 		}
-		double width_diff_avg = width_diff_sum / (index2-index1) * 0.6;
-		int total_space = pNLP->m_pDB->m_rowNums[0]/width_diff_avg/width_diff_avg*pNLP->m_pDB->m_maxUtils[0] + pNLP->m_pDB->m_rowNums[1]*pNLP->m_pDB->m_maxUtils[1];
-		if(lower > higher){
-			reverse = false;
-			cutline = (double)(pNLP->m_pDB->m_rowNums[0]/width_diff_avg/width_diff_avg*pNLP->m_pDB->m_maxUtils[0]) / total_space;
-		}
-		else{
-			reverse = true;
-			cutline = (double)(pNLP->m_pDB->m_rowNums[1]*pNLP->m_pDB->m_maxUtils[1]) / total_space;
-		}
+		if(lower < higher) cutline = 1-cutline;
 	}
 
-	for( int i= index1; i < index2; i++)
-    {
-		if(param.nlayer == 2 && pNLP->m_pDB->m_rowNums.size()==2 && pNLP->m_pDB->m_rowNums.size()==2 && pNLP->m_pDB->m_rowNums.size()==2){ // cad contest 2022
-			double z_after = z[i] - 0.5; // z_after = [0:1]
-			if(!reverse){ // assigned to top-die if closer to 0
-				if(z_after <= cutline) 
-					z[i] = 0.5;
-				else 
-					z[i] = 1.5;
-			}
-			else{ // assigned to top-die if closer to 1
-				if(z_after >= cutline) 
-					z[i] = 0.5;
-				else 
-					z[i] = 1.5;
-			}
+	for( int i= index1; i < index2; i++){
+		if(param.nlayer == 2 && pNLP->m_pDB->m_rowNums.size()==2){ // cad contest 2022
+			z[i] = (z[i] <= cutline) ? 0.5 : 1.5;
 		} else{ // origin
 			double layerThickness = (pNLP->m_pDB->m_front - pNLP->m_pDB->m_back) / (double)(pNLP->m_pDB->m_totalLayer);
 			double z_after = z[i] - 0.5 * layerThickness;
@@ -1851,6 +1851,84 @@ void MyNLP::LayerAssignment( const int& n, vector<double>& z, MyNLP* pNLP, int i
 			z[i] = z_after;
 		}
     }
+}
+void MyNLP::LayerAssignment()
+{
+	if(param.bShow){
+		cout << "---------------------------- Some LayerAssignment Result---------------------------------\n";
+		for(int i=0;i<z.size();++i){
+			if(i%400 == 0)
+				cout << "cell["<<i<<"].z = " << z[i] << "\n";
+		}
+		cout << "-----------------------------------------------------------------------------------------\n";
+	}
+	bool reverse = false;
+	double cutline = m_pDB->m_dCutline;
+	// check the more side of two die
+	int lower=0, higher=0;
+	for(int i = 0; i < m_pDB->m_modules.size(); ++i){
+		z[i] -= 0.5; // z_after = [0:1]
+		if(z[i] <= 0.5) lower++;
+		else higher++;
+	}
+	if(lower < higher) cutline = 1-cutline;
+
+	vector<pair<int,double> > z_ori0; // z_ori[moduleId] = z_ori  // die0
+	vector<pair<int,double> > z_ori1; // z_ori[moduleId] = z_ori  // die1
+	vector<double> total_area(2, 0.0);
+	for(int i = 0; i < m_pDB->m_modules.size(); ++i){
+		if(!m_pDB->m_modules[i].m_isVia){
+			//z[i] = (z[i] <= cutline) ? 0.5 : 1.5;
+			if(z[i] <= cutline){
+				z_ori0.emplace_back(pair<int,double>(i,z[i]));
+				total_area[0] += (m_pDB->m_modules[i].m_widths[0]*m_pDB->m_modules[i].m_heights[0]);
+				z[i] = 0.5;
+			} else{
+				z_ori1.emplace_back(pair<int,double>(i,z[i]));
+				total_area[1] += (m_pDB->m_modules[i].m_widths[1]*m_pDB->m_modules[i].m_heights[1]);
+				z[i] = 1.5;
+			}
+		} else{
+			z[i] = 0.5;
+		}
+    }
+
+	// check the max_util
+	vector<double> valid_area(2, 0.0);
+	double coreArea = (m_pDB->m_coreRgn.right - m_pDB->m_coreRgn.left) * (m_pDB->m_coreRgn.top - m_pDB->m_coreRgn.bottom);
+	for(int k=0;k<param.nlayer;++k)
+		valid_area[k] = coreArea * (double)m_pDB->m_maxUtils[k];
+	cout << "\n\033[34m[LayerAssignment]\033[0m - Top-Die:" << total_area[0] << "/" << valid_area[0] << "(" << setprecision(2) << total_area[0]/valid_area[0] << "), Bot-Die:" << total_area[1] << "/" << valid_area[1] << "(" << setprecision(2) << total_area[1]/valid_area[1] << "), cell_num: " << z_ori0.size() << ":" << z_ori1.size() << "\n";
+	int moved_num = 0;
+	if(total_area[0] > valid_area[0]){ // too many cell in top-die, move cells to bot-die for matching die's max_utilization
+		// move the cells with higher z
+		sort(z_ori0.begin(), z_ori0.end(), [](pair<int,double> const& l, pair<int,double> const& r){ return l.second > r.second; });
+		for(int i=0;i<z_ori0.size();++i){
+			int moduleId = z_ori0[i].first;
+			total_area[0] -= (m_pDB->m_modules[moduleId].m_widths[0] * m_pDB->m_modules[moduleId].m_heights[0]);
+			z[moduleId] = 1.5;
+			++moved_num;
+			if(total_area[0] < valid_area[0])
+				break;
+		}
+	} else if(total_area[1] > valid_area[1]){ // too many cell in bot-die, move cells to top-die for matching die's max_utilization
+		// move the cells with lower z
+		sort(z_ori1.begin(), z_ori1.end(), [](pair<int,double> const& l, pair<int,double> const& r){ return l.second < r.second; });
+		for(int i=0;i<z_ori1.size();++i){
+			int moduleId = z_ori1[i].first;
+			total_area[1] -= (m_pDB->m_modules[moduleId].m_widths[1]*m_pDB->m_modules[moduleId].m_heights[1]);
+			z[moduleId] = 0.5;
+			--moved_num;
+			if(total_area[1] < valid_area[1])
+				break;
+		}
+	}
+	if(moved_num != 0){
+		if(moved_num > 0)
+			cout << "\033[34m[LayerAssignment]\033[0m - " << abs(moved_num) << " modules have been changed to bot-die by max_util constr.\n";
+		if(moved_num < 0)
+			cout << "\033[34m[LayerAssignment]\033[0m - " << abs(moved_num) << " modules have been changed to top-die by max_util constr.\n";
+	}
 }
 
 void* MyNLP::LayerAssignmentThread( void* arg )
@@ -1867,8 +1945,8 @@ void MyNLP::BoundZ( const int& n, vector<double>& z, const double& z_l, const do
     if( index2 > n ) index2 = n;
     for( int i=index1; i<index2; i++ )
     {
-	if( z[i] < z_l) z[i] = z_l;
-	else if( z[i] > z_u ) z[i] = z_u;
+		if( z[i] < z_l) z[i] = z_l;
+		else if( z[i] > z_u ) z[i] = z_u;
     }
 }
 
@@ -1899,7 +1977,7 @@ void* MyNLP::BoundXThread( void* arg )
     ThreadInfo* pMsg = reinterpret_cast<MyNLP::ThreadInfo*>(arg);
     BoundX( (int)pMsg->pX->size(), *pMsg->pX, pMsg->pNLP->x_l, pMsg->pNLP->x_u, pMsg->index1, pMsg->index2 );
     if( param.nThread > 1 )
-	pthread_exit( NULL );
+		pthread_exit( NULL );
     return NULL;
 }
 
@@ -1907,13 +1985,13 @@ void* MyNLP::BoundXThread( void* arg )
 void MyNLP::BoundX( const int& n, vector<double>& x, vector<double>& x_l, vector<double>& x_h, int index1, int index2 )
 {
     if( index2*2 > n )
-	index2 = n;
+		index2 = n;
     for( int i=index1; i<index2; i++ ) // index for modules
     {
-	if( x[2*i] < x_l[2*i] )             x[2*i] = x_l[2*i];
-	else if( x[2*i] > x_h[2*i] )	x[2*i] = x_h[2*i];
-	if( x[2*i+1] < x_l[2*i+1] )             x[2*i+1] = x_l[2*i+1];
-	else if( x[2*i+1] > x_h[2*i+1] )    x[2*i+1] = x_h[2*i+1];
+		if( x[2*i] < x_l[2*i] )             x[2*i] = x_l[2*i];
+		else if( x[2*i] > x_h[2*i] )	x[2*i] = x_h[2*i];
+		if( x[2*i+1] < x_l[2*i+1] )             x[2*i+1] = x_l[2*i+1];
+		else if( x[2*i+1] > x_h[2*i+1] )    x[2*i+1] = x_h[2*i+1];
     } 
 }
 
@@ -2176,23 +2254,23 @@ bool MyNLP::get_bounds_info(int n, vector<double>& x_l, vector<double>& x_u )
     if(m_bMoveZ)
     	assert(n == (int)m_pDB->m_modules.size() * 3);
     else
-	assert(n == (int)m_pDB->m_modules.size() * 2);
+		assert(n == (int)m_pDB->m_modules.size() * 2);
     for( unsigned int i=0; i<m_pDB->m_modules.size(); i++ )
     {
-	if( m_pDB->m_modules[i].m_isFixed )
-	{
-	    x_l[2*i] = m_pDB->m_modules[i].m_cx;
-	    x_u[2*i] = m_pDB->m_modules[i].m_cx;
-	    x_l[2*i+1] = m_pDB->m_modules[i].m_cy;
-	    x_u[2*i+1] = m_pDB->m_modules[i].m_cy;
-	}
-	else
-	{
-	    x_l[2*i]   = m_pDB->m_coreRgn.left   + m_pDB->m_modules[i].m_width  * 0.5;  
-	    x_u[2*i]   = m_pDB->m_coreRgn.right  - m_pDB->m_modules[i].m_width  * 0.5;  
-	    x_l[2*i+1] = m_pDB->m_coreRgn.bottom + m_pDB->m_modules[i].m_height * 0.5;
-	    x_u[2*i+1] = m_pDB->m_coreRgn.top    - m_pDB->m_modules[i].m_height * 0.5;
-	}
+		if( m_pDB->m_modules[i].m_isFixed )
+		{
+			x_l[2*i] = m_pDB->m_modules[i].m_cx;
+			x_u[2*i] = m_pDB->m_modules[i].m_cx;
+			x_l[2*i+1] = m_pDB->m_modules[i].m_cy;
+			x_u[2*i+1] = m_pDB->m_modules[i].m_cy;
+		}
+		else
+		{
+			x_l[2*i]   = m_pDB->m_coreRgn.left   + m_pDB->m_modules[i].m_width  * 0.5;  
+			x_u[2*i]   = m_pDB->m_coreRgn.right  - m_pDB->m_modules[i].m_width  * 0.5;  
+			x_l[2*i+1] = m_pDB->m_coreRgn.bottom + m_pDB->m_modules[i].m_height * 0.5;
+			x_u[2*i+1] = m_pDB->m_coreRgn.top    - m_pDB->m_modules[i].m_height * 0.5;
+		}
     }
     return true;
 }
@@ -2457,71 +2535,115 @@ void MyNLP::UpdateNetsSumExp( const vector<double>& x, const vector<double>& z, 
     double sum_exp_zi_over_alpha;
     double sum_exp_inv_zi_over_alpha;
     if( index2 > (int)pNLP->m_pDB->m_nets.size() )
-	index2 = (int)pNLP->m_pDB->m_nets.size();
+		index2 = (int)pNLP->m_pDB->m_nets.size();
     for( int n=index1; n<index2; n++ )
     {
-	if( pNLP->m_pDB->m_nets[n].size() == 0 )
-	    continue;
+		if( pNLP->m_pDB->m_nets[n].size() == 0 )
+			continue;
 
-	calc_sum_exp_using_pin(
-		pNLP->m_pDB->m_nets[n].begin(), pNLP->m_pDB->m_nets[n].end(), x, z, expX, expZ,
-		sum_exp_xi_over_alpha, sum_exp_inv_xi_over_alpha,
-		sum_exp_yi_over_alpha, sum_exp_inv_yi_over_alpha,
-		sum_exp_zi_over_alpha, sum_exp_inv_zi_over_alpha,
-		pNLP->m_pDB, &pNLP->m_usePin, pNLP->_expPins, pNLP->_expPinsZ);
+		calc_sum_exp_using_pin(
+			pNLP->m_pDB->m_nets[n].begin(), pNLP->m_pDB->m_nets[n].end(), x, z, expX, expZ,
+			sum_exp_xi_over_alpha, sum_exp_inv_xi_over_alpha,
+			sum_exp_yi_over_alpha, sum_exp_inv_yi_over_alpha,
+			sum_exp_zi_over_alpha, sum_exp_inv_zi_over_alpha,
+			pNLP->m_pDB, &pNLP->m_usePin, pNLP->_expPins, pNLP->_expPinsZ);
 
-	pNLP->m_nets_sum_exp_xi_over_alpha[n]     = sum_exp_xi_over_alpha;
-	pNLP->m_nets_sum_exp_yi_over_alpha[n]     = sum_exp_yi_over_alpha;
-	pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] = sum_exp_inv_xi_over_alpha;
-	pNLP->m_nets_sum_exp_inv_yi_over_alpha[n] = sum_exp_inv_yi_over_alpha;
-	
-	// kaie 2009-08-29
-	if(pNLP->m_bMoveZ)
-	{
-	    pNLP->m_nets_sum_exp_zi_over_alpha[n]	  = sum_exp_zi_over_alpha;
-	    pNLP->m_nets_sum_exp_inv_zi_over_alpha[n] = sum_exp_inv_zi_over_alpha;
-	}
-	// @kaie 2009-08-29
-
-	if( param.bUseWAE ) // (kaie) 2010-10-18 Weighted-Average-Exponential Wirelength Model
-        {
-            double weighted_sum_exp_xi_over_alpha;
-            double weighted_sum_exp_inv_xi_over_alpha;
-            double weighted_sum_exp_yi_over_alpha;
-            double weighted_sum_exp_inv_yi_over_alpha;
-	
-
-            calc_weighted_sum_exp_using_pin(
-                pNLP->m_pDB->m_nets[n].begin(), pNLP->m_pDB->m_nets[n].end(), x, expX,
-                weighted_sum_exp_xi_over_alpha, weighted_sum_exp_inv_xi_over_alpha,
-                weighted_sum_exp_yi_over_alpha, weighted_sum_exp_inv_yi_over_alpha,
-                pNLP->m_pDB, &pNLP->m_usePin, pNLP->_expPins);
-
-            pNLP->m_nets_weighted_sum_exp_xi_over_alpha[n]     = weighted_sum_exp_xi_over_alpha;
-            pNLP->m_nets_weighted_sum_exp_yi_over_alpha[n]     = weighted_sum_exp_yi_over_alpha;
-            pNLP->m_nets_weighted_sum_exp_inv_xi_over_alpha[n] = weighted_sum_exp_inv_xi_over_alpha;
-            pNLP->m_nets_weighted_sum_exp_inv_yi_over_alpha[n] = weighted_sum_exp_inv_yi_over_alpha;
-
-        }
+		pNLP->m_nets_sum_exp_xi_over_alpha[n]     = sum_exp_xi_over_alpha;
+		pNLP->m_nets_sum_exp_yi_over_alpha[n]     = sum_exp_yi_over_alpha;
+		pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] = sum_exp_inv_xi_over_alpha;
+		pNLP->m_nets_sum_exp_inv_yi_over_alpha[n] = sum_exp_inv_yi_over_alpha;
 		
-	if( m_bXArch )
-	{
-	    double sum_exp_x_plus_y_over_alpha;
-	    double sum_exp_x_minus_y_over_alpha;
-	    double sum_exp_inv_x_plus_y_over_alpha;
-	    double sum_exp_inv_x_minus_y_over_alpha;
+		// kaie 2009-08-29
+		if(pNLP->m_bMoveZ)
+		{
+			pNLP->m_nets_sum_exp_zi_over_alpha[n]	  = sum_exp_zi_over_alpha;
+			pNLP->m_nets_sum_exp_inv_zi_over_alpha[n] = sum_exp_inv_zi_over_alpha;
+		}
+		// @kaie 2009-08-29
 
-	    calc_sum_exp_using_pin_XHPWL(
-		    pNLP->m_pDB->m_nets[n].begin(), pNLP->m_pDB->m_nets[n].end(), 
-		    pNLP,
-		    sum_exp_x_plus_y_over_alpha,     sum_exp_x_minus_y_over_alpha,	// reuse variables
-		    sum_exp_inv_x_plus_y_over_alpha, sum_exp_inv_x_minus_y_over_alpha );
+		// frank 2022-07-31
+		if(param.b3d){
+			vector<double> layer_sum_exp_xi_over_alpha;
+			vector<double> layer_sum_exp_inv_xi_over_alpha;
+			vector<double> layer_sum_exp_yi_over_alpha;
+			vector<double> layer_sum_exp_inv_yi_over_alpha;
+			vector<double> layer_sum_exp_zi_over_alpha;
+			vector<double> layer_sum_exp_inv_zi_over_alpha;
+			calc_sum_exp_using_pin_for_layers(
+				pNLP->m_pDB->m_nets[n].begin(), pNLP->m_pDB->m_nets[n].end(), x, z, expX, expZ,
+				layer_sum_exp_xi_over_alpha, layer_sum_exp_inv_xi_over_alpha,
+				layer_sum_exp_yi_over_alpha, layer_sum_exp_inv_yi_over_alpha,
+				layer_sum_exp_zi_over_alpha, layer_sum_exp_inv_zi_over_alpha,
+				pNLP->m_pDB, &pNLP->m_usePin, pNLP->_expPins, pNLP->_expPinsZ);
 
-	    pNLP->m_nets_sum_exp_x_plus_y_over_alpha[n]      = sum_exp_x_plus_y_over_alpha;
-	    pNLP->m_nets_sum_exp_x_minus_y_over_alpha[n]     = sum_exp_x_minus_y_over_alpha;
-	    pNLP->m_nets_sum_exp_inv_x_plus_y_over_alpha[n]  = sum_exp_inv_x_plus_y_over_alpha;
-	    pNLP->m_nets_sum_exp_inv_x_minus_y_over_alpha[n] = sum_exp_inv_x_minus_y_over_alpha;
-	}
+			for(int layer=0;layer<param.nlayer;++layer){
+				pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][n]     = layer_sum_exp_xi_over_alpha[layer];
+				pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][n]     = layer_sum_exp_yi_over_alpha[layer];
+				pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][n] = layer_sum_exp_inv_xi_over_alpha[layer];
+				pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][n] = layer_sum_exp_inv_yi_over_alpha[layer];
+				// pNLP->m_layer_nets_sum_exp_zi_over_alpha[layer][n]	  	= layer_sum_exp_zi_over_alpha[layer];
+				// pNLP->m_layer_nets_sum_exp_inv_zi_over_alpha[layer][n] = layer_sum_exp_inv_zi_over_alpha[layer];
+			}
+		}
+
+		if( param.bUseWAE ) // (kaie) 2010-10-18 Weighted-Average-Exponential Wirelength Model
+		{
+			double weighted_sum_exp_xi_over_alpha;
+			double weighted_sum_exp_inv_xi_over_alpha;
+			double weighted_sum_exp_yi_over_alpha;
+			double weighted_sum_exp_inv_yi_over_alpha;
+	
+
+			calc_weighted_sum_exp_using_pin(
+				pNLP->m_pDB->m_nets[n].begin(), pNLP->m_pDB->m_nets[n].end(), x, expX,
+				weighted_sum_exp_xi_over_alpha, weighted_sum_exp_inv_xi_over_alpha,
+				weighted_sum_exp_yi_over_alpha, weighted_sum_exp_inv_yi_over_alpha,
+				pNLP->m_pDB, &pNLP->m_usePin, pNLP->_expPins);
+
+			pNLP->m_nets_weighted_sum_exp_xi_over_alpha[n]     = weighted_sum_exp_xi_over_alpha;
+			pNLP->m_nets_weighted_sum_exp_yi_over_alpha[n]     = weighted_sum_exp_yi_over_alpha;
+			pNLP->m_nets_weighted_sum_exp_inv_xi_over_alpha[n] = weighted_sum_exp_inv_xi_over_alpha;
+			pNLP->m_nets_weighted_sum_exp_inv_yi_over_alpha[n] = weighted_sum_exp_inv_yi_over_alpha;
+
+			if(param.b3d){
+				vector<double> layer_weighted_sum_exp_xi_over_alpha;
+				vector<double> layer_weighted_sum_exp_inv_xi_over_alpha;
+				vector<double> layer_weighted_sum_exp_yi_over_alpha;
+				vector<double> layer_weighted_sum_exp_inv_yi_over_alpha;
+				calc_weighted_sum_exp_using_pin_for_layers(
+					pNLP->m_pDB->m_nets[n].begin(), pNLP->m_pDB->m_nets[n].end(), x, expX, z, expZ,
+					layer_weighted_sum_exp_xi_over_alpha, layer_weighted_sum_exp_inv_xi_over_alpha,
+					layer_weighted_sum_exp_yi_over_alpha, layer_weighted_sum_exp_inv_yi_over_alpha,
+					pNLP->m_pDB, &pNLP->m_usePin, pNLP->_expPins);
+				
+				for(int layer=0;layer<param.nlayer;++layer){
+					pNLP->m_layer_nets_weighted_sum_exp_xi_over_alpha[layer][n]     = layer_weighted_sum_exp_xi_over_alpha[layer];
+					pNLP->m_layer_nets_weighted_sum_exp_yi_over_alpha[layer][n]     = layer_weighted_sum_exp_yi_over_alpha[layer];
+					pNLP->m_layer_nets_weighted_sum_exp_inv_xi_over_alpha[layer][n] = layer_weighted_sum_exp_inv_xi_over_alpha[layer];
+					pNLP->m_layer_nets_weighted_sum_exp_inv_yi_over_alpha[layer][n] = layer_weighted_sum_exp_inv_yi_over_alpha[layer];
+				}
+			}
+
+		}
+			
+		if( m_bXArch )
+		{
+			double sum_exp_x_plus_y_over_alpha;
+			double sum_exp_x_minus_y_over_alpha;
+			double sum_exp_inv_x_plus_y_over_alpha;
+			double sum_exp_inv_x_minus_y_over_alpha;
+
+			calc_sum_exp_using_pin_XHPWL(
+				pNLP->m_pDB->m_nets[n].begin(), pNLP->m_pDB->m_nets[n].end(), 
+				pNLP,
+				sum_exp_x_plus_y_over_alpha,     sum_exp_x_minus_y_over_alpha,	// reuse variables
+				sum_exp_inv_x_plus_y_over_alpha, sum_exp_inv_x_minus_y_over_alpha );
+
+			pNLP->m_nets_sum_exp_x_plus_y_over_alpha[n]      = sum_exp_x_plus_y_over_alpha;
+			pNLP->m_nets_sum_exp_x_minus_y_over_alpha[n]     = sum_exp_x_minus_y_over_alpha;
+			pNLP->m_nets_sum_exp_inv_x_plus_y_over_alpha[n]  = sum_exp_inv_x_plus_y_over_alpha;
+			pNLP->m_nets_sum_exp_inv_x_minus_y_over_alpha[n] = sum_exp_inv_x_minus_y_over_alpha;
+		}
     }
 
     if( param.bUseLSE == false )  // for Lp-norm
@@ -2601,7 +2723,22 @@ double MyNLP::GetLogSumExpWL( const vector<double>& x,	    // unuse
                      pNLP->m_nets_weighted_sum_exp_inv_xi_over_alpha[n] / pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] +
                      m_yWeight * (pNLP->m_nets_weighted_sum_exp_yi_over_alpha[n] / pNLP->m_nets_sum_exp_yi_over_alpha[n] -
                         pNLP->m_nets_weighted_sum_exp_inv_yi_over_alpha[n] / pNLP->m_nets_sum_exp_inv_yi_over_alpha[n]));
-            }else
+            }else if(param.b3d){
+				for(int layer=0;layer<param.nlayer;++layer){
+					if(pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][n] != 0 && pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][n] != 0){
+						totalWL += pNLP->m_layer_nets_weighted_sum_exp_xi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][n] -
+									pNLP->m_layer_nets_weighted_sum_exp_inv_xi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][n];
+					}else{
+						//cout << "xWL of Net["<<n<<"] in layer " << layer << " is 0.\n";
+					}
+					if(pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][n] != 0 && pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][n] != 0){
+						totalWL += m_yWeight * (pNLP->m_layer_nets_weighted_sum_exp_yi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][n] -
+					 							pNLP->m_layer_nets_weighted_sum_exp_inv_yi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][n]);
+					}else{
+						//cout << "yWL of Net["<<n<<"] in layer " << layer << " is 0.\n";
+					}
+				}
+			}else
             {
                 totalWL +=
                     (pNLP->m_nets_weighted_sum_exp_xi_over_alpha[n] / pNLP->m_nets_sum_exp_xi_over_alpha[n] -
@@ -2627,6 +2764,17 @@ double MyNLP::GetLogSumExpWL( const vector<double>& x,	    // unuse
 					m_yWeight * (log( pNLP->m_nets_sum_exp_yi_over_alpha[n] ) +	    // max(y)
 						log( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n] ) ) ) ;
 				}
+				// else if(param.b3d && param.nlayer==2){
+				// 	totalWL += 
+				// 	log( pNLP->m_layer_nets_sum_exp_xi_over_alpha[0][n] ) +	    		// max(x) in die0
+				// 	log( pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[0][n] ) +  		// -min(x) in die0
+				// 	m_yWeight * (log( pNLP->m_layer_nets_sum_exp_yi_over_alpha[0][n] ) +// max(y) in die0
+				// 	log( pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[0][n] ) ) +  		// -min(y) in die0
+				// 	log( pNLP->m_layer_nets_sum_exp_xi_over_alpha[1][n] ) +	    		// max(x) in die1
+				// 	log( pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[1][n] ) +  		// -min(x) in die1
+				// 	m_yWeight * (log( pNLP->m_layer_nets_sum_exp_yi_over_alpha[1][n] ) +// max(y) in die1
+				// 	log( pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[1][n] ) ) ;  		// -min(y) in die1
+				// }
 				else
 				{
 					totalWL += 
@@ -2748,7 +2896,7 @@ bool MyNLP::eval_f(int n, const vector<double>& x, const vector<double>& expX, b
     double totalWL = Parallel( GetLogSumExpWLThread, m_pDB->m_nets.size() );
     double totalVia = 0;
     if(m_bMoveZ)
-	totalVia = Parallel( GetLogSumExpViaThread, m_pDB->m_nets.size() );
+		totalVia = Parallel( GetLogSumExpViaThread, m_pDB->m_nets.size() );
     gTotalWL = totalWL;
     //gTotalVia = totalVia;
     density = GetDensityPanelty();
@@ -2765,11 +2913,11 @@ bool MyNLP::eval_f(int n, const vector<double>& x, const vector<double>& expX, b
       {*/
     if( bMulti )
     {
-	obj_value = (totalWL * _weightWire) + 0.5 * (density) + (totalVia * _weightWire * m_weightTSV);   // correct. 
+		obj_value = (totalWL * _weightWire) + 0.5 * (density) + (totalVia * _weightWire * m_weightTSV);   // correct. 
     }
     else
     {
-	obj_value = (totalWL * _weightWire) + 0.5 * (density * _weightDensity) + (totalVia * _weightWire * m_weightTSV);   // correct. 
+		obj_value = (totalWL * _weightWire) + 0.5 * (density * _weightDensity) + (totalVia * _weightWire * m_weightTSV)*0.01;   // correct. 
     }
     //}
     //@Brian 2007-06-18
@@ -3654,18 +3802,18 @@ void MyNLP::UpdateGradPotential( MyNLP* pNLP, int index1, int index2 )
 	
 	if( bFast )
 	{
-	    double width  = pNLP->m_pDB->m_modules[i].m_width;
-	    double height = pNLP->m_pDB->m_modules[i].m_height;
+	    double width  = pNLP->m_pDB->m_modules[i].GetWidth(pNLP->z[i]-0.5);
+	    double height = pNLP->m_pDB->m_modules[i].GetHeight(pNLP->z[i]-0.5);
 	    //double thickness = pNLP->m_pDB->m_modules[i].m_thickness;
 	    if( height >= pNLP->m_potentialGridHeight || width >= pNLP->m_potentialGridWidth )// || thickness >= pNLP->m_potentialGridThickness )
 	    {
-		GetPotentialGrad( pNLP->x, pNLP->z, i, gradDensityX, gradDensityY, gradDensityZ, pNLP );
-		//printf("%lf, %lf, %lf\n", gradDensityX, gradDensityY, gradDensityZ);
+			GetPotentialGrad( pNLP->x, pNLP->z, i, gradDensityX, gradDensityY, gradDensityZ, pNLP );
+			//printf("%lf, %lf, %lf\n", gradDensityX, gradDensityY, gradDensityZ);
 	    }
 	    else
 	    {
-		GetPotentialGradFast( pNLP->x, pNLP->z, i, gradDensityX, gradDensityY, gradDensityZ, pNLP );
-		//printf("(Fast) %lf, %lf, %lf\n", gradDensityX, gradDensityY, gradDensityZ);
+			GetPotentialGradFast( pNLP->x, pNLP->z, i, gradDensityX, gradDensityY, gradDensityZ, pNLP );
+			//printf("(Fast) %lf, %lf, %lf\n", gradDensityX, gradDensityY, gradDensityZ);
 	    }
 	}
 	else
@@ -3957,8 +4105,8 @@ void MyNLP::GetPotentialGrad( const vector<double>& x, const vector<double>& z, 
     double cellY = x[i*2+1];
     double cellZ = z[i];
    
-    double width  = pNLP->m_pDB->m_modules[i].m_width;
-    double height = pNLP->m_pDB->m_modules[i].m_height;
+    double width  = pNLP->m_pDB->m_modules[i].GetWidth(z[i]-0.5);
+    double height = pNLP->m_pDB->m_modules[i].GetHeight(z[i]-0.5);
     double thickness = pNLP->m_pDB->m_modules[i].m_thickness;
     //// use square to model small std-cells
     if( height < pNLP->m_potentialGridHeight && width < pNLP->m_potentialGridWidth && thickness < pNLP->m_potentialGridThickness )
@@ -4123,6 +4271,72 @@ void MyNLP::calc_weighted_sum_exp_using_pin(
 	}
 }
 
+// (frank) 2022-07-22 3D Weighted-Average-Exponential Wirelength Model
+void MyNLP::calc_weighted_sum_exp_using_pin_for_layers(
+	const vector<int>::const_iterator& begin, const vector<int>::const_iterator& end,
+	const vector<double>& x, const vector<double>& expX,
+	const vector<double>& z, const vector<double>& expZ,
+	vector<double>& layer_weighted_sum_exp_xi_over_alpha, vector<double>& layer_weighted_sum_exp_inv_xi_over_alpha,
+	vector<double>& layer_weighted_sum_exp_yi_over_alpha, vector<double>& layer_weighted_sum_exp_inv_yi_over_alpha,
+	const CPlaceDB* pDB, const vector<bool>* pUsePin, const vector<double>& expPins,
+	int id )
+{
+	layer_weighted_sum_exp_xi_over_alpha.resize(param.nlayer, 0);
+	layer_weighted_sum_exp_inv_xi_over_alpha.resize(param.nlayer, 0);
+	layer_weighted_sum_exp_yi_over_alpha.resize(param.nlayer, 0);
+	layer_weighted_sum_exp_inv_yi_over_alpha.resize(param.nlayer, 0);
+
+	vector<int>::const_iterator ite;
+	int pinId, pinIndex;
+	int blockId;
+	for( ite=begin, pinIndex = 0; ite!=end; ++ite, pinIndex++ )
+	{
+		// for each pin of the net
+		pinId   = *ite;
+		blockId = pDB->m_pins[ pinId ].moduleId;
+
+		int layer = (z[2*blockId] < pDB->m_dCutline)? 0:1;
+
+		double xx = x[2*blockId];
+		double yy = x[2*blockId+1];
+		if( (*pUsePin)[blockId] )
+		{
+			xx += pDB->m_pins[ pinId ].xOff;
+			yy += pDB->m_pins[ pinId ].yOff;
+		}
+
+		if( (*pUsePin)[blockId] /*&& blockId != id*/ )  // macro or self pin
+			//if( blockId != id )
+		{
+			if(pDB->m_modules[blockId].m_isVia){
+				// handle ball
+				for(int k=0;k<param.nlayer;++k){
+					layer_weighted_sum_exp_xi_over_alpha[k]     += xx * expPins[ 2*pinId ];
+					layer_weighted_sum_exp_inv_xi_over_alpha[k] += xx * 1.0 / expPins[ 2*pinId ];
+					layer_weighted_sum_exp_yi_over_alpha[k]     += yy * expPins[ 2*pinId+1 ];
+					layer_weighted_sum_exp_inv_yi_over_alpha[k] += yy * 1.0 / expPins[ 2*pinId+1 ];
+				}
+			} else{
+				// handle pins
+				layer_weighted_sum_exp_xi_over_alpha[layer]     += xx * expPins[ 2*pinId ];
+				layer_weighted_sum_exp_inv_xi_over_alpha[layer] += xx * 1.0 / expPins[ 2*pinId ];
+				layer_weighted_sum_exp_yi_over_alpha[layer]     += yy * expPins[ 2*pinId+1 ];
+				layer_weighted_sum_exp_inv_yi_over_alpha[layer] += yy * 1.0 / expPins[ 2*pinId+1 ];
+			}
+		}
+		else
+		{
+			// use block center
+			//assert( expX[2*blockId] != 0);
+			//assert( expX[2*blockId+1] != 0 );
+			layer_weighted_sum_exp_xi_over_alpha[layer]     += xx * expX[2*blockId];
+			layer_weighted_sum_exp_inv_xi_over_alpha[layer] += xx * 1.0 / expX[2*blockId];
+			layer_weighted_sum_exp_yi_over_alpha[layer]     += yy * expX[2*blockId+1];
+			layer_weighted_sum_exp_inv_yi_over_alpha[layer] += yy * 1.0 / expX[2*blockId+1];
+		}
+	}
+}
+
 // static
 void MyNLP::calc_sum_exp_using_pin( 
 	const vector<int>::const_iterator& begin, const vector<int>::const_iterator& end,
@@ -4178,6 +4392,70 @@ void MyNLP::calc_sum_exp_using_pin(
 	    	sum_exp_inv_zi_over_alpha += 1.0 / expZ[ blockId] ;
 	    }
 	}
+    }
+} 
+void MyNLP::calc_sum_exp_using_pin_for_layers( 
+	const vector<int>::const_iterator& begin, const vector<int>::const_iterator& end,
+	const vector<double>& x, const vector<double>& z, const vector<double>& expX, const vector<double>& expZ,
+	vector<double>& layer_sum_exp_xi_over_alpha, vector<double>& layer_sum_exp_inv_xi_over_alpha,
+	  vector<double>& layer_sum_exp_yi_over_alpha, vector<double>& layer_sum_exp_inv_yi_over_alpha,
+	  vector<double>& layer_sum_exp_zi_over_alpha, vector<double>& layer_sum_exp_inv_zi_over_alpha, 
+	const CPlaceDB* pDB, const vector<bool>* pUsePin, const vector<double>& expPins, const vector<double>& expPinsZ,
+        int id	)
+{
+    layer_sum_exp_xi_over_alpha.resize(param.nlayer, 0);
+    layer_sum_exp_inv_xi_over_alpha.resize(param.nlayer, 0);
+    layer_sum_exp_yi_over_alpha.resize(param.nlayer, 0);
+    layer_sum_exp_inv_yi_over_alpha.resize(param.nlayer, 0);
+    layer_sum_exp_zi_over_alpha.resize(param.nlayer, 0);
+    layer_sum_exp_inv_zi_over_alpha.resize(param.nlayer, 0);
+
+    vector<int>::const_iterator ite;
+    int pinId;
+    int blockId;
+    for( ite=begin; ite!=end; ++ite )
+    {
+		// for each pin of the net
+		pinId   = *ite;
+		blockId = pDB->m_pins[ pinId ].moduleId;
+
+		int layer = (z[2*blockId] < pDB->m_dCutline)? 0:1;
+		
+		if( (*pUsePin)[blockId] /*&& blockId != id*/ )	// macro or self pin
+		//if( blockId != id )	
+		{
+			// handle pins
+			if(pDB->m_modules[blockId].m_isVia){
+				for(int k=0;k>param.nlayer;++k){
+					layer_sum_exp_xi_over_alpha[k]     += expPins[ 2*pinId ];
+					layer_sum_exp_inv_xi_over_alpha[k] += 1.0 / expPins[ 2*pinId ];
+					layer_sum_exp_yi_over_alpha[k]     += expPins[ 2*pinId+1 ];
+					layer_sum_exp_inv_yi_over_alpha[k] += 1.0 / expPins[ 2*pinId+1 ];
+					layer_sum_exp_zi_over_alpha[k]     += expPinsZ[ pinId ];
+					layer_sum_exp_inv_zi_over_alpha[k] += 1.0 / expPinsZ[ pinId ];
+				}
+			}
+			else{
+				layer_sum_exp_xi_over_alpha[layer]     += expPins[ 2*pinId ];
+				layer_sum_exp_inv_xi_over_alpha[layer] += 1.0 / expPins[ 2*pinId ];
+				layer_sum_exp_yi_over_alpha[layer]     += expPins[ 2*pinId+1 ];
+				layer_sum_exp_inv_yi_over_alpha[layer] += 1.0 / expPins[ 2*pinId+1 ];
+				layer_sum_exp_zi_over_alpha[layer]     += expPinsZ[ pinId ];
+				layer_sum_exp_inv_zi_over_alpha[layer] += 1.0 / expPinsZ[ pinId ];
+			}
+		}
+		else
+		{
+			// use block center
+			//assert( expX[2*blockId] != 0);
+			//assert( expX[2*blockId+1] != 0 );
+			layer_sum_exp_xi_over_alpha[layer]     += expX[2*blockId];
+			layer_sum_exp_inv_xi_over_alpha[layer] += 1.0 / expX[2*blockId];
+			layer_sum_exp_yi_over_alpha[layer]     += expX[2*blockId+1];
+			layer_sum_exp_inv_yi_over_alpha[layer] += 1.0 / expX[2*blockId+1];
+			layer_sum_exp_zi_over_alpha[layer]     += expZ[ blockId ];
+			layer_sum_exp_inv_zi_over_alpha[layer] += 1.0 / expZ[ blockId] ;
+		}
     }
 } 
 
@@ -4480,13 +4758,13 @@ double MyNLP::UpdateExpBinPotential( double util, bool showMsg)
 	{
 	    if( m_pDB->m_modules[i].m_isFixed )
 		continue;
-	    if( m_pDB->m_modules[i].m_width >= 2 * m_potentialGridWidth && 
-		    m_pDB->m_modules[i].m_height >= 2 * m_potentialGridHeight &&
+	    if( m_pDB->m_modules[i].GetWidth(z[i]-0.5) >= 2 * m_potentialGridWidth && 
+		    m_pDB->m_modules[i].GetHeight(z[i]-0.5) >= 2 * m_potentialGridHeight &&
 		    m_pDB->m_modules[i].m_thickness >= 2 * m_potentialGridThickness)
 	    {
 		alwaysOver += 
-		    (m_pDB->m_modules[i].m_width - m_potentialGridWidth ) * 
-		    (m_pDB->m_modules[i].m_height - m_potentialGridHeight ) * 
+		    (m_pDB->m_modules[i].GetWidth(z[i]-0.5) - m_potentialGridWidth ) * 
+		    (m_pDB->m_modules[i].GetHeight(z[i]-0.5) - m_potentialGridHeight ) * 
 		    (m_pDB->m_modules[i].m_thickness - m_potentialGridThickness ) *
 		    (1.0 - m_targetUtil );
 	    }
@@ -4606,83 +4884,83 @@ void MyNLP::UpdatePotentialGridBase( const vector<double>& x, const vector<doubl
     m_binFreeSpace.resize( m_basePotential.size() );
     for(int k = 0; k < (int)m_binFreeSpace.size(); k++)
     {
-	m_binFreeSpace[k].resize( m_basePotential[k].size() );
-	for( unsigned int i=0; i<m_basePotential[k].size(); i++ )
-	{
-	    fill( m_basePotential[k][i].begin(), m_basePotential[k][i].end(), 0.0 );
-	    m_binFreeSpace[k][i].resize( m_basePotential[k][i].size() );
-	    fill( m_binFreeSpace[k][i].begin(), m_binFreeSpace[k][i].end(), binVolumn );
-	}
+		m_binFreeSpace[k].resize( m_basePotential[k].size() );
+		for( unsigned int i=0; i<m_basePotential[k].size(); i++ )
+		{
+			fill( m_basePotential[k][i].begin(), m_basePotential[k][i].end(), 0.0 );
+			m_binFreeSpace[k][i].resize( m_basePotential[k][i].size() );
+			fill( m_binFreeSpace[k][i].begin(), m_binFreeSpace[k][i].end(), binVolumn );
+		}
     }
 
     for( int i=0; i<(int)m_pDB->m_modules.size(); i++ )
     {
-	// for each cell. cell ci coordinate is ( x[i*2], x[i*2+1] )
+		// for each cell. cell ci coordinate is ( x[i*2], x[i*2+1] )
 
-	if( m_pDB->m_modules[i].m_isFixed == false )
-	    continue;
+		if( m_pDB->m_modules[i].m_isFixed == false )
+			continue;
 
-	// TODO: BUG when shrinking core?
-	//if( m_pDB->m_modules[i].m_isOutCore )
-	if( m_pDB->BlockOutCore( i ) )
-	    continue;	// pads?
+		// TODO: BUG when shrinking core?
+		//if( m_pDB->m_modules[i].m_isOutCore )
+		if( m_pDB->BlockOutCore( i ) )
+			continue;	// pads?
 
-	double cellX = x[i*2];
-	double cellY = x[i*2+1];
-	double cellZ = z[i];
-	double width  = m_pDB->m_modules[i].m_width;
-	double height = m_pDB->m_modules[i].m_height;
-	double thickness = m_pDB->m_modules[i].m_thickness;
+		double cellX = x[i*2];
+		double cellY = x[i*2+1];
+		double cellZ = z[i];
+		double width  = m_pDB->m_modules[i].GetWidth(z[i]-0.5);
+		double height = m_pDB->m_modules[i].GetHeight(z[i]-0.5);
+		double thickness = m_pDB->m_modules[i].m_thickness;
 
-	// exact block range
-	double left   = cellX - width * 0.5;  
-	double bottom = cellY - height * 0.5; 
-	double back   = cellZ - thickness * 0.5;
-	double right  = cellX + (cellX - left);
-	double top    = cellY + (cellY - bottom);
-	double front  = cellZ + (cellZ - back);;
+		// exact block range
+		double left   = cellX - width * 0.5;  
+		double bottom = cellY - height * 0.5; 
+		double back   = cellZ - thickness * 0.5;
+		double right  = cellX + (cellX - left);
+		double top    = cellY + (cellY - bottom);
+		double front  = cellZ + (cellZ - back);;
 
-	if( left   < m_pDB->m_coreRgn.left )     
-	    left   = m_pDB->m_coreRgn.left;
-	if( right  > m_pDB->m_coreRgn.right )    
-	    right  = m_pDB->m_coreRgn.right;
-	if( bottom < m_pDB->m_coreRgn.bottom )   
-	    bottom = m_pDB->m_coreRgn.bottom;
-	if( top    > m_pDB->m_coreRgn.top  )      
-	    top    = m_pDB->m_coreRgn.top;
-	if( back   < m_pDB->m_back )
-	    back   = m_pDB->m_back;
-	if( front  > m_pDB->m_front )
-	    front  = m_pDB->m_front;
-	
-	int gx, gy, gz;
-	GetClosestGrid( left, bottom, back, gx, gy, gz);
-	int gxx, gyy, gzz;
-	double xx, yy, zz;
+		if( left   < m_pDB->m_coreRgn.left )     
+			left   = m_pDB->m_coreRgn.left;
+		if( right  > m_pDB->m_coreRgn.right )    
+			right  = m_pDB->m_coreRgn.right;
+		if( bottom < m_pDB->m_coreRgn.bottom )   
+			bottom = m_pDB->m_coreRgn.bottom;
+		if( top    > m_pDB->m_coreRgn.top  )      
+			top    = m_pDB->m_coreRgn.top;
+		if( back   < m_pDB->m_back )
+			back   = m_pDB->m_back;
+		if( front  > m_pDB->m_front )
+			front  = m_pDB->m_front;
+		
+		int gx, gy, gz;
+		GetClosestGrid( left, bottom, back, gx, gy, gz);
+		int gxx, gyy, gzz;
+		double xx, yy, zz;
 
-	// Exact density for the base potential"
-	for( gzz = gz, zz = GetZGrid(gz); zz <= front && gzz < (int)m_basePotential.size();
-		gzz++, zz+=m_potentialGridThickness )
-	{
-	    for( gxx = gx, xx = GetXGrid(gx); xx <= right && gxx < (int)m_basePotential[gzz].size(); 
-		    gxx++, xx+=m_potentialGridWidth )
-	    {
-	    	for( gyy = gy, yy = GetYGrid(gy); yy <= top && gyy < (int)m_basePotential[gzz][gxx].size(); 
-		        gyy++, yy+=m_potentialGridHeight )
-	    	{
-		    m_basePotential[gzz][gxx][gyy] +=
-		    	getOverlap( left, right, xx, xx+m_potentialGridWidth ) * 
-		    	getOverlap( bottom, top, yy, yy+m_potentialGridHeight ) *
-			getOverlap( back, front, zz, zz+m_potentialGridThickness);
+		// Exact density for the base potential"
+		for( gzz = gz, zz = GetZGrid(gz); zz <= front && gzz < (int)m_basePotential.size();
+			gzz++, zz+=m_potentialGridThickness )
+		{
+			for( gxx = gx, xx = GetXGrid(gx); xx <= right && gxx < (int)m_basePotential[gzz].size(); 
+				gxx++, xx+=m_potentialGridWidth )
+			{
+				for( gyy = gy, yy = GetYGrid(gy); yy <= top && gyy < (int)m_basePotential[gzz][gxx].size(); 
+					gyy++, yy+=m_potentialGridHeight )
+				{
+					m_basePotential[gzz][gxx][gyy] +=
+						getOverlap( left, right, xx, xx+m_potentialGridWidth ) * 
+						getOverlap( bottom, top, yy, yy+m_potentialGridHeight ) *
+					getOverlap( back, front, zz, zz+m_potentialGridThickness);
 
-		    m_binFreeSpace[gzz][gxx][gyy] -= 
-		    	getOverlap( left, right, xx, xx+m_potentialGridWidth ) * 
-		    	getOverlap( bottom, top, yy, yy+m_potentialGridHeight ) *
-			getOverlap( back, front, zz, zz+m_potentialGridThickness);
-		    //printf("(%d, %d, %d) %lf, %lf\n", gx, gx, gy, m_basePotential[gzz][gxx][gyy], m_binFreeSpace[gzz][gxx][gyy]);
+					m_binFreeSpace[gzz][gxx][gyy] -= 
+						getOverlap( left, right, xx, xx+m_potentialGridWidth ) * 
+						getOverlap( bottom, top, yy, yy+m_potentialGridHeight ) *
+					getOverlap( back, front, zz, zz+m_potentialGridThickness);
+					//printf("(%d, %d, %d) %lf, %lf\n", gx, gx, gy, m_basePotential[gzz][gxx][gyy], m_binFreeSpace[gzz][gxx][gyy]);
+				}
+			}
 		}
-	    }
-	}
 
     } // for each cell
 
@@ -4723,8 +5001,8 @@ void MyNLP::ComputeNewPotentialGrid( const vector<double>& x, const vector<doubl
 	double potentialRY = pNLP->_potentialRY;
 	double potentialRZ = pNLP->_potentialRZ;
 	
-	double width  = pNLP->m_pDB->m_modules[i].m_width;
-	double height = pNLP->m_pDB->m_modules[i].m_height;
+	double width  = pNLP->m_pDB->m_modules[i].GetWidth(z[i]-0.5);
+	double height = pNLP->m_pDB->m_modules[i].GetHeight(z[i]-0.5);
 	double thickness = pNLP->m_pDB->m_modules[i].m_thickness;
 	//// (convert to std-cell)
 	if( height < pNLP->m_potentialGridHeight && width < pNLP->m_potentialGridWidth)// && thickness < pNLP->m_potentialGridThickness )
@@ -5040,65 +5318,65 @@ void MyNLP::UpdateDensityGridSpace( const int& n, const vector<double>& x, const
     double allSpace = m_gridDensityWidth * m_gridDensityHeight * m_gridDensityThickness;
     for( unsigned int k = 0; k < m_gridDensity.size(); k++)
     	for( unsigned int i=0; i<m_gridDensity[k].size(); i++ )
-	    for( unsigned int j=0; j<m_gridDensity[k][i].size(); j++ )
-		m_gridDensitySpace[k][i][j] = allSpace;
+	    	for( unsigned int j=0; j<m_gridDensity[k][i].size(); j++ )
+				m_gridDensitySpace[k][i][j] = allSpace;
    
     
     // for each cell b, update the corresponding bin area
     for( int b=0; b<(int)m_pDB->m_modules.size(); b++ )
     {
-	if( false == m_pDB->m_modules[b].m_isFixed )
-	    continue;
+		if( false == m_pDB->m_modules[b].m_isFixed )
+			continue;
 
-	double w  = m_pDB->m_modules[b].m_width;
-	double h  = m_pDB->m_modules[b].m_height;
-	double t  = m_pDB->m_modules[b].m_thickness;
-	double left   = x[b*2]   - w * 0.5;
-	double bottom = x[b*2+1] - h * 0.5;
-	double back   = z[b]     - t * 0.5;
-	double right  = left   + w;
-	double top    = bottom + h;
-	double front  = back   + t;
-	
-	if( w == 0 || h == 0 )
-	    continue;
-	
-	// find nearest bottom-left gird
-	int gx = static_cast<int>( floor( (left   - m_pDB->m_coreRgn.left)   / m_gridDensityWidth ) );
-	int gy = static_cast<int>( floor( (bottom - m_pDB->m_coreRgn.bottom) / m_gridDensityHeight ) );
-	int gz = static_cast<int>( floor( (back   - m_pDB->m_back)           / m_gridDensityThickness ) );
-	if( gx < 0 )  gx = 0;
-	if( gy < 0 )  gy = 0;
-	if( gz < 0 )  gz = 0;
+		double w  = m_pDB->m_modules[b].GetWidth(z[b]-0.5);
+		double h  = m_pDB->m_modules[b].GetHeight(z[b]-0.5);
+		double t  = m_pDB->m_modules[b].m_thickness;
+		double left   = x[b*2]   - w * 0.5;
+		double bottom = x[b*2+1] - h * 0.5;
+		double back   = z[b]     - t * 0.5;
+		double right  = left   + w;
+		double top    = bottom + h;
+		double front  = back   + t;
+		
+		if( w == 0 || h == 0 )
+			continue;
+		
+		// find nearest bottom-left gird
+		int gx = static_cast<int>( floor( (left   - m_pDB->m_coreRgn.left)   / m_gridDensityWidth ) );
+		int gy = static_cast<int>( floor( (bottom - m_pDB->m_coreRgn.bottom) / m_gridDensityHeight ) );
+		int gz = static_cast<int>( floor( (back   - m_pDB->m_back)           / m_gridDensityThickness ) );
+		if( gx < 0 )  gx = 0;
+		if( gy < 0 )  gy = 0;
+		if( gz < 0 )  gz = 0;
 
-	for( int zOff = gz; zOff < (int)m_gridDensity.size(); zOff++ )
-	{
-	    double binBack = m_pDB->m_back + zOff * m_gridDensityThickness;
-	    double binFront = binBack + m_gridDensityThickness;
-	    if( binBack >= binFront )
-		    break;
-	    
-	    for( int xOff = gx; xOff < (int)m_gridDensity[zOff].size(); xOff++ )
-	    {
-	    	double binLeft  = m_pDB->m_coreRgn.left + xOff * m_gridDensityWidth;
-	    	double binRight = binLeft + m_gridDensityWidth;
-	    	if( binLeft >= right )
-			break;
-	    
-	    	for( int yOff = gy; yOff < (int)m_gridDensity[zOff][xOff].size(); yOff ++ )
-	    	{
-		    double binBottom = m_pDB->m_coreRgn.bottom + yOff * m_gridDensityHeight;
-		    double binTop    = binBottom + m_gridDensityHeight;
-		    if( binBottom >= top )
-		    	break;
+		for( int zOff = gz; zOff < (int)m_gridDensity.size(); zOff++ )
+		{
+			double binBack = m_pDB->m_back + zOff * m_gridDensityThickness;
+			double binFront = binBack + m_gridDensityThickness;
+			if( binBack >= binFront )
+				break;
+			
+			for( int xOff = gx; xOff < (int)m_gridDensity[zOff].size(); xOff++ )
+			{
+				double binLeft  = m_pDB->m_coreRgn.left + xOff * m_gridDensityWidth;
+				double binRight = binLeft + m_gridDensityWidth;
+				if( binLeft >= right )
+					break;
+			
+				for( int yOff = gy; yOff < (int)m_gridDensity[zOff][xOff].size(); yOff ++ )
+				{
+					double binBottom = m_pDB->m_coreRgn.bottom + yOff * m_gridDensityHeight;
+					double binTop    = binBottom + m_gridDensityHeight;
+					if( binBottom >= top )
+						break;
 
-		    m_gridDensitySpace[zOff][xOff][yOff] -= 
-		    	getOverlap( left, right, binLeft, binRight ) * 
-		    	getOverlap( bottom, top, binBottom, binTop ) *
-			getOverlap( back, front, binBack, binFront );
-	    	}
-	    }
-	}
+					m_gridDensitySpace[zOff][xOff][yOff] -= 
+						getOverlap( left, right, binLeft, binRight ) * 
+						getOverlap( bottom, top, binBottom, binTop ) *
+					getOverlap( back, front, binBack, binFront );
+				}
+			}
+		}
 
     } // each module
 
@@ -5118,8 +5396,8 @@ void MyNLP::UpdateDensityGridSpace( const int& n, const vector<double>& x, const
     
     if( param.bShow )
     {
-	printf( "DBIN: Zero space bin #= %d.  Total free space= %.0f.\n", zeroSpaceCount, m_totalFreeSpace );
-	//printf( "[DB]   total free space: %.0f\n", m_pDB->m_totalFreeSpace );
+		printf( "DBIN: Zero space bin #= %d.  Total free space= %.0f.\n", zeroSpaceCount, m_totalFreeSpace );
+		//printf( "[DB]   total free space: %.0f\n", m_pDB->m_totalFreeSpace );
     }
 }
 
@@ -5130,61 +5408,61 @@ void MyNLP::UpdateDensityGrid( const int& n, const vector<double>& x, const vect
     // for each cell b, update the corresponding bin area
     for( unsigned int b=0; b<m_pDB->m_modules.size(); b++ )
     {
-	//if(  m_pDB->m_modules[b].m_isOutCore || m_pDB->m_modules[b].m_isFixed )
-	if(  m_pDB->BlockOutCore(b) || m_pDB->m_modules[b].m_isFixed )
-	    continue;
+		//if(  m_pDB->m_modules[b].m_isOutCore || m_pDB->m_modules[b].m_isFixed )
+		if(  m_pDB->BlockOutCore(b) || m_pDB->m_modules[b].m_isFixed )
+			continue;
 
-	double w  = m_pDB->m_modules[b].m_width;
-	double h  = m_pDB->m_modules[b].m_height;
-	double t  = m_pDB->m_modules[b].m_thickness;
+		double w  = m_pDB->m_modules[b].GetWidth(z[b]-0.5);
+		double h  = m_pDB->m_modules[b].GetHeight(z[b]-0.5);
+		double t  = m_pDB->m_modules[b].m_thickness;
 
-	// rectangle range 
-	double left   = x[b*2]   - w * 0.5;
-	double bottom = x[b*2+1] - h * 0.5;
-	double back   = z[b]     - t * 0.5;
-	double right  = left   + w;
-	double top    = bottom + h;
-	double front  = back   + t;
-	
-	// find nearest gird
-	int gx = static_cast<int>( floor( (left - m_pDB->m_coreRgn.left) / m_gridDensityWidth ) );
-	int gy = static_cast<int>( floor( (bottom - m_pDB->m_coreRgn.bottom) / m_gridDensityHeight ) );
-	int gz = static_cast<int>( floor( (back - m_pDB->m_back) / m_gridDensityThickness ) );
-	if( gx < 0 ) gx = 0;
-	if( gy < 0 ) gy = 0;
-	if( gz < 0 ) gz = 0;
+		// rectangle range 
+		double left   = x[b*2]   - w * 0.5;
+		double bottom = x[b*2+1] - h * 0.5;
+		double back   = z[b]     - t * 0.5;
+		double right  = left   + w;
+		double top    = bottom + h;
+		double front  = back   + t;
+		
+		// find nearest gird
+		int gx = static_cast<int>( floor( (left - m_pDB->m_coreRgn.left) / m_gridDensityWidth ) );
+		int gy = static_cast<int>( floor( (bottom - m_pDB->m_coreRgn.bottom) / m_gridDensityHeight ) );
+		int gz = static_cast<int>( floor( (back - m_pDB->m_back) / m_gridDensityThickness ) );
+		if( gx < 0 ) gx = 0;
+		if( gy < 0 ) gy = 0;
+		if( gz < 0 ) gz = 0;
 
-	// Block is always inside the core region. Do not have to check boundary.
-	for( unsigned int zOff = gz; zOff < m_gridDensity.size(); zOff++ )
-	{
-	    double binBack  = m_pDB->m_back + m_gridDensityThickness * zOff;
-	    double binFront = binBack + m_gridDensityThickness;
-	    if(binBack >= binFront )
-		    break;
-	    
-	    for( unsigned int xOff = gx; xOff < m_gridDensity[zOff].size(); xOff++ )
-	    {
-	    	double binLeft  = m_pDB->m_coreRgn.left + m_gridDensityWidth * xOff;
-	    	double binRight = binLeft + m_gridDensityWidth;
-	    	if( binLeft >= right )
-		    break;
-	    
-	    	for( unsigned int yOff = gy; yOff < m_gridDensity[zOff][xOff].size(); yOff++ )
-	    	{
-		    double binBottom = m_pDB->m_coreRgn.bottom + m_gridDensityHeight * yOff;
-		    double binTop    = binBottom + m_gridDensityHeight;
-		    if( binBottom >= top )
-		    	break;
+		// Block is always inside the core region. Do not have to check boundary.
+		for( unsigned int zOff = gz; zOff < m_gridDensity.size(); zOff++ )
+		{
+			double binBack  = m_pDB->m_back + m_gridDensityThickness * zOff;
+			double binFront = binBack + m_gridDensityThickness;
+			if(binBack >= binFront )
+				break;
+			
+			for( unsigned int xOff = gx; xOff < m_gridDensity[zOff].size(); xOff++ )
+			{
+				double binLeft  = m_pDB->m_coreRgn.left + m_gridDensityWidth * xOff;
+				double binRight = binLeft + m_gridDensityWidth;
+				if( binLeft >= right )
+				break;
+			
+				for( unsigned int yOff = gy; yOff < m_gridDensity[zOff][xOff].size(); yOff++ )
+				{
+				double binBottom = m_pDB->m_coreRgn.bottom + m_gridDensityHeight * yOff;
+				double binTop    = binBottom + m_gridDensityHeight;
+				if( binBottom >= top )
+					break;
 
-		    double volumn = 
-		    	getOverlap( left, right, binLeft, binRight ) *
-		    	getOverlap( bottom, top, binBottom, binTop ) *
-			getOverlap( back, front, binBack, binFront );
+				double volumn = 
+					getOverlap( left, right, binLeft, binRight ) *
+					getOverlap( bottom, top, binBottom, binTop ) *
+				getOverlap( back, front, binBack, binFront );
 
-		    m_gridDensity[zOff][xOff][yOff] += volumn;
-	    	}
-	    }
-	}
+				m_gridDensity[zOff][xOff][yOff] += volumn;
+				}
+			}
+		}
     } // each module
 }
 
@@ -5214,13 +5492,13 @@ void MyNLP::CreateDensityGrid( int nGrid )
 
     for(int k = 0; k < (int)m_gridDensity.size(); k++)
     {
-	m_gridDensity[k].resize( nGrid );
-	for( int i=0; i<nGrid; i++ )
-	    m_gridDensity[k][i].resize( nGrid );
-    
-	m_gridDensitySpace[k].resize( nGrid );
-	for( int i=0; i<nGrid; i++ )
-	    m_gridDensitySpace[k][i].resize( nGrid );
+		m_gridDensity[k].resize( nGrid );
+		for( int i=0; i<nGrid; i++ )
+			m_gridDensity[k][i].resize( nGrid );
+		
+		m_gridDensitySpace[k].resize( nGrid );
+		for( int i=0; i<nGrid; i++ )
+			m_gridDensitySpace[k][i].resize( nGrid );
     }
     
     m_gridDensityWidth  = ( (double)m_pDB->m_coreRgn.right - m_pDB->m_coreRgn.left ) / nGrid;
@@ -5235,27 +5513,24 @@ void MyNLP::CreateDensityGrid( int nGrid )
     double alwaysOver = 0.0;
     if( m_targetUtil > 0.0 && m_targetUtil < 1.0 )
     {
-	for( unsigned int i=0; i<m_pDB->m_modules.size(); i++ )
-	{
-	    if( m_pDB->m_modules[i].m_isFixed )
-		continue;
-	    if( m_pDB->m_modules[i].m_width >= 2*m_gridDensityWidth && m_pDB->m_modules[i].m_height >= 2*m_gridDensityHeight && m_pDB->m_modules[i].m_thickness >= 2*m_gridDensityThickness )
-		alwaysOver += 
-		    (m_pDB->m_modules[i].m_width - m_gridDensityWidth ) * 
-		    (m_pDB->m_modules[i].m_height - m_gridDensityHeight ) * 
-		    (m_pDB->m_modules[i].m_thickness - m_gridDensityThickness ) *
-		    (1.0 - m_targetUtil );
-	}
-	if( param.bShow )
-	    printf( "DBIN: Always over: %.0f (%.1f%%)\n", alwaysOver, alwaysOver/m_pDB->m_totalMovableModuleVolumn*100.0 );
+		for( unsigned int i=0; i<m_pDB->m_modules.size(); i++ )
+		{
+			if( m_pDB->m_modules[i].m_isFixed )
+				continue;
+			if( m_pDB->m_modules[i].GetWidth(z[i]-0.5) >= 2*m_gridDensityWidth && m_pDB->m_modules[i].GetHeight(z[i]-0.5) >= 2*m_gridDensityHeight && m_pDB->m_modules[i].m_thickness >= 2*m_gridDensityThickness )
+				alwaysOver += 
+					(m_pDB->m_modules[i].GetWidth(z[i]-0.5) - m_gridDensityWidth ) * 
+					(m_pDB->m_modules[i].GetHeight(z[i]-0.5) - m_gridDensityHeight ) * 
+					(m_pDB->m_modules[i].m_thickness - m_gridDensityThickness ) *
+					(1.0 - m_targetUtil );
+		}
+		if( param.bShow )
+			printf( "DBIN: Always over: %.0f (%.1f%%)\n", alwaysOver, alwaysOver/m_pDB->m_totalMovableModuleVolumn*100.0 );
     }
     m_alwaysOverVolumn = alwaysOver;
 }
 
-
-
 // Get potential/density grid information //////////////////////////////////////////////////////////////////////
-
 
 double MyNLP::GetMaxDensity()
 {
@@ -6559,8 +6834,8 @@ void MyNLP::UpdateDensityGridSpaceNet()
 	if( false == m_pDB->m_modules[b].m_isFixed )
 	    continue;
 
-	double w  = m_pDB->m_modules[b].m_width;
-	double h  = m_pDB->m_modules[b].m_height;
+	double w  = m_pDB->m_modules[b].GetWidth(z[b]-0.5);
+	double h  = m_pDB->m_modules[b].GetHeight(z[b]-0.5);
 	double left   = x[b*2]   - w * 0.5;
 	double bottom = x[b*2+1] - h * 0.5;
 	double right  = left   + w;
@@ -6711,8 +6986,8 @@ void MyNLP::UpdatePotentialGridBaseNet()
 
 	double cellX = x[i*2];
 	double cellY = x[i*2+1];
-	double width  = m_pDB->m_modules[i].m_width;
-	double height = m_pDB->m_modules[i].m_height;
+	double width  = m_pDB->m_modules[i].GetWidth(z[i]-0.5);
+	double height = m_pDB->m_modules[i].GetHeight(z[i]-0.5);
 
 	// exact block range
 	double left   = cellX - width * 0.5;  

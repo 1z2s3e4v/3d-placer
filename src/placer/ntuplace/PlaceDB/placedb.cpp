@@ -64,6 +64,36 @@ bool Module::isRotated()
     return ( (m_orient % 2) == 1 );	// E, W, FE, FW
 }
 
+float Module::GetWidth(){
+	return GetWidth(m_z);
+}
+float Module::GetHeight(){
+	return GetHeight(m_z);
+}
+float Module::GetWidth(float z){
+	float w = 0;
+	if(m_widths.size() < 2){
+		w = m_width;
+	} else{
+		w = m_widths[0] + (m_widths[1]-m_widths[0]) / (1+exp(z));
+	}
+	return w;
+}
+float Module::GetHeight(float z){
+	float h = 0;
+	if(m_heights.size() < 2){
+		h = m_height;
+	} else{
+		if(m_heights[0] <= m_heights[1]){
+			h = (m_heights[1]-m_heights[0]) / (1+exp(z));
+		} else{
+			z = 1-z;
+			h = (m_heights[0]-m_heights[1]) / (1+exp(z));
+		}
+	}
+	return h;
+}
+
 /////////////////////////////////////////////////////
 
 CPlaceDB::CPlaceDB( ) :
@@ -148,36 +178,36 @@ void CPlaceDB::Init()
 	double avg_volumn;
     for( int i=0; i<(int)m_modules.size(); i++ )
     {
-	//m_modules[i].m_isOutCore = false;
-	if( m_modules[i].m_isFixed )
-	{
-	   if( m_modules[i].m_cx < m_coreRgn.left || m_modules[i].m_cx > m_coreRgn.right ||
-	       m_modules[i].m_cy < m_coreRgn.bottom || m_modules[i].m_cy > m_coreRgn.top  ||
-	       m_modules[i].m_z < m_back || m_modules[i].m_z > m_front)
-	   {
-	       //m_modules[i].m_isOutCore = true;
-	       continue;
-	   }
-	   else
-	   {
-		m_totalFreeSpace -= 
-		    getOverlap( m_coreRgn.left, m_coreRgn.right, m_modules[i].m_x, m_modules[i].m_x + m_modules[i].m_width ) *
-		    getOverlap( m_coreRgn.bottom, m_coreRgn.top, m_modules[i].m_y, m_modules[i].m_y + m_modules[i].m_height ) *
-		    getOverlap( m_back, m_front, m_modules[i].m_z, m_modules[i].m_z + m_modules[i].m_thickness );
-	   }
-	}
-	else
-	{
-	    m_totalMovableModuleNumber ++;
-	    m_totalMovableModuleArea += m_modules[i].m_area;
-		m_totalMovableModuleVolumn += m_modules[i].m_area * m_modules[i].m_thickness;
-	    if( m_modules[i].m_height > m_rowHeight * 2 )
-	    {
-	    	m_totalMovableLargeMacroArea += m_modules[i].m_area;
-	    }
-	}
-	m_totalModuleArea += m_modules[i].m_area;
-	m_totalModuleVolumn += m_modules[i].m_area * m_modules[i].m_thickness;
+		//m_modules[i].m_isOutCore = false;
+		if( m_modules[i].m_isFixed )
+		{
+			if( m_modules[i].m_cx < m_coreRgn.left || m_modules[i].m_cx > m_coreRgn.right ||
+				m_modules[i].m_cy < m_coreRgn.bottom || m_modules[i].m_cy > m_coreRgn.top  ||
+				m_modules[i].m_z < m_back || m_modules[i].m_z > m_front)
+			{
+				//m_modules[i].m_isOutCore = true;
+				continue;
+			}
+			else
+			{
+				m_totalFreeSpace -= 
+					getOverlap( m_coreRgn.left, m_coreRgn.right, m_modules[i].m_x, m_modules[i].m_x + m_modules[i].m_width ) *
+					getOverlap( m_coreRgn.bottom, m_coreRgn.top, m_modules[i].m_y, m_modules[i].m_y + m_modules[i].m_height ) *
+					getOverlap( m_back, m_front, m_modules[i].m_z, m_modules[i].m_z + m_modules[i].m_thickness );
+			}
+		}
+		else
+		{
+			m_totalMovableModuleNumber ++;
+			m_totalMovableModuleArea += m_modules[i].m_area;
+			m_totalMovableModuleVolumn += m_modules[i].m_area * m_modules[i].m_thickness;
+			if( m_modules[i].m_height > m_rowHeight * 2 )
+			{
+				m_totalMovableLargeMacroArea += m_modules[i].m_area;
+			}
+		}
+		m_totalModuleArea += m_modules[i].m_area;
+		m_totalModuleVolumn += m_modules[i].m_area * m_modules[i].m_thickness;
     }
     avg_area = m_totalModuleArea / m_modules.size();
 	avg_volumn = m_totalModuleVolumn / m_modules.size();
@@ -1743,14 +1773,14 @@ void CPlaceDB::SetModuleLayerAssign( const int& id, float z ){
 bool CPlaceDB::MoveModuleCenter( const int& id, float cx, float cy )
 {
     if( m_modules[id].m_isFixed )
-	return false;
+		return false;
     m_modules[id].m_x = cx-m_modules[id].m_width * (float)0.5;
     m_modules[id].m_y = cy-m_modules[id].m_height * (float)0.5;
     m_modules[id].m_cx = cx;
     m_modules[id].m_cy = cy;
     for( int i=0; i<(int)m_modules[id].m_pinsId.size(); i++ )
     {
-	CalcPinLocation( m_modules[id].m_pinsId[i], cx, cy );
+		CalcPinLocation( m_modules[id].m_pinsId[i], cx, cy );
     }
     return true;
 }
@@ -1758,7 +1788,7 @@ bool CPlaceDB::MoveModuleCenter( const int& id, float cx, float cy )
 bool CPlaceDB::MoveModuleCenter( const int& id, float cx, float cy, float cz )
 {
     if( m_modules[id].m_isFixed )
-	return false;
+		return false;
     m_modules[id].m_x = cx-m_modules[id].m_width * (float)0.5;
     m_modules[id].m_y = cy-m_modules[id].m_height * (float)0.5;
     m_modules[id].m_z = cz-m_modules[id].m_thickness * (float)0.5;
@@ -1767,7 +1797,7 @@ bool CPlaceDB::MoveModuleCenter( const int& id, float cx, float cy, float cz )
     m_modules[id].m_cz = cz;
     for( int i=0; i<(int)m_modules[id].m_pinsId.size(); i++ )
     {
-	CalcPinLocation( m_modules[id].m_pinsId[i], cx, cy );
+		CalcPinLocation( m_modules[id].m_pinsId[i], cx, cy );
     }
     return true;
 }

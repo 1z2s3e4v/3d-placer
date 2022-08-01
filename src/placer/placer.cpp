@@ -25,24 +25,72 @@ Placer_C::Placer_C(Chip_C* p_pChip, Design_C* p_pDesign, ParamHdl_C& paramHdl, c
     _RUNDIR = "./run_tmp/" + _paramHdl.get_case_name() + "/";
 }
 
+
+void Placer_C::run_safe_mode(){
+    cout << BLUE << "[Placer]" << RESET << " - Start Safe-Mode\n";
+    init_run_dir();
+    bool place_succ = false;
+    while(!place_succ){
+            place_succ = order_place();
+
+        if(!place_succ){
+            cout << BLUE << "[Placer]" << RESET << " - ###############################\n";
+            cout << BLUE << "[Placer]" << RESET << " - Run Again ...\n";
+            continue;
+        }
+    }
+
+    // update the HPWL
+    cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - Finish!\n";
+}
+
 void Placer_C::run(){
     cout << BLUE << "[Placer]" << RESET << " - Start\n";
     init_run_dir();
     bool place_succ = false;
     while(!place_succ){
-        // init place
-        //init_place();
-        //place_succ = order_place();
-        //place_succ = random_d2dplace();
-        //place_succ = ntu_d2dplace();
-        //place_succ = pin3d_ntuplace();
-        //place_succ = shrunk2d_ntuplace();
-        place_succ = shrunk2d_replace();
-        //place_succ = true3d_placement(); // our main function
-        //place_succ = half3d_placement(); // our main function
-        //place_succ = ntuplace3d();// (remember to replace dir 'ntuplace' to 'ntuplace3d_bak')
-        //place_succ = coloquinte_place();
-        //place_succ = shrunked_2d_ntuplace();
+        if(!_paramHdl.check_flag_exist("flow")){
+            // init place
+            //init_place();
+            //place_succ = order_place();
+            //place_succ = random_d2dplace();
+            //place_succ = ntu_d2dplace();
+            //place_succ = pin3d_ntuplace();
+            if(_vCell.size() < 100)
+                place_succ = shrunk2d_ntuplace();
+            else
+                place_succ = shrunk2d_replace();
+            //place_succ = true3d_placement(); // our main function
+            //place_succ = half3d_placement(); // our main function
+            //place_succ = ntuplace3d();// (remember to replace dir 'ntuplace' to 'ntuplace3d_bak')
+            //place_succ = coloquinte_place();
+            //place_succ = shrunked_2d_ntuplace();
+        }
+        else{ // assigned flow
+            if(_paramHdl.get_para("flow") == "order_place"){
+                place_succ = order_place();
+            } else if(_paramHdl.get_para("flow") == "random_d2d"){
+                place_succ = random_d2dplace();
+            } else if(_paramHdl.get_para("flow") == "ntu_d2d"){
+                place_succ = ntu_d2dplace();
+            } else if(_paramHdl.get_para("flow") == "pin3d"){
+                place_succ = pin3d_ntuplace();
+            } else if(_paramHdl.get_para("flow") == "shrunk2d"){
+                place_succ = shrunk2d_ntuplace();
+            } else if(_paramHdl.get_para("flow") == "shrunk2d_replace"){
+                place_succ = shrunk2d_replace();
+            } else if(_paramHdl.get_para("flow") == "true3d"){
+                place_succ = true3d_placement();
+            } else if(_paramHdl.get_para("flow") == "half3d"){
+                place_succ = half3d_placement();
+            } else if(_paramHdl.get_para("flow") == "ntuplace3d"){
+                place_succ = ntuplace3d();
+            } else{
+                cout << BLUE << "[Placer]" << RESET << " - Please assign a valid flow name.\n";
+                exit(1);
+            }
+        }
 
         if(!place_succ){
             cout << BLUE << "[Placer]" << RESET << " - ###############################\n";
@@ -185,10 +233,11 @@ bool Placer_C::ntuplace3d(){
     rand_ball_place();
     // ntuplace 3d analytical global place
     global_place(isLegal, wl1); /////////////////////////////////////////////// main function
+    rand_ball_place();
     //ntu_d2d_global(isLegal, wl1);
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Global: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
-    cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << wl1 << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << (int)wl1 << ".\n";
 
     ////////////////////////////////////////////////////////////////
     // Legalization
@@ -222,19 +271,19 @@ bool Placer_C::half3d_placement(){
     part_time_start = (float)clock() / CLOCKS_PER_SEC;
     cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1]" << RESET << ": Global Placement.\n";
     // cell spreading
-    cell_spreading();
+    //cell_spreading();
+    shrunked_2d_replace();
     // die-partition
     mincut_partition();
-    rand_ball_place();
+    init_ball_place();
     cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
     cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
     // 3d analytical global placement
     global_place(isLegal, wl1); /////////////////////////////////////////////// main function
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Global: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
-    cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << wl1 << ".\n";
-
-    rand_ball_place();
+    cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << (int)wl1 << ".\n";
+    set_ball(); // set ball for crossed net
     cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
     cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
     
@@ -433,7 +482,7 @@ bool Placer_C::true3d_placement(){
     global_place(isLegal, wl1); /////////////////////////////////////////////// main function
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Global: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
-    cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << wl1 << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << (int)wl1 << ".\n";
 
     rand_ball_place();
     cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
@@ -467,7 +516,7 @@ void Placer_C::global_place(bool& isLegal, double& totalHPWL){ // Analytical Glo
     param.bLayerPreAssign = true;
     param.dWeightTSV = 0.5;
     //param.step = 5;
-    param.stepZ = 0.2;
+    param.stepZ = 6;
 
     // Setting placedb
     CPlaceDB placedb;
@@ -824,6 +873,7 @@ void Placer_C::set_ntuplace_param(CPlaceDB& placedb){
 	    param.Print();
 }
 void Placer_C::create_placedb(CPlaceDB& placedb){
+    bool add_dummy_node_as_ball = true;
     // .scl
     int rowH = ceil((_pChip->get_die(0)->get_row_height() + _pChip->get_die(1)->get_row_height())/2.0);
     int rowN = _pChip->get_height()/rowH;
@@ -846,8 +896,12 @@ void Placer_C::create_placedb(CPlaceDB& placedb){
     placedb.SetCoreRegion();
     // .node
     vector<Cell_C*>& v_cell = _vCell;
-    placedb.ReserveModuleMemory(v_cell.size());
-    for(Cell_C* cell : v_cell){
+    vector<Net_C*>& v_net = _vNet;
+    int moduleNum = v_cell.size();
+    if(add_dummy_node_as_ball)
+        moduleNum += v_net.size();
+    placedb.ReserveModuleMemory(moduleNum);
+    for(Cell_C* cell : v_cell){ // Cells
         int cellH = rowH;
         int cellW = ceil((cell->get_width(0)+cell->get_width(1))/2);
         placedb.AddModule( cell->get_name(), cellW, cellH, false );
@@ -861,52 +915,100 @@ void Placer_C::create_placedb(CPlaceDB& placedb){
             curModule.m_heights[i] = cell->get_height(i);
         }
     }
-    placedb.m_nModules = v_cell.size(); //fplan.m_nModules = nNodes + nTerminals;
+    if(add_dummy_node_as_ball){
+        for(Net_C* net: v_net){ // Balls
+            string ballName = net->get_name() + "_ball";
+            placedb.AddModule( ballName, 0, 0, false );
+            Module& curModule = placedb.m_modules.back();
+            curModule.m_widths.resize(param.nlayer,0);
+            curModule.m_heights.resize(param.nlayer,0);
+            curModule.m_isVia = true;
+        }
+    }
+    placedb.m_nModules = moduleNum; //fplan.m_nModules = nNodes + nTerminals;
     placedb.m_modules.resize( placedb.m_modules.size() );
     placedb.CreateModuleNameMap();
+    // cutline for layer assignment
+    double cutline = 0.5;
+    double width_avg0 = 0;
+    double width_avg1 = 0;
+    for(Cell_C* cell : v_cell){
+        width_avg0 += (double)cell->get_width(0)/ v_cell.size();
+        width_avg1 += (double)cell->get_width(1)/ v_cell.size();
+    }
+    cutline = ((width_avg1*_pChip->get_die(1)->get_row_height()) / (width_avg1*_pChip->get_die(1)->get_row_height() + width_avg0*_pChip->get_die(0)->get_row_height())) * (_pChip->get_die(0)->get_max_util() / _pChip->get_die(1)->get_max_util());
+    // if(add_dummy_node_as_ball){ 
+    //     cutline *= 0.35;
+    // }
+    placedb.m_dCutline = cutline;
     // .nets
     int nPins = 0;
-    for(Net_C* net : _vNet) 
+    for(Net_C* net : _vNet) // Pins 
         nPins += net->get_pin_num();
+    if(add_dummy_node_as_ball){ // + Balls
+        nPins += _vNet.size();
+    }
+
     placedb.ReserveNetMemory( _vNet.size() );
     placedb.ReservePinMemory( nPins );
     int nReadNets = 0;
     for(Net_C* net : _vNet){
         Net net_db;
         vector<Pin_C*> v_pin = net->get_pins();
-        net_db.reserve( v_pin.size() );
-        for(int i=0;i<net->get_pin_num();++i){
+        net_db.reserve( v_pin.size()+1 ); // Pins + Ball
+        // Pins
+        for(int i=0;i<net->get_pin_num();++i){ 
             int moduleId = placedb.GetModuleId( v_pin[i]->get_cell()->get_name() );
             Cell_C* cell = v_pin[i]->get_cell();
-            Pos pin_offset0 = cell->get_master_cell()->get_pin_offset(_pChip->get_die(0)->get_techId() ,v_pin[i]->get_id());
-            Pos pin_offset1 = cell->get_master_cell()->get_pin_offset(_pChip->get_die(1)->get_techId() ,v_pin[i]->get_id());
-            Pos pin_offset = Pos(ceil((pin_offset0.x+pin_offset1.x)/2.0),ceil((pin_offset0.y+pin_offset1.y)/4.0));
+            vector<Pos> pin_offsets(2);
+            pin_offsets[0] = cell->get_master_cell()->get_pin_offset(_pChip->get_die(0)->get_techId() ,v_pin[i]->get_id());
+            pin_offsets[1] = cell->get_master_cell()->get_pin_offset(_pChip->get_die(1)->get_techId() ,v_pin[i]->get_id());
+            Pos pin_offset = Pos(ceil((pin_offsets[0].x+pin_offsets[1].x)/2.0),ceil((pin_offsets[0].y+pin_offsets[1].y)/4.0));
             int pinId = placedb.AddPin( moduleId, pin_offset.x, pin_offset.y );
             net_db.push_back( pinId );
-            // remove duplicated netsIds
-            bool found = false; 
-            for(unsigned int z = 0 ; z < placedb.m_modules[moduleId].m_netsId.size() ; z++ ){
-                if ( nReadNets == placedb.m_modules[moduleId].m_netsId[z] ){
-                    found = true;
-                    break;
-                }
+            placedb.m_pins[pinId].xOffs.resize(param.nlayer,0);
+            placedb.m_pins[pinId].yOffs.resize(param.nlayer,0);
+            for(int i=0;i<param.nlayer;++i){
+                placedb.m_pins[pinId].xOffs[i] = pin_offsets[0].x;
+                placedb.m_pins[pinId].yOffs[i] = pin_offsets[1].y;
             }
-            if (!found) placedb.m_modules[moduleId].m_netsId.push_back( nReadNets );
+            placedb.m_modules[moduleId].m_netsId.push_back( nReadNets );
         }
+        // Ball
+        if(add_dummy_node_as_ball){
+            int BallId = placedb.GetModuleId( net->get_name()+"_ball" );
+            int pinId = placedb.AddPin( BallId, 1, 1 );
+            net_db.push_back( pinId );
+            placedb.m_pins[pinId].xOffs.resize(2,1);
+            placedb.m_pins[pinId].yOffs.resize(2,1);
+            placedb.m_modules[BallId].m_netsId.push_back( nReadNets );
+        }
+
         placedb.AddNet( net_db );
         nReadNets++;
     }
+
     placedb.m_nPins = nPins;
 	placedb.m_nNets = _vNet.size();
     placedb.m_pins.resize( placedb.m_pins.size() );
     placedb.m_nets.resize( placedb.m_nets.size() );
     // .pl
-    for(Cell_C* cell : v_cell){
+    for(Cell_C* cell : v_cell){ // Cells
         int moduleId = placedb.GetModuleId( cell->get_name() );
         placedb.SetModuleLocation( moduleId, cell->get_posX(), cell->get_posY());
 		placedb.SetModuleOrientation( moduleId, 0 ); // orientInt('N')=0
         if(param.bLayerPreAssign){
             placedb.SetModuleLayerAssign( moduleId, cell->get_posZ());
+        }
+    }
+    if(add_dummy_node_as_ball){ 
+        for(Net_C* net: v_net){ // Balls
+            int BallId = placedb.GetModuleId( net->get_name()+"_ball" );
+            placedb.SetModuleLocation( BallId, net->get_ball_pos().x, net->get_ball_pos().y);
+            placedb.SetModuleOrientation( BallId, 0 );
+            if(param.bLayerPreAssign){
+                placedb.SetModuleLayerAssign( BallId, 0);
+            }
         }
     }
     placedb.ClearModuleNameMap();
@@ -1011,13 +1113,21 @@ void Placer_C::load_from_placedb(CPlaceDB& placedb){
     int count_zChanged = 0;
     for( unsigned int i=0; i<placedb.m_modules.size(); i++ ){
         if( !placedb.m_modules[i].m_isFixed ){
-            Cell_C* cell = _mCell[placedb.m_modules[i].GetName()];
-            cell->set_xy(Pos(placedb.m_modules[i].GetX(), placedb.m_modules[i].GetY()));
-            if(param.b3d){
-                if(cell->get_posZ() != placedb.m_modules[i].GetZ())
-                    ++count_zChanged;
-                    //cout << "~~~~~~~~~~~ " << cell->get_name() << ".z() changed from "<<cell->get_posZ()<<" to " << placedb.m_modules[i].GetZ() << "\n";
-                cell->set_die(_pChip->get_die((int)placedb.m_modules[i].GetZ()));
+            string moduleName = placedb.m_modules[i].GetName();
+            if(moduleName.size() > 5 && moduleName.substr(moduleName.size()-5,5) == "_ball"){ // Ball
+                string netName = moduleName.substr(0,moduleName.size()-5);
+                Net_C* net = _mNet[netName];
+                net->set_ball_xy(Pos(placedb.m_modules[i].GetX(), placedb.m_modules[i].GetY()));
+            }
+            else{
+                Cell_C* cell = _mCell[placedb.m_modules[i].GetName()];
+                cell->set_xy(Pos(placedb.m_modules[i].GetX(), placedb.m_modules[i].GetY()));
+                if(param.b3d){
+                    if(cell->get_posZ() != placedb.m_modules[i].GetZ())
+                        ++count_zChanged;
+                        //cout << "~~~~~~~~~~~ " << cell->get_name() << ".z() changed from "<<cell->get_posZ()<<" to " << placedb.m_modules[i].GetZ() << "\n";
+                    cell->set_die(_pChip->get_die((int)placedb.m_modules[i].GetZ()));
+                }
             }
         }
     }
@@ -1027,10 +1137,27 @@ void Placer_C::load_from_placedb(CPlaceDB& placedb){
 }
 
 bool Placer_C::order_place(){
+    cout << BLUE << "[Placer]" << RESET << " - Start order_palce flow.\n";
     int curDie = 0;
     int curRow = 0;
     int curX = 0;
+    long long valid_area = (long long)_pChip->get_width() * (long long)_pChip->get_height() * _pChip->get_die(curDie)->get_max_util();
+    
     for(Cell_C* cell : _vCell){
+        cell->set_die(_pChip->get_die(curDie));
+        long long cell_area = (long long)(cell->get_width()*cell->get_height());
+        if(valid_area > cell_area){
+            valid_area -= cell_area;
+        }else{
+            curDie += 1;
+            curRow = 0;
+            curX = 0;
+            valid_area = (long long)_pChip->get_width() * (long long)_pChip->get_height() * _pChip->get_die(curDie)->get_max_util();
+            cell->set_die(_pChip->get_die(curDie));
+            cell_area = (long long)(cell->get_width()*cell->get_height());
+            valid_area -= cell_area;
+        }
+
         if(curX + cell->get_width(_pChip->get_die(curDie)->get_techId()) <= _pChip->get_width()){
             cell->set_xy(Pos(curDie, curX, curRow*_pChip->get_die(curDie)->get_row_height()));
             cell->set_die(_pChip->get_die(curDie));
@@ -1041,13 +1168,13 @@ bool Placer_C::order_place(){
             cell->set_xy(Pos(curDie, curX, curRow*_pChip->get_die(curDie)->get_row_height()));
             cell->set_die(_pChip->get_die(curDie));
             curX += cell->get_width(_pChip->get_die(curDie)->get_techId());
-        } else if(curDie < 1){
-            curDie += 1;
-            curRow = 0;
-            curX = 0;
-            cell->set_xy(Pos(curDie, curX, curRow*_pChip->get_die(curDie)->get_row_height()));
-            cell->set_die(_pChip->get_die(curDie));
-            curX += cell->get_width(_pChip->get_die(curDie)->get_techId());
+        // } else if(curDie < 1){
+        //     curDie += 1;
+        //     curRow = 0;
+        //     curX = 0;
+        //     cell->set_xy(Pos(curDie, curX, curRow*_pChip->get_die(curDie)->get_row_height()));
+        //     cell->set_die(_pChip->get_die(curDie));
+        //     curX += cell->get_width(_pChip->get_die(curDie)->get_techId());
         } else{
 			cout << "_pChip->get_width()=" << _pChip->get_width() << "\n";
 			cout << "curX + cell->get_width("<<curDie<<") = " << curX << " + " << cell->get_width(_pChip->get_die(curDie)->get_techId()) << " = " << curX + cell->get_width(_pChip->get_die(curDie)->get_techId()) << "\n";
@@ -1056,15 +1183,18 @@ bool Placer_C::order_place(){
             cell->set_die(_pChip->get_die(0));
         }
     }
-    int ball_curX = _pChip->get_ball_spacing();
-    int ball_curY = _pChip->get_ball_spacing();
+    int ball_curX = _pChip->get_ball_spacing() + _pChip->get_ball_width()/2.0;
+    int ball_curY = _pChip->get_ball_spacing() + _pChip->get_ball_width()/2.0;
+    vector<Net_C*>& v_d2dNets = _pChip->get_d2d_nets();
+    v_d2dNets.clear();
     for(Net_C* net : _vNet){
         if(net->is_cross_net()){
-            if(ball_curX + _pChip->get_ball_width()/2.0 <= _pChip->get_width() && ball_curY + _pChip->get_ball_height()/2.0 <= _pChip->get_height()){
+            v_d2dNets.emplace_back(net);
+            if(ball_curX + _pChip->get_ball_width()/2.0 + _pChip->get_ball_spacing() <= _pChip->get_width() && ball_curY + _pChip->get_ball_height()/2.0 + _pChip->get_ball_spacing() <= _pChip->get_height()){
                 net->set_ball_xy(Pos(ball_curX, ball_curY));
                 ball_curX += _pChip->get_ball_width() + _pChip->get_ball_spacing();
-            } else if(ball_curY + 3*_pChip->get_ball_height()/2.0 <= _pChip->get_height()){
-                ball_curX = 0;
+            } else if(ball_curY + _pChip->get_ball_height()/2.0 + _pChip->get_ball_spacing() <= _pChip->get_height()){
+                ball_curX = _pChip->get_ball_spacing() + _pChip->get_ball_width()/2.0;
                 ball_curY += _pChip->get_ball_height() + _pChip->get_ball_spacing();
                 net->set_ball_xy(Pos(ball_curX, ball_curY));
                 ball_curX += _pChip->get_ball_width() + _pChip->get_ball_spacing();
@@ -1136,10 +1266,40 @@ void Placer_C::rand_ball_place(){
     vector<Net_C*>& v_d2dNets = _pChip->get_d2d_nets();
     v_d2dNets.clear();
     for(Net_C* net : _vNet){
+        int x = rand()%(_pChip->get_width());
+        int y = rand()%(_pChip->get_height());
+        net->set_ball_xy(Pos(x,y));
         if(net->is_cross_net()){
-            int x = rand()%(_pChip->get_width());
-            int y = rand()%(_pChip->get_height());
-            net->set_ball_xy(Pos(x,y));
+            v_d2dNets.emplace_back(net);
+        }
+    }
+}
+void Placer_C::init_ball_place(){
+    vector<Net_C*>& v_d2dNets = _pChip->get_d2d_nets();
+    v_d2dNets.clear();
+    for(Net_C* net : _vNet){
+        int sumX=0, sumY=0, avgX=0, avgY=0;
+        vector<Pin_C*>& v_pin = net->get_pins();
+        for(Pin_C* pin : v_pin){
+            sumX += pin->get_x();
+            sumY += pin->get_y();
+        }
+        if(v_pin.size() > 0) {
+            avgX = sumX / v_pin.size();
+            avgY = sumY / v_pin.size();
+        }
+        net->set_ball_xy(Pos(avgX, avgY));
+
+        if(net->is_cross_net()){
+            v_d2dNets.emplace_back(net);
+        }
+    }
+}
+void Placer_C::set_ball(){
+    vector<Net_C*>& v_d2dNets = _pChip->get_d2d_nets();
+    v_d2dNets.clear();
+    for(Net_C* net : _vNet){
+        if(net->is_cross_net()){
             v_d2dNets.emplace_back(net);
         }
     }
@@ -1342,7 +1502,8 @@ bool Placer_C::shrunk2d_replace(){
     part_time_start = (float)clock() / CLOCKS_PER_SEC;
     placer_succ = shrunked_2d_replace();
     if(!placer_succ) return false;
-
+    int total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [1] Init 2D GP (RePlAce) total HPWL = " << total_hpwl << ".\n";
     ////////////////////////////////////////////////////////////////
     // Partition
     ////////////////////////////////////////////////////////////////
@@ -1381,6 +1542,8 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
         if(!placer_succ) return false;
     }
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [3.1] Partition total HPWL = " << total_hpwl << ".\n";
     // 2. Place die0 with projected die1
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux;
@@ -1431,7 +1594,7 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
         if(!placer_succ) return false;
     }
-    int total_hpwl = cal_HPWL();
+    total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - [3.3] GP total HPWL = " << total_hpwl << ".\n";
     // 4. Replace die0 again with projected die1 and balls
     if(_pChip->get_die(0)->get_cells().size() > 0){

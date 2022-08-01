@@ -42,6 +42,7 @@ public:
     Placer_C(Chip_C*, Design_C*, ParamHdl_C&, clock_t);
     
     void run();
+    void run_safe_mode();
     void init_place();
     bool order_place();
     void cell_spreading();
@@ -51,6 +52,8 @@ public:
     bool shrunked_2d_replace();
     void rand_place(int); // die_by_die
     void rand_ball_place();
+    void init_ball_place();
+    void set_ball();
     void init_run_dir();
     void clear();
 
