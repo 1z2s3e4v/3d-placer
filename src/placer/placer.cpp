@@ -2,6 +2,12 @@
 //#include <bits/types/clock_t.h>
 #include <ctime>
 #include <cmath>
+#include <algorithm>   
+#include <vector> 
+#include <random>
+#include <iostream>
+#include <set>
+#include <map>
 
 using namespace std;
 
@@ -1346,9 +1352,12 @@ bool Placer_C::shrunk2d_replace(){
         mincut_partition(); // set_die() for each cell
     else 
         mincut_k_partition(); // set_die() for each cell
+    // bin_based_partition_real();
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Partition: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     cout << BLUE << "[Placer]" << RESET << " - Partition result: " << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << ".\n";
+    rand_ball_place();
+    cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
 
     ////////////////////////////////////////////////////////////////
     // D2D Placement with Pin Projection
@@ -1851,7 +1860,6 @@ void Placer_C::mincut_partition(){
     //cout << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell)num = " << _pChip->get_die(1)->get_cells().size() << "\n";
 
     // move cells for matching die's max_utilization
-    // move cells for matching die's max_utilization
     long long valid_area = (long long)_pChip->get_width() * (long long)_pChip->get_height() * _pChip->get_die(0)->get_max_util();
     //long long total_area = 0;
     Die_C* die = _pChip->get_die(0);
@@ -1925,6 +1933,417 @@ void Placer_C::mincut_k_partition(){
         }
         if(count_move > 0) cout << BLUE << "[Partition]" << RESET << " - " << count_move << " cells moved from die1->die0.\n";
     }
+}
+void Placer_C::bin_based_partition_real(){
+
+    int bins_per_row_top = 45;
+    int bins_per_col_top = 45;
+    int bins_per_row_bot = 30;
+    int bins_per_col_bot = 30;
+    int bin_num_top = bins_per_row_top * bins_per_col_top;
+    int bin_num_bot = bins_per_row_bot * bins_per_col_bot;
+    int total_bin_num = bin_num_top + bin_num_bot;
+
+    HGR hgr(_RUNDIR, "circuit");
+    for(Net_C* net : _vNet){
+        hgr.add_net(net->get_name());
+        for(int i=0;i<net->get_pin_num();++i){
+            hgr.add_node(net->get_name(), net->get_pin(i)->get_cell()->get_name());
+        }
+    }
+    hgr.write_hgr();
+    run_hmetis(total_bin_num, 0.5, "circuit");
+    hgr.read_part_result(total_bin_num);
+
+    vector<int> current_bins_order, best_bins_order;
+    vector<double> parts_center_xy;
+    int part_width_top = _pChip->get_die(0)->get_width() / bins_per_row_top;
+    int part_height_top = _pChip->get_die(0)->get_height() / bins_per_col_top;
+    int part_width_bot = _pChip->get_die(1)->get_width() / bins_per_row_bot;
+    int part_height_bot = _pChip->get_die(1)->get_height() / bins_per_col_bot;
+
+    for (int i=0; i<total_bin_num; i++) {    
+        current_bins_order.push_back(i);
+        if (i<bin_num_top) {
+            parts_center_xy.push_back((i % bins_per_row_top + 0.5) * part_width_top); // x
+            parts_center_xy.push_back((floor(i / bins_per_row_top) + 0.5) * part_height_top); // y
+        } else {
+            parts_center_xy.push_back(((i - bin_num_top) % bins_per_row_bot + 0.5) * part_width_bot); // x
+            parts_center_xy.push_back((floor((i - bin_num_top) / bins_per_row_bot) + 0.5) * part_height_bot); // y
+        }
+    }
+    random_shuffle(current_bins_order.begin(), current_bins_order.end());
+    best_bins_order = current_bins_order;
+    
+    vector<Bin_C*> _vBin(total_bin_num);
+    for (int i=0; i<total_bin_num; i++) {   
+        int bin_id = current_bins_order[i];
+        Bin_C* bin = new Bin_C(bin_id);
+        _vBin[bin_id] = bin;
+        bin->set_part(i);
+        int die = (i >= bin_num_top) ? 1 : 0; 
+        bin->set_die(die);
+        bin->set_center(Pos(parts_center_xy[2 * (i % bin_num_top)], parts_center_xy[2 * (i % bin_num_top) + 1]));
+        vector<int>& cellIdList = hgr.get_nodes_by_part(bin_id);
+        bin->set_cellIdList(cellIdList);
+    }
+    for (Net_C* net : _vNet) {
+        string bnet_id(total_bin_num, '0');
+        vector<int> connected_bin_id;
+        for (int i=0; i<net->get_pin_num(); i++) {
+            int bin_id = hgr.get_part_result(net->get_pin(i)->get_cell()->get_name());
+            bnet_id[bin_id] = '1'; // Todo: [debug] bin_id = -1 ????
+            connected_bin_id.push_back(bin_id);
+        }
+        map<string, BNet_C*> bnet_set;
+        bool not_exist = (bnet_set.find(bnet_id) == bnet_set.end()) ? 1 : 0;
+        if (not_exist) {
+            BNet_C* bnet = new BNet_C(bnet_id);
+            bnet->set_weight(1);
+            bnet_set[bnet_id] = bnet;
+            for (int bin_id : connected_bin_id) {
+                _vBin[bin_id]->add_bnet(bnet);
+                bnet->add_bin(_vBin[bin_id]);
+            }
+            _vBNet.push_back(bnet);
+        } else {
+            BNet_C* bnet = bnet_set[bnet_id];
+            bnet->incr_weight();
+        }
+    }
+
+    int current_hpwl = cal_HPWL_binbased();
+    int best_hpwl = current_hpwl;
+
+    // SA
+    int iter_limit = 1000;
+    double T = INT_MAX, decrease_rate = 0.995;
+    int uphill = 0;
+    srand(10);
+    for (int i=0; i<iter_limit; i++) {
+        if (i%200 == 0) {
+            cout << "[" << i << "] T = " << T 
+                 << ", cur_Hpwl = "      << current_hpwl 
+                 << ", best_Hpwl = "     << best_hpwl << "\n";
+        }
+        
+        T = T * decrease_rate;
+        int oper = rand() % 2;
+        int ind1, ind2;
+        while (true) {
+            ind1 = rand() % total_bin_num;
+            ind2 = rand() % total_bin_num;
+            if (ind1 != ind2) {
+                break;
+            }
+        }
+        
+        int bin1_id = current_bins_order[ind1];
+        int bin2_id = current_bins_order[ind2];
+        Bin_C* bin1 = _vBin[bin1_id];
+        Bin_C* bin2 = _vBin[bin2_id];
+        int die_temp = bin1->get_die(); 
+        Pos center_temp = bin1->get_center();
+        bin1->set_die(bin2->get_die());
+        bin2->set_die(die_temp);
+        bin1->set_center(bin2->get_center());
+        bin2->set_center(center_temp);
+
+        int new_hpwl = cal_HPWL_binbased();
+        if (new_hpwl <= current_hpwl) {
+            current_hpwl = new_hpwl;
+            current_bins_order[ind1] = bin2_id;
+            current_bins_order[ind2] = bin1_id;
+            bin1->set_part(ind2);
+            bin2->set_part(ind1);
+            if (new_hpwl <= best_hpwl) {
+                best_hpwl = new_hpwl;
+                best_bins_order = current_bins_order;
+            }
+        } else {
+            double ran = rand() % 10 / 10;
+            int delta = new_hpwl - current_hpwl;
+            double accept_rate = exp(-1 * delta / T);
+            if (ran < accept_rate) {
+                current_hpwl = new_hpwl;
+                current_bins_order[ind1] = bin2_id;
+                current_bins_order[ind2] = bin1_id;
+                bin1->set_part(ind2);
+                bin2->set_part(ind1);
+                uphill += 1;
+            } else {
+                int die_temp = bin1->get_die(); 
+                Pos center_temp = bin1->get_center();
+                bin1->set_die(bin2->get_die());
+                bin2->set_die(die_temp);
+                bin1->set_center(bin2->get_center());
+                bin2->set_center(center_temp);
+            }
+        }
+
+        // cout << "current bins order: ";
+        // for (int i=0; i<total_bin_num; ++i) {
+        //     cout << current_bins_order[i] << ",";
+        // }
+        // cout << "\n";
+
+        
+
+        if (T < 0.0000000000000000000000000001) {
+            break;
+        }
+
+    }
+
+    for (int ind=0; ind<total_bin_num; ind++) {
+        int bin_id = best_bins_order[ind];
+        vector<int>& cell_id = hgr.get_nodes_by_part(bin_id);
+        int die = (ind >= bin_num_top) ? 1 : 0; 
+        for (int j=0; j<cell_id.size(); j++) {
+            Cell_C* cell = _vCell[cell_id[j]];
+            cell->set_die(_pChip->get_die(die));
+            cell->set_xy(Pos(parts_center_xy[2 * (ind % bin_num_top)], parts_center_xy[2 * (ind % bin_num_top) + 1]));
+        }
+       
+    }
+
+    int real_hpwl = cal_HPWL();
+    cout << "real_hpwl = " << real_hpwl << "\n";
+    
+    // cout << "best bins order: ";
+    // for (int i=0; i<bin_num; ++i) {
+    //     cout << best_bins_order[i] << ",";
+    // }
+    // cout << "\n";
+
+    cout << BLUE << "[Bin-based Partition]" << RESET << " - " << "HPWL = " << real_hpwl << "\n";
+
+
+}
+void Placer_C::bin_based_partition(int bin_num){
+
+    HGR hgr(_RUNDIR, "circuit");
+    for(Net_C* net : _vNet){
+        hgr.add_net(net->get_name());
+        for(int i=0;i<net->get_pin_num();++i){
+            hgr.add_node(net->get_name(), net->get_pin(i)->get_cell()->get_name());
+        }
+    }
+    hgr.write_hgr();
+    run_hmetis(bin_num, 0.5, "circuit");
+    hgr.read_part_result(bin_num);
+    //cout << "hmetis partition result: " << max(hgr.get_part_size(0),hgr.get_part_size(1)) << " : " << min(hgr.get_part_size(0),hgr.get_part_size(1)) << "\n";
+    
+    vector<int> current_bins_order, best_bins_order;
+    vector<double> bins_center_xy;
+    int bins_per_row = sqrt(bin_num / 2); 
+
+    //cout << "~~~~~~~~~" << _pChip->get_die(0)->get_width() << "," << _pChip->get_die(0)->get_height() <<"\n";
+    for (int i=0; i<bin_num; i++) {    
+        current_bins_order.push_back(i);
+        if (i<bin_num/2) {
+            bins_center_xy.push_back((i % bins_per_row + 0.5) * _pChip->get_die(0)->get_width() / bins_per_row); // x
+            bins_center_xy.push_back((floor(i % (bin_num / 2) / bins_per_row) + 0.5) * _pChip->get_die(0)->get_height() / bins_per_row); // y
+            //cout << (i % bins_per_row + 0.5) * _pChip->get_die(0)->get_width() / bins_per_row<< " , " << (floor(i % (bin_num / 2) / bins_per_row) + 0.5) * _pChip->get_die(0)->get_height() / bins_per_row <<"\n";
+        }
+    }
+
+    random_shuffle(current_bins_order.begin(), current_bins_order.end());
+    best_bins_order = current_bins_order;
+
+    for(Cell_C* cell : _vCell){
+        int part = hgr.get_part_result(cell->get_name());
+        int bin = find(current_bins_order.begin(), current_bins_order.end(), part) - current_bins_order.begin();
+        int die = 0;//(bin >= bin_num / 2) ? 1 : 0; 
+        cell->set_die(_pChip->get_die(die));
+        cell->set_xy(Pos(bins_center_xy[2 * (bin % (bin_num / 2))], bins_center_xy[2 * (bin % (bin_num / 2)) + 1]));
+    }
+    int current_hpwl = cal_HPWL();
+    int best_hpwl = current_hpwl;
+
+    // cout << "current bins order: ";
+    // for (int i=0; i<bin_num; ++i) {
+    //     cout << current_bins_order[i] << ",";
+    // }
+    //cout << "\n";
+
+    // SA
+    int iter_limit = 200;
+    double T = 10000000000, decrease_rate = 0.99;
+    int uphill = 0;
+    srand(10);
+    for (int i=0; i<iter_limit; i++) {
+        if (i%20 == 0) {
+            cout << "[" << i << "] T = " << T 
+                 << ", cur_Hpwl = "      << current_hpwl 
+                 << ", best_Hpwl = "     << best_hpwl << "\n";
+        }
+        
+        T = T * decrease_rate;
+        int oper = rand() % 2;
+        int ind1, ind2;
+        while (true) {
+            ind1 = rand() % bin_num;
+            ind2 = rand() % bin_num;
+            if (ind1 != ind2) {
+                break;
+            }
+        }
+        if (i < iter_limit / 2 && oper == 1) {
+            while (true) {
+                ind1 = rand() % bin_num;
+                ind2 = rand() % bin_num;
+                if (ind1 != ind2) {
+                    break;
+                }
+            }
+
+        } else {
+            
+            ind1 = rand() % bin_num;
+            int die = (ind1 < bin_num / 2) ? 0 : 1; 
+            int col_ind = ind1 % bins_per_row;
+            int row_ind = floor(ind1 % (bin_num / 2) / bins_per_row);
+            // cout << ind1 <<"(" << die << "," << row_ind << "," << col_ind << ")\n";
+            if (row_ind == 0) {
+                if (col_ind == 0) { // top left
+                    int dir = rand() % 3;
+                    if (dir == 0) {ind2 = (die == 0) ? (ind1 + bin_num / 2) : (ind1 - bin_num / 2);} // change die
+                    else if (dir == 1) {ind2 = ind1 + 1;} // right
+                    else {ind2 = ind1 + bins_per_row;} // down
+                } else if (col_ind == bins_per_row - 1) { // top right
+                    int dir = rand() % 3;
+                    if (dir == 0) {ind2 = (die == 0) ? (ind1 + bin_num / 2) : (ind1 - bin_num / 2);} // change die
+                    else if (dir == 1) {ind2 = ind1 - 1;} // left
+                    else {ind2 = ind1 + bins_per_row;} // down
+                } else {
+                    int dir = rand() % 4;
+                    if (dir == 0) {ind2 = (die == 0) ? (ind1 + bin_num / 2) : (ind1 - bin_num / 2);} // change die
+                    else if (dir == 1) {ind2 = ind1 + 1;} // right
+                    else if (dir == 2) {ind2 = ind1 - 1;} // left
+                    else {ind2 = ind1 + bins_per_row;} // down
+                }
+            } else if(row_ind == bins_per_row -1) {
+                if (col_ind == 0) { // buttom left
+                    int dir = rand() % 3;
+                    if (dir == 0) {ind2 = (die == 0) ? (ind1 + bin_num / 2) : (ind1 - bin_num / 2);} // change die
+                    else if (dir == 1) {ind2 = ind1 + 1;} // right
+                    else {ind2 = ind1 - bins_per_row;} // up
+                } else if (col_ind == bins_per_row - 1) { // buttom right
+                    int dir = rand() % 3;
+                    if (dir == 0) {ind2 = (die == 0) ? (ind1 + bin_num / 2) : (ind1 - bin_num / 2);} // change die
+                    else if (dir == 1) {ind2 = ind1 - 1;} // left
+                    else {ind2 = ind1 - bins_per_row;} // up
+                } else {
+                    int dir = rand() % 4;
+                    if (dir == 0) {ind2 = (die == 0) ? (ind1 + bin_num / 2) : (ind1 - bin_num / 2);} // change die
+                    else if (dir == 1) {ind2 = ind1 + 1;} // right
+                    else if (dir == 2) {ind2 = ind1 - 1;} // left
+                    else {ind2 = ind1 - bins_per_row;} // up
+                }
+            } else if (col_ind == 0) {
+                int dir = rand() % 4;
+                if (dir == 0) {ind2 = (die == 0) ? (ind1 + bin_num / 2) : (ind1 - bin_num / 2);} // change die
+                else if (dir == 1) {ind2 = ind1 + 1;} // right
+                else if (dir == 2) {ind2 = ind1 + bins_per_row;} // down
+                else {ind2 = ind1 - bins_per_row;} // up
+            } else if (col_ind == bins_per_row -1) {
+                int dir = rand() % 4;
+                if (dir == 0) {ind2 = (die == 0) ? (ind1 + bin_num / 2) : (ind1 - bin_num / 2);} // change die
+                else if (dir == 1) {ind2 = ind1 - 1;} // left
+                else if (dir == 2) {ind2 = ind1 + bins_per_row;} // down
+                else {ind2 = ind1 - bins_per_row;} // up
+            } else {
+                int dir = rand() % 5;
+                if (dir == 0) {ind2 = (die == 0) ? (ind1 + bin_num / 2) : (ind1 - bin_num / 2);} // change die
+                else if (dir == 1) {ind2 = ind1 - 1;} // left
+                else if (dir == 2) {ind2 = ind1 + 1;} // right
+                else if (dir == 3) {ind2 = ind1 + bins_per_row;} // down
+                else {ind2 = ind1 - bins_per_row;} // up
+            }
+        }
+        if(ind2 > 17) {
+            cout << ind2 <<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+        }
+        int part1 = current_bins_order[ind1]; // part: partition_id, ind: bin
+        int part2 = current_bins_order[ind2];
+
+        vector<int>& c1 = hgr.get_nodes_by_part(part1);
+        vector<int>& c2 = hgr.get_nodes_by_part(part2);
+        for (int j=0; j<c1.size(); j++) {
+            int die = (ind2 >= bin_num / 2) ? 1 : 0; 
+            Cell_C* cell = _vCell[c1[j]];
+            // cell->set_die(_pChip->get_die(die));
+            cell->set_xy(Pos(bins_center_xy[2 * (ind2 % (bin_num / 2))], bins_center_xy[2 * (ind2 % (bin_num / 2)) + 1]));
+        }
+        for (int j=0; j<c2.size(); j++) {
+            int die = (ind1 >= bin_num / 2) ? 1 : 0; 
+            Cell_C* cell = _vCell[c2[j]];
+            // cell->set_die(_pChip->get_die(die));
+            cell->set_xy(Pos(bins_center_xy[2 * (ind1 % (bin_num / 2))], bins_center_xy[2 * (ind1 % (bin_num / 2)) + 1]));
+        }
+
+        int new_hpwl = cal_HPWL();
+        if (new_hpwl <= current_hpwl) {
+            current_hpwl = new_hpwl;
+            current_bins_order[ind1] = part2;
+            current_bins_order[ind2] = part1;
+            if (new_hpwl <= best_hpwl) {
+                best_hpwl = new_hpwl;
+                best_bins_order = current_bins_order;
+            }
+        } else {
+            double ran = rand() % 10 / 10;
+            int delta = new_hpwl - current_hpwl;
+            double accept_rate = exp(-1 * delta / T);
+            if (ran < accept_rate) {
+                current_hpwl = new_hpwl;
+                current_bins_order[ind1] = part2;
+                current_bins_order[ind2] = part1;
+                uphill += 1;
+            } else {
+                for (int j=0; j<c1.size(); j++) {
+                    int die = (ind1 >= bin_num / 2) ? 1 : 0; 
+                    Cell_C* cell = _vCell[c1[j]];
+                    // cell->set_die(_pChip->get_die(die));
+                    cell->set_xy(Pos(bins_center_xy[2 * (ind1 % (bin_num / 2))], bins_center_xy[2 * (ind1 % (bin_num / 2)) + 1]));
+                }
+                for (int j=0; j<c2.size(); j++) {
+                    int die = (ind2 >= bin_num / 2) ? 1 : 0; 
+                    Cell_C* cell = _vCell[c2[j]];
+                    // cell->set_die(_pChip->get_die(die));
+                    cell->set_xy(Pos(bins_center_xy[2 * (ind2 % (bin_num / 2))], bins_center_xy[2 * (ind2 % (bin_num / 2)) + 1]));
+                }
+
+            }
+        }
+
+        // if (T < 0.1 || uphill > 50) {
+        //     break;
+        // }
+
+    }
+
+    for (int ind=0; ind<bin_num; ind++) {
+        int part = best_bins_order[ind];
+        vector<int>& cell_id = hgr.get_nodes_by_part(part);
+        int die = (ind >= bin_num / 2) ? 1 : 0; 
+        for (int j=0; j<cell_id.size(); j++) {
+            Cell_C* cell = _vCell[cell_id[j]];
+            cell->set_die(_pChip->get_die(die));
+            cell->set_xy(Pos(bins_center_xy[2 * (ind % (bin_num / 2))], bins_center_xy[2 * (ind % (bin_num / 2)) + 1]));
+        }
+       
+    }
+    
+    // cout << "best bins order: ";
+    // for (int i=0; i<bin_num; ++i) {
+    //     cout << best_bins_order[i] << ",";
+    // }
+    // cout << "\n";
+
+    cout << BLUE << "[Bin-based Partition]" << RESET << " - " << "HPWL = " << best_hpwl << "\n";
+
 }
 void Placer_C::init_place_ball(){
     int ball_curX = _pChip->get_ball_spacing();
@@ -2189,6 +2608,15 @@ int Placer_C::cal_HPWL(){
     for(Net_C* net : _vNet){
         net->update_bbox();
         total_hpwl += net->get_HPWL(0) + net->get_HPWL(1);
+    }
+    return total_hpwl;
+}
+int Placer_C::cal_HPWL_binbased(){
+    int total_hpwl = 0;
+    // update the HPWL
+    for(BNet_C* bnet : _vBNet){
+        bnet->update_bbox();
+        total_hpwl += bnet->get_HPWL(0) + bnet->get_HPWL(1);
     }
     return total_hpwl;
 }

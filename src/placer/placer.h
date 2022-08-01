@@ -14,6 +14,7 @@
 #include "../utility/aux.h"
 #include "../utility/hgr.h"
 #include "../dataModel/module.h"
+#include "../dataModel/bin.h"
 #include "../utility/paramHdl.h"
 
 #include "ntuplace/PlaceDB/placedb.h"
@@ -34,6 +35,7 @@ class Placer_C{
     map<string,Net_C*>& _mNet;
     clock_t _tStart;
     string _RUNDIR = "./run_tmp/";
+    vector<BNet_C*> _vBNet;
     
 public:
     //Place_C();
@@ -62,6 +64,8 @@ public:
     bool shrunk2d_replace();
     void mincut_partition();
     void mincut_k_partition();
+    void bin_based_partition_real();
+    void bin_based_partition(int bin_num);
     void init_place_ball();
     void run_ntuplace3(string caseName);
     void run_ntuplace3(string caseName, string otherPara);
@@ -97,6 +101,7 @@ public:
     void add_project_ball(AUX&);
     int cal_ball_num();
     int cal_HPWL();
+    int cal_HPWL_binbased();
 };
 
 #endif
