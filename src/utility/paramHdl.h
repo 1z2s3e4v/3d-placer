@@ -35,7 +35,9 @@ private:
                                      {"dump", "dump all messages."},
                                      {"dump_no_debug", "dump all messages without debug messages."},
                                      {"safe_mode", "run the safe-flow once and than run stronger flow."},
-                                     {"no_dump", "without any dump file"}};
+                                     {"no_dump", "without any dump file"},
+                                     {"no_draw", "without any visualization"},
+                                     {"only_draw_result", "only visualize the result"}};
     map<string, string> m_otherFlag{{"time_limit", "time limit, default=3600(s)."}, 
                                     {"repeat", "repeat the code with n times and store the best result. defalt=1."},
                                     {"flow", "placer flow (default is shrunk2d_replace)"}};

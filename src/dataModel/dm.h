@@ -19,7 +19,6 @@
 #include "module.h"
 #include "../utility/paramHdl.h"
 #include "../utility/aux.h"
-#include "../utility/drawHtml.h"
 #include "../parser/parser.h"
 #include "../placer/placer.h"
 

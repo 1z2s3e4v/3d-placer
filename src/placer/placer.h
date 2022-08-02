@@ -16,6 +16,7 @@
 #include "../dataModel/module.h"
 #include "../dataModel/bin.h"
 #include "../utility/paramHdl.h"
+#include "../utility/drawHtml.h"
 
 #include "ntuplace/PlaceDB/placedb.h"
 #include "ntuplace/NLPlace/mlnlp.h"
@@ -34,7 +35,8 @@ class Placer_C{
     map<string,Cell_C*>& _mCell;
     map<string,Net_C*>& _mNet;
     clock_t _tStart;
-    string _RUNDIR = "./run_tmp/";
+    string _RUNDIR = "./run_tmp/"; // become './run_tmp/<casename>' in run();
+    string _DRAWDIR = "./draw/"; // become './draw/<casename>' in run();
     vector<BNet_C*> _vBNet;
     
 public:
@@ -55,6 +57,7 @@ public:
     void init_ball_place();
     void set_ball();
     void init_run_dir();
+    void init_draw_dir();
     void clear();
 
     /* partition + die-by-die Place */
@@ -105,6 +108,12 @@ public:
     int cal_ball_num();
     int cal_HPWL();
     int cal_HPWL_binbased();
+
+    // visualize
+    void draw_layout_result();
+    void draw_layout_result(string tag);
+    void draw_layout_result_plt(bool show_hpwl);
+    void draw_layout_result_plt(bool show_hpwl, string tag);
 };
 
 #endif

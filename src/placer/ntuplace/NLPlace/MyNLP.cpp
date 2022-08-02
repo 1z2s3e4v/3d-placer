@@ -1898,7 +1898,7 @@ void MyNLP::LayerAssignment()
 	double coreArea = (m_pDB->m_coreRgn.right - m_pDB->m_coreRgn.left) * (m_pDB->m_coreRgn.top - m_pDB->m_coreRgn.bottom);
 	for(int k=0;k<param.nlayer;++k)
 		valid_area[k] = coreArea * (double)m_pDB->m_maxUtils[k];
-	cout << "\n\033[34m[LayerAssignment]\033[0m - Top-Die:" << total_area[0] << "/" << valid_area[0] << "(" << setprecision(2) << total_area[0]/valid_area[0] << "), Bot-Die:" << total_area[1] << "/" << valid_area[1] << "(" << setprecision(2) << total_area[1]/valid_area[1] << "), cell_num: " << z_ori0.size() << ":" << z_ori1.size() << "\n";
+	//cout << "\n\033[34m[LayerAssignment]\033[0m - Top-Die:" << total_area[0] << "/" << valid_area[0] << "(" << setprecision(2) << total_area[0]/valid_area[0] << "), Bot-Die:" << total_area[1] << "/" << valid_area[1] << "(" << setprecision(2) << total_area[1]/valid_area[1] << "), cell_num: " << z_ori0.size() << ":" << z_ori1.size() << "\n";
 	int moved_num = 0;
 	if(total_area[0] > valid_area[0]){ // too many cell in top-die, move cells to bot-die for matching die's max_utilization
 		// move the cells with higher z
@@ -1928,6 +1928,7 @@ void MyNLP::LayerAssignment()
 			cout << "\033[34m[LayerAssignment]\033[0m - " << abs(moved_num) << " modules have been changed to bot-die by max_util constr.\n";
 		if(moved_num < 0)
 			cout << "\033[34m[LayerAssignment]\033[0m - " << abs(moved_num) << " modules have been changed to top-die by max_util constr.\n";
+		cout << "\n\033[34m[LayerAssignment]\033[0m - cell_num: " << z_ori0.size()-moved_num << "/" << z_ori1.size()+moved_num << "\n";
 	}
 }
 
@@ -7156,9 +7157,9 @@ bool MyNLP::InitObjWeights( double wWire )
     //@Brian 2007-04-30
     int size = n/2;
     if(m_bMoveZ)
-	size = n/3;
+		size = n/3;
     else
-	size = n/2;
+		size = n/2;
     for(int i = 0; i < size; i++)
     {
 	    // x direction
