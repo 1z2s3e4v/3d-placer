@@ -23,12 +23,14 @@ Placer_C::Placer_C(Chip_C* p_pChip, Design_C* p_pDesign, ParamHdl_C& paramHdl, c
     _vCellBestPos.resize(_vCell.size(),Pos(0,0,0));
 
     _RUNDIR = "./run_tmp/" + _paramHdl.get_case_name() + "/";
+    _DRAWDIR = "./draw/"+ _paramHdl.get_case_name() + "/";
 }
 
 
 void Placer_C::run_safe_mode(){
     cout << BLUE << "[Placer]" << RESET << " - Start Safe-Mode\n";
     init_run_dir();
+    init_draw_dir();
     bool place_succ = false;
     while(!place_succ){
             place_succ = order_place();
@@ -48,6 +50,7 @@ void Placer_C::run_safe_mode(){
 void Placer_C::run(){
     cout << BLUE << "[Placer]" << RESET << " - Start\n";
     init_run_dir();
+    init_draw_dir();
     bool place_succ = false;
     while(!place_succ){
         if(!_paramHdl.check_flag_exist("flow")){
@@ -82,8 +85,6 @@ void Placer_C::run(){
                 place_succ = shrunk2d_replace();
             } else if(_paramHdl.get_para("flow") == "true3d"){
                 place_succ = true3d_placement();
-            } else if(_paramHdl.get_para("flow") == "half3d"){
-                place_succ = half3d_placement();
             } else if(_paramHdl.get_para("flow") == "ntuplace3d"){
                 place_succ = ntuplace3d();
             } else{
@@ -97,6 +98,12 @@ void Placer_C::run(){
             cout << BLUE << "[Placer]" << RESET << " - Run Again ...\n";
             continue;
         }
+    }
+
+    // visualization (output svg.html and .plt)
+    if(!_paramHdl.check_flag_exist("no_draw") || _paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-result");
+        draw_layout_result_plt(false, "-result");
     }
 
     // update the HPWL
@@ -256,45 +263,72 @@ bool Placer_C::ntuplace3d(){
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - LG+DP: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     int total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     return true;
 }
 
-bool Placer_C::half3d_placement(){
+bool Placer_C::true3d_placement(){
     cout << BLUE << "[Placer]" << RESET << " - Start Half3d Placement Flow.\n";
     double part_time_start=0, total_part_time=0;
+    int total_hpwl = 0;
     ////////////////////////////////////////////////////////////////
-    // Global Placement
+    // Initail Placement
     ////////////////////////////////////////////////////////////////
-    bool isLegal = false; 
-    double wl1 = 0; // gp-wire
     part_time_start = (float)clock() / CLOCKS_PER_SEC;
-    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1]" << RESET << ": Global Placement.\n";
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1]" << RESET << ": Initial Placement.\n";
     // cell spreading
     //cell_spreading();
     shrunked_2d_replace();
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [1.1] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-1.1-2Dplace");
+        draw_layout_result_plt(false, "-1.1-2Dplace");
+    }
     // die-partition
     mincut_partition();
     init_ball_place();
     cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
     cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [1.2] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-1.2-tier-partition");
+        draw_layout_result_plt(false, "-1.2-tier-partition");
+    }
+    
+    total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
+    cout << BLUE << "[Placer]" << RESET << " - Init: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
+
+    ////////////////////////////////////////////////////////////////
+    // Global Placement
+    ////////////////////////////////////////////////////////////////
+    part_time_start = (float)clock() / CLOCKS_PER_SEC;
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2]" << RESET << ": Global Placement.\n";
+    bool isLegal = false; 
+    double wl1 = 0; // gp-wire
     // 3d analytical global placement
     global_place(isLegal, wl1); /////////////////////////////////////////////// main function
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Global: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
-    cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << (int)wl1 << ".\n";
-    set_ball(); // set ball for crossed net
+    //cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << (int)wl1 << ".\n";
     cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
     cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
-    
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [2] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-global");
+        draw_layout_result_plt(false, "-2-global");
+    }
+
     ////////////////////////////////////////////////////////////////
     // D2D Placement with Pin Projection
     ////////////////////////////////////////////////////////////////
+    //pin3d_ntu_d2d_legal_detail()
     bool placer_succ = true;
     cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 3]" << RESET << ": D2D LG+DP with Pin Projection.\n";
     part_time_start = (float)clock() / CLOCKS_PER_SEC;
     // 1. Place balls
-    rand_ball_place();
     if(cal_ball_num() > 0){
         AUX aux;
         create_aux_form_for_ball(aux, "ball");
@@ -306,6 +340,12 @@ bool Placer_C::half3d_placement(){
         run_ntuplace3("ball", "-nolegal -nodetail");
         placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
         if(!placer_succ) return false;
+    }
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [3.1] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.1-ball-global");
+        draw_layout_result_plt(false, "-3.1-ball-global");
     }
     // 2. Place die0 with projected die1
     if(_pChip->get_die(0)->get_cells().size() > 0){
@@ -332,6 +372,12 @@ bool Placer_C::half3d_placement(){
         placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
         if(!placer_succ) return false;
     }
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [3.2] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.2-die0-legal");
+        draw_layout_result_plt(false, "-3.2-die0-legal");
+    }
     // 3. Place die1 with projected die0
     if(_pChip->get_die(1)->get_cells().size() > 0){
         AUX aux;
@@ -357,8 +403,12 @@ bool Placer_C::half3d_placement(){
         placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
         if(!placer_succ) return false;
     }
-    int total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.3] total HPWL = " << total_hpwl << ".\n";
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [3.3] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.3-die1-legal");
+        draw_layout_result_plt(false, "-3.3-die1-legal");
+    }
     // 4. Replace die0 again with projected die1 and balls
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux;
@@ -372,8 +422,7 @@ bool Placer_C::half3d_placement(){
         placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
         if(!placer_succ) return false;
     }
-    // replace balls
-    if(cal_ball_num() > 0){
+    if(cal_ball_num() > 0){ // replace balls
         AUX aux;
         create_aux_form_for_ball(aux, "ball");
         add_project_pin(aux, 0);
@@ -386,8 +435,12 @@ bool Placer_C::half3d_placement(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.4] total HPWL = " << total_hpwl << ".\n";
-    // 5. Replace die0 again with projected die1 and balls
+    cout << BLUE << "[Placer]" << RESET << " - [3.4] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.4-die0-re");
+        draw_layout_result_plt(false, "-3.4-die0-re");
+    }
+    // 5. Replace die1 again with projected die0 and balls
     if(_pChip->get_die(1)->get_cells().size() > 0){
         AUX aux;
         create_aux_form(aux, 1, "die1");
@@ -400,8 +453,7 @@ bool Placer_C::half3d_placement(){
         placer_succ = read_pl_and_set_pos(_RUNDIR+"die1.ntup.pl", 1);
         if(!placer_succ) return false;
     }
-    // replace balls
-    if(cal_ball_num() > 0){
+    if(cal_ball_num() > 0){ // replace balls
         AUX aux;
         create_aux_form_for_ball(aux, "ball");
         add_project_pin(aux, 0);
@@ -414,7 +466,11 @@ bool Placer_C::half3d_placement(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.5] total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - [3.5] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.5-die1-re");
+        draw_layout_result_plt(false, "-3.5-die1-re");
+    }
     // 6. Replace die0 again with projected die1 and balls
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux;
@@ -428,8 +484,7 @@ bool Placer_C::half3d_placement(){
         placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
         if(!placer_succ) return false;
     }
-    // replace balls
-    if(cal_ball_num() > 0){
+    if(cal_ball_num() > 0){ // replace balls
         AUX aux;
         create_aux_form_for_ball(aux, "ball");
         add_project_pin(aux, 0);
@@ -444,69 +499,11 @@ bool Placer_C::half3d_placement(){
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - D2D-PL: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << total_hpwl << ".\n";
-    return true;
-}
-
-bool Placer_C::true3d_placement(){
-    cout << BLUE << "[Placer]" << RESET << " - Start True3d Placement Flow.\n";
-    double part_time_start=0, total_part_time=0;
-    ////////////////////////////////////////////////////////////////
-    // Global Placement
-    ////////////////////////////////////////////////////////////////
-    bool isLegal = false; 
-    double wl1 = 0; // gp-wire
-    part_time_start = (float)clock() / CLOCKS_PER_SEC;
-    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1]" << RESET << ": Global Placement.\n";
-    // cell spreading
-    cell_spreading();
-    // die-partition
-    // if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
-         mincut_partition();
-    // else 
-    //     mincut_k_partition();
-    // for(int i=0;i<_vCell.size();++i){
-    //     Cell_C* cell = _vCell[i];
-    //     // if(i<_vCell.size()/2) cell->set_die(_pChip->get_die(0));
-    //     // else cell->set_die(_pChip->get_die(1));
-    //     cell->set_die(_pChip->get_die(rand()%2));
-    // }
-    // Init spreading and layer assignment
-    // rand_place(0);
-    // rand_place(1);
-    rand_ball_place();
-
-    cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
-    cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
-    // 3d analytical global placement
-    global_place(isLegal, wl1); /////////////////////////////////////////////// main function
-    total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
-    cout << BLUE << "[Placer]" << RESET << " - Global: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
-    cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << (int)wl1 << ".\n";
-
-    rand_ball_place();
-    cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
-    cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
-    ////////////////////////////////////////////////////////////////
-    // Legalization
-    ////////////////////////////////////////////////////////////////
-    //legal_place();
-    
-    ////////////////////////////////////////////////////////////////
-    // Detail Placement
-    ////////////////////////////////////////////////////////////////
-    //detail_place();
-    bool place_succ;
-    part_time_start = (float)clock() / CLOCKS_PER_SEC;
-    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2]" << RESET << ": Legalization + Detail Placement.\n";
-    
-    place_succ = pin3d_ntu_d2d_legal_detail(); ////////////////////////////////////////////////////// main function
-    
-    if(!place_succ) return false;
-    total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
-    cout << BLUE << "[Placer]" << RESET << " - LG+DP: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
-    int total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.6-die0-re");
+        draw_layout_result_plt(false, "-3.6-die0-re");
+    }
     return true;
 }
 void Placer_C::global_place(bool& isLegal, double& totalHPWL){ // Analytical Global Placement
@@ -516,7 +513,7 @@ void Placer_C::global_place(bool& isLegal, double& totalHPWL){ // Analytical Glo
     param.bLayerPreAssign = true;
     param.dWeightTSV = 0.5;
     //param.step = 5;
-    param.stepZ = 6;
+    param.stepZ = 2;
 
     // Setting placedb
     CPlaceDB placedb;
@@ -551,6 +548,7 @@ void Placer_C::global_place(bool& isLegal, double& totalHPWL){ // Analytical Glo
     placedb.RemoveFixedBlockSite();
     isLegal = multilevel_nlp( placedb, 5, 1.0 ); // multilevel_nlp(placedb, gCType, gWeightLevelDecreaingRate)
     load_from_placedb(placedb);
+    set_ball(); // set ball for crossed net
 
     totalHPWL = cal_HPWL();
 }
@@ -687,7 +685,7 @@ bool Placer_C::pin3d_ntu_d2d_legal_detail(){
         if(!placer_succ) return false;
     }
     int total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     // reRun ntuplace (noglobal) for die0
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux0;
@@ -715,7 +713,7 @@ bool Placer_C::pin3d_ntu_d2d_legal_detail(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     // reRun ntuplace (noglobal) for die1 
     if(_pChip->get_die(1)->get_cells().size() > 0){
         AUX aux1;
@@ -743,7 +741,7 @@ bool Placer_C::pin3d_ntu_d2d_legal_detail(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     // reRun ntuplace (noglobal) for die0
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux0;
@@ -771,7 +769,7 @@ bool Placer_C::pin3d_ntu_d2d_legal_detail(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     return true;
 }
 bool Placer_C::ntu_d2d_legal_detail(){
@@ -821,10 +819,12 @@ void Placer_C::set_ntuplace_param(CPlaceDB& placedb){
     // param.b3d = true;
     // param.nlayer = 2;
     // bShow >>
-    // param.bPlot = true;
-    // param.bShow = true;
-    // param.bLog = true;
-    // param.bOutTopPL = true;
+    if(_paramHdl.check_flag_exist("debug") || _paramHdl.check_flag_exist("d")){ // debug_mode
+        param.bPlot = true;
+        param.bShow = true;
+        param.bLog = true;
+        param.bOutTopPL = true;
+    }
     // <<
     param.bRunInit = true;
     param.seed = 1;
@@ -1401,7 +1401,7 @@ bool Placer_C::shrunk2d_ntuplace(){
         if(!placer_succ) return false;
     }
     int total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.3] total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - [3.3] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     // 4. Replace die0 again with projected die1 and balls
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux;
@@ -1429,7 +1429,7 @@ bool Placer_C::shrunk2d_ntuplace(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.4] total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - [3.4] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     // 5. Replace die0 again with projected die1 and balls
     if(_pChip->get_die(1)->get_cells().size() > 0){
         AUX aux;
@@ -1457,7 +1457,7 @@ bool Placer_C::shrunk2d_ntuplace(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.5] total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - [3.5] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     // 6. Replace die0 again with projected die1 and balls
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux;
@@ -1487,7 +1487,7 @@ bool Placer_C::shrunk2d_ntuplace(){
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - D2D-PL: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     return true;
 }
 bool Placer_C::shrunk2d_replace(){
@@ -1503,7 +1503,11 @@ bool Placer_C::shrunk2d_replace(){
     placer_succ = shrunked_2d_replace();
     if(!placer_succ) return false;
     int total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [1] Init 2D GP (RePlAce) total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - [1] Init 2D GP (RePlAce) total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-1-2Dplace");
+        draw_layout_result_plt(false, "-1-2Dplace");
+    }
     ////////////////////////////////////////////////////////////////
     // Partition
     ////////////////////////////////////////////////////////////////
@@ -1517,16 +1521,20 @@ bool Placer_C::shrunk2d_replace(){
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Partition: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     cout << BLUE << "[Placer]" << RESET << " - Partition result: " << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << ".\n";
-    rand_ball_place();
+    init_ball_place();
     cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [2] Tier-Partition total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-2-tier-partition");
+        draw_layout_result_plt(false, "-2-tier-partition");
+    }
 
     ////////////////////////////////////////////////////////////////
     // D2D Placement with Pin Projection
     ////////////////////////////////////////////////////////////////
     cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 3]" << RESET << ": D2D LG+DP with Pin Projection.\n";
     part_time_start = (float)clock() / CLOCKS_PER_SEC;
-    // 1. Place balls
-    rand_ball_place();
     if(cal_ball_num() > 0){
         AUX aux;
         // create_aux_form_for_ball_replace(aux, "ball");
@@ -1543,7 +1551,11 @@ bool Placer_C::shrunk2d_replace(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.1] Partition total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - [3.1] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.1-ball-place");
+        draw_layout_result_plt(false, "-3.1-ball-place");
+    }
     // 2. Place die0 with projected die1
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux;
@@ -1568,6 +1580,12 @@ bool Placer_C::shrunk2d_replace(){
         run_ntuplace3("ball");
         placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
         if(!placer_succ) return false;
+    }
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [3.2] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.2-die0-global");
+        draw_layout_result_plt(false, "-3.2-die0-global");
     }
     // 3. Place die1 with projected die0
     if(_pChip->get_die(1)->get_cells().size() > 0){
@@ -1595,7 +1613,11 @@ bool Placer_C::shrunk2d_replace(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.3] GP total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - [3.3] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.3-die1-global");
+        draw_layout_result_plt(false, "-3.3-die1-global");
+    }
     // 4. Replace die0 again with projected die1 and balls
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux;
@@ -1609,8 +1631,7 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
         if(!placer_succ) return false;
     }
-    // replace balls
-    if(cal_ball_num() > 0){
+    if(cal_ball_num() > 0){ // replace balls
         AUX aux;
         create_aux_form_for_ball(aux, "ball");
         add_project_pin(aux, 0);
@@ -1623,8 +1644,12 @@ bool Placer_C::shrunk2d_replace(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.4] die0 LG+DP total HPWL = " << total_hpwl << ".\n";
-    // 5. Replace die1 again with projected die1 and balls
+    cout << BLUE << "[Placer]" << RESET << " - [3.4] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.4-die0-legal");
+        draw_layout_result_plt(false, "-3.4-die0-legal");
+    }
+    // 5. Replace die1 again with projected die0 and balls
     if(_pChip->get_die(1)->get_cells().size() > 0){
         AUX aux;
         create_aux_form(aux, 1, "die1");
@@ -1637,8 +1662,7 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos(_RUNDIR+"die1.ntup.pl", 1);
         if(!placer_succ) return false;
     }
-    // replace balls
-    if(cal_ball_num() > 0){
+    if(cal_ball_num() > 0){ // replace balls
         AUX aux;
         create_aux_form_for_ball(aux, "ball");
         add_project_pin(aux, 0);
@@ -1651,7 +1675,11 @@ bool Placer_C::shrunk2d_replace(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.5] die1 LG+DP total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - [3.5] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.5-die1-legal");
+        draw_layout_result_plt(false, "-3.5-die1-legal");
+    }
     // 6. Replace die0 again with projected die1 and balls
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux;
@@ -1665,8 +1693,7 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
         if(!placer_succ) return false;
     }
-    // replace balls
-    if(cal_ball_num() > 0){
+    if(cal_ball_num() > 0){ // replace balls
         AUX aux;
         create_aux_form_for_ball(aux, "ball");
         add_project_pin(aux, 0);
@@ -1681,7 +1708,11 @@ bool Placer_C::shrunk2d_replace(){
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - D2D-PL: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - D2D-PL: total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - D2D-PL: total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.6-die0-re");
+        draw_layout_result_plt(false, "-3.6-die0-re");
+    }
     return true;
 }
 
@@ -1749,7 +1780,7 @@ bool Placer_C::pin3d_ntuplace(){
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Init: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     int total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     ////////////////////////////////////////////////////////////////
     // D2D Placement with Pin Projection
     ////////////////////////////////////////////////////////////////
@@ -1781,7 +1812,7 @@ bool Placer_C::pin3d_ntuplace(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.1] total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - [3.1] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     // 2. Replace die1 with projected die0 and balls
     if(_pChip->get_die(1)->get_cells().size() > 0){
         AUX aux;
@@ -1809,7 +1840,7 @@ bool Placer_C::pin3d_ntuplace(){
         if(!placer_succ) return false;
     }
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - [3.2] total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - [3.2] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     // 3. Replace die0 again with projected die1 and balls
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux;
@@ -1839,7 +1870,7 @@ bool Placer_C::pin3d_ntuplace(){
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - D2D-PL: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     return true;
 }
 bool Placer_C::random_d2dplace(){
@@ -1878,7 +1909,7 @@ bool Placer_C::random_d2dplace(){
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - LG+DP: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     int total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     return true;
 }
 bool Placer_C::ntu_d2dplace(){
@@ -1954,7 +1985,7 @@ bool Placer_C::ntu_d2dplace(){
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - d2d_NTUpalce: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     int total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - d2d_NTUpalce: total HPWL = " << total_hpwl << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " - d2d_NTUpalce: total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     //string cmd_clean = "rm -rf *.pl *.plt *.log " + _RUNDIR;
     //system(cmd_clean.c_str());
     return true;
@@ -2787,6 +2818,215 @@ void Placer_C::init_run_dir(){
     string cmd_clean = "rm -rf " + _RUNDIR + "; mkdir -p " + _RUNDIR;
     system(cmd_clean.c_str());
 }
+void Placer_C::init_draw_dir(){
+    string cmd_clean = "rm -rf " + _DRAWDIR + "; mkdir -p " + _DRAWDIR;
+    system(cmd_clean.c_str());
+}
+
+
+int* getRandRGB(){
+    int* color = new int(3);
+    color[0] = rand()%250;
+    color[1] = rand()%250;
+    color[2] = rand()%250;
+    return color;
+}
+void Placer_C::draw_layout_result(){ // output in dir "./draw/<case-name>.html"
+    draw_layout_result("");
+}
+void Placer_C::draw_layout_result(string tag){ // output in dir "./draw/<case-name>.html"
+    if(tag!="" && tag[0]!='-') tag = "-" + tag;
+    string outFile = _DRAWDIR + _paramHdl.get_case_name() + tag + ".html";
+    ofstream outfile( outFile.c_str() , ios::out );
+
+    Drawer_C* draw_svg = new Drawer_C(outFile);
+    double scaling = 1500.0 / (_pChip->get_width()*2+_pChip->get_width()/10.0);
+    draw_svg->setting(_pChip->get_width()*2+_pChip->get_width()/10.0,_pChip->get_height(),scaling,0,50); // outline_x, outline_y, scaling, offset_x, offset_y
+    draw_svg->start_svg();
+    vector<Pos> diePos;
+    
+    diePos.push_back(Pos(0,0));
+    diePos.push_back(Pos(diePos[0].x+_pChip->get_width()+_pChip->get_width()/10.0,0));
+    for(int dieId=0;dieId<2;++dieId){
+        // Draw Die0
+        draw_svg->drawRect("Die"+to_string(dieId), drawBox(drawPos(diePos[dieId].x,diePos[dieId].y),drawPos(diePos[dieId].x+_pChip->get_width(),diePos[dieId].y+_pChip->get_height())), "white");
+        // draw rows
+        Die_C* die = _pChip->get_die(dieId);
+        for(int i=0;i<die->get_row_num();++i){
+            die->get_row_height();
+            draw_svg->drawRect("Die"+to_string(dieId)+"_Row"+to_string(i), drawBox(drawPos(diePos[dieId].x,diePos[dieId].y+i*die->get_row_height()),drawPos(diePos[dieId].x+_pChip->get_width(),diePos[dieId].y+i*die->get_row_height()+die->get_row_height())), "gainsboro");
+        }
+    }
+
+    // set net color
+    vector<int*> v_netColor(_pDesign->get_net_num());
+    for(int i=0;i<_pDesign->get_net_num();++i){
+        v_netColor[i] = getRandRGB();
+    }
+    // Draw Cells
+    double cellFontSize = min(_pChip->get_die(0)->get_row_height(),_pChip->get_die(1)->get_row_height())/4.0;
+    double pinSize = min(_pChip->get_die(0)->get_row_height(),_pChip->get_die(1)->get_row_height())/8.0;
+    for(int i=0;i<_pDesign->get_cell_num();++i){
+        Cell_C* cell = _pDesign->get_cell(i);
+        //cout << "Draw: " << cell->get_name() << " " << cell->get_pos().pos3d2str() << "\n";
+        int dieX = diePos[cell->get_dieId()].x;
+        int dieY = diePos[cell->get_dieId()].y;
+        map<string,string> m_para{{"type","cell"}};
+        draw_svg->drawRect(cell->get_name(), drawBox(drawPos(dieX+cell->get_posX(),dieY+cell->get_posY()),drawPos(dieX+cell->get_posX()+cell->get_width(),dieY+cell->get_posY()+cell->get_height())), "yellow", 0.1, m_para);
+        // cell name lable
+        draw_svg->drawText(cell->get_name()+"_label", drawPos(dieX+cell->get_posX()+cell->get_width()/2.0, dieY+cell->get_posY()+cell->get_height()/2.0), cellFontSize, cell->get_name());
+        // draw pins
+        for(int j=0;j<cell->get_pin_num();++j){
+            Pin_C* pin = cell->get_pin(j);
+            if(pin->get_net() != nullptr){
+                map<string,string> m_para{{"type","pin"},{"cell",pin->get_cell()->get_name()}, {"net",pin->get_net()->get_name()}};
+                draw_svg->drawRect(cell->get_name()+"_"+pin->get_name(), drawBox(drawPos(dieX+pin->get_x()-pinSize/2,dieY+pin->get_y()-pinSize/2),drawPos(dieX+pin->get_x()+pinSize/2,dieY+pin->get_y()+pinSize/2)), v_netColor[pin->get_net()->get_id()], 0.6, m_para);
+            }
+            else{
+                map<string,string> m_para{{"type","pin"},{"cell",pin->get_cell()->get_name()}};
+                draw_svg->drawRect(cell->get_name()+"_"+pin->get_name(), drawBox(drawPos(dieX+pin->get_x()-pinSize/2,dieY+pin->get_y()-pinSize/2),drawPos(dieX+pin->get_x()+pinSize/2,dieY+pin->get_y()+pinSize/2)), "black", 1, m_para);
+            }
+        }
+    }
+    // Draw Balls (Terminals)
+    for(int i=0;i<_pDesign->get_net_num();++i){
+        Net_C* net = _pDesign->get_net(i);
+        if(net->is_cross_net()){
+            for(int dieId=0;dieId<2;++dieId){
+                int dieX = diePos[dieId].x;
+                int dieY = diePos[dieId].y;
+                map<string,string> m_para{{"net",net->get_name()}, {"type","Terminal"}};
+                draw_svg->drawRect(net->get_name()+"_Terminal", drawBox(drawPos(dieX+net->get_ball_pos().x-_pChip->get_ball_width()/2.0,dieY+net->get_ball_pos().y-_pChip->get_ball_height()/2.0),drawPos(dieX+net->get_ball_pos().x+_pChip->get_ball_width()/2.0,dieY+net->get_ball_pos().y+_pChip->get_ball_height()/2.0)), v_netColor[net->get_id()], 0.6, m_para);
+            }
+        }
+    }
+    // Draw HPWL
+    for(int i=0;i<_pDesign->get_net_num();++i){
+        Net_C* net = _pDesign->get_net(i);
+        for(int dieId=0;dieId<2;++dieId){
+            int dieX = diePos[dieId].x;
+            int dieY = diePos[dieId].y;
+            map<string,string> m_para{{"net",net->get_name()}, {"type","BoundingBox"},{"HPWL",to_string(net->get_HPWL(dieId))}};
+            
+            double ll_x = net->get_ll(dieId).x, ll_y = net->get_ll(dieId).y, ur_x = net->get_ur(dieId).x, ur_y = net->get_ur(dieId).y;
+            if(ll_x == ur_x && ll_x != 0) { ll_x -= pinSize/2; ur_x += pinSize/2; }
+            if(ll_y == ur_y && ll_y != 0) { ll_y -= pinSize/2; ur_y += pinSize/2; }
+            draw_svg->drawBBox(net->get_name()+"_HPWL"+to_string(dieId), drawBox(drawPos(dieX+ll_x,dieY+ll_y),drawPos(dieX+ur_x,dieY+ur_y)), v_netColor[net->get_id()], 0.5, 0.6, 0.5, m_para);
+        }
+    }
+    // Output HPWL Result Text
+    vector<long long int> vHPWL(2,0);
+    long long int totalHPWL = 0;
+    for(int i=0;i<_pDesign->get_net_num();++i){
+        Net_C* net = _pDesign->get_net(i);
+        vHPWL[0] += net->get_HPWL(0);
+        vHPWL[1] += net->get_HPWL(1);
+        totalHPWL += net->get_HPWL(0) + net->get_HPWL(1);
+    }
+    double fontSize = 20;
+    draw_svg->drawText("Die0_HPWL_result", drawPos((diePos[0].x+_pChip->get_width()/3.0), diePos[0].y), fontSize, "Top_Die HPWL = " + to_string(vHPWL[0]), 0, -25);
+    draw_svg->drawText("Die1_HPWL_result", drawPos((diePos[1].x+_pChip->get_width()/3.0), diePos[1].y), fontSize, "Bot_Die HPWL = " + to_string(vHPWL[1]), 0, -25);
+    draw_svg->drawText("Total_HPWL_result", drawPos(diePos[0].x, diePos[0].y), fontSize, "Total HPWL = " + to_string(totalHPWL), 0, -50);
+
+    draw_svg->end_svg();
+    cout << BLUE << "[Placer]" << RESET << " - Visualize the layout in \'" << outFile << "\'.\n";
+}
+
+void plotBoxPLT( ofstream& stream, double x1, double y1, double x2, double y2 )
+{
+    stream << x1 << ", " << y1 << endl << x2 << ", " << y1 << endl
+           << x2 << ", " << y2 << endl << x1 << ", " << y2 << endl
+           << x1 << ", " << y1 << endl << endl;
+}
+void Placer_C::draw_layout_result_plt(bool show_hpwl){ // output in dir "./draw/<case-name>.plt"
+    draw_layout_result_plt(show_hpwl, "");
+}
+void Placer_C::draw_layout_result_plt(bool show_hpwl, string tag){ // output in dir "./draw/<case-name>.plt"
+    if(tag!= "" && tag[0] != '-') tag = "-" + tag;
+    string outFile = _DRAWDIR + _paramHdl.get_case_name() + tag + ".plt";
+    ofstream outfile( outFile.c_str() , ios::out );
+
+    outfile << " " << endl;
+    outfile << "set terminal png size 4000,3000" << endl;
+    outfile << "set output " << "\"" << _DRAWDIR << _paramHdl.get_case_name() << tag << ".png\"" << endl;
+    // outfile << "set multiplot layout 1, 2" << endl;
+    outfile << "set size ratio 0.5" << endl;
+    outfile << "set nokey" << endl << endl;
+
+    // Output HPWL Result Text
+    vector<long long int> vHPWL(2,0);
+    long long int totalHPWL = 0;
+    for(int i=0;i<_pDesign->get_net_num();++i){
+        Net_C* net = _pDesign->get_net(i);
+        vHPWL[0] += net->get_HPWL(0);
+        vHPWL[1] += net->get_HPWL(1);
+        totalHPWL += net->get_HPWL(0) + net->get_HPWL(1);
+    }
+
+    
+
+    double bot_chip_offset = _pChip->get_width() + 5;
+
+    outfile << "set title \"WL_{Total} = " << totalHPWL << "\"" << endl;
+    outfile << "set label 1 \"WL_{Top} = " << vHPWL[0] << "\" at " << _pChip->get_width() * 0.1 << "," << _pChip->get_height() * -0.15 <<" left" << endl;
+    outfile << "set label 2 \"WL_{Bot} = " << vHPWL[1] << "\" at " << _pChip->get_width() * 1.1 + 5 << "," << _pChip->get_height() * -0.15 <<" left" << endl << endl;
+
+    // for(int i=0; i<cell_list_top.size(); i++){
+    //     outfile << "set label " << i + 2 << " \"" << cell_list_top[i]->get_name() << "\" at " << cell_list_top[i]->get_posX() + cell_list_top[i]->get_width() / 2 << "," << cell_list_top[i]->get_posY() + cell_list_top[i]->get_height() / 2 << " center front" << endl;
+    // }
+    // outfile << "set xrange [0:" << _pChip->get_width() << "]" << endl;
+    // outfile << "set yrange [0:" << _pChip->get_height() << "]" << endl;
+    // outfile << "plot[:][:] '-' w l lt 3 lw 2, '-' with filledcurves closed fc \"grey90\" fs border lc \"red\", '-' with filledcurves closed fc \"yellow\" fs border lc \"black\", '-' w l lt 1" << endl << endl;
+    if (show_hpwl) {
+        outfile << "plot[:][:]  '-' w l lt 3 lw 2, '-' with filledcurves closed fc \"grey90\" fs border lc \"red\", '-' w l lt 1" << endl << endl;
+    } else {
+        outfile << "plot[:][:]  '-' w l lt 3 lw 2, '-' with filledcurves closed fc \"grey90\" fs border lc \"red\"" << endl << endl;
+    }
+    
+    outfile << "# bounding box" << endl;
+    plotBoxPLT( outfile, 0, 0, _pChip->get_width(), _pChip->get_height() ); // top chip
+    plotBoxPLT( outfile, bot_chip_offset, 0, bot_chip_offset + _pChip->get_width(), _pChip->get_height() ); // bot chip
+    outfile << "EOF" << endl;
+
+    outfile << "# cells" << endl;
+    for(int i=0;i<_pDesign->get_cell_num();++i){
+        Cell_C* cell = _pDesign->get_cell(i);
+        if (cell->get_dieId() == 0) {
+            plotBoxPLT( outfile, cell->get_posX(), cell->get_posY(), cell->get_posX() + cell->get_width(), cell->get_posY() + cell->get_height() );
+        } else {
+            plotBoxPLT( outfile, bot_chip_offset + cell->get_posX(), cell->get_posY(), bot_chip_offset + cell->get_posX() + cell->get_width(), cell->get_posY() + cell->get_height() );
+        }
+    }
+    outfile << "EOF" << endl;
+
+    
+    // Draw HPWL
+    if (show_hpwl) {
+        outfile << "# nets" << endl;
+        int dieId;
+        for(int i=0;i<_pDesign->get_net_num();++i){
+            Net_C* net = _pDesign->get_net(i);
+            dieId = 0;
+            double ll_x = net->get_ll(dieId).x, ll_y = net->get_ll(dieId).y, ur_x = net->get_ur(dieId).x, ur_y = net->get_ur(dieId).y;
+            plotBoxPLT( outfile, ll_x, ll_y, ur_x, ur_y);
+            dieId = 1;
+            ll_x = net->get_ll(dieId).x, ll_y = net->get_ll(dieId).y, ur_x = net->get_ur(dieId).x, ur_y = net->get_ur(dieId).y;
+            plotBoxPLT( outfile, bot_chip_offset + ll_x, ll_y, bot_chip_offset + ur_x, ur_y);
+        }
+        outfile << "EOF" << endl;
+    }
+    
+    
+
+    // outfile << "pause -1 'Press any key to close.'" << endl;
+    outfile.close();
+
+    system(("gnuplot " + outFile).c_str());
+
+    cout << BLUE << "[Placer]" << RESET << " - Visualize the plt layout in \'" << outFile << "\'.\n";
+}
+
+
 
 void Placer_C::clear(){
     _pChip = nullptr;
