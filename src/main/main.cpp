@@ -22,8 +22,6 @@ int main(int argc, char** argv){
     cout << endl;
     //variable declaration
     clock_t tStart = clock();
-    //srand( time(NULL) );
-    srand( 0 );
 
     // parameter handler
     ParamHdl_C paramHdl = ParamHdl_C(argc, argv);
@@ -37,6 +35,14 @@ int main(int argc, char** argv){
     if(paramHdl.check_flag_exist("debug") || paramHdl.check_flag_exist("d")){ // debug_mode
         parser.print_info();
     }
+
+    //srand( time(NULL) );
+    if(paramHdl.check_flag_exist("seed")) {
+        srand( stoi(paramHdl.get_para("seed")) );
+    } else {
+        srand( 5 );
+    }
+
     // control centor
     DmMgr_C* dmMgr = new DmMgr_C(parser, paramHdl, tStart);
     dmMgr->print_info();

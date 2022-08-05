@@ -1894,10 +1894,10 @@ void MyNLP::LayerAssignment()
     }
 
 	// check the max_util
-	vector<double> valid_area(2, 0.0);
-	double coreArea = (m_pDB->m_coreRgn.right - m_pDB->m_coreRgn.left) * (m_pDB->m_coreRgn.top - m_pDB->m_coreRgn.bottom);
+	vector<long long> valid_area(2, 0);
+	long long coreArea = (m_pDB->m_coreRgn.right - m_pDB->m_coreRgn.left) * (m_pDB->m_coreRgn.top - m_pDB->m_coreRgn.bottom);
 	for(int k=0;k<param.nlayer;++k)
-		valid_area[k] = coreArea * (double)m_pDB->m_maxUtils[k];
+		valid_area[k] = coreArea * (double)m_pDB->m_maxUtils[k] * 0.995;
 	//cout << "\n\033[34m[LayerAssignment]\033[0m - Top-Die:" << total_area[0] << "/" << valid_area[0] << "(" << setprecision(2) << total_area[0]/valid_area[0] << "), Bot-Die:" << total_area[1] << "/" << valid_area[1] << "(" << setprecision(2) << total_area[1]/valid_area[1] << "), cell_num: " << z_ori0.size() << ":" << z_ori1.size() << "\n";
 	int moved_num = 0;
 	if(total_area[0] > valid_area[0]){ // too many cell in top-die, move cells to bot-die for matching die's max_utilization
@@ -1905,7 +1905,7 @@ void MyNLP::LayerAssignment()
 		sort(z_ori0.begin(), z_ori0.end(), [](pair<int,double> const& l, pair<int,double> const& r){ return l.second > r.second; });
 		for(int i=0;i<z_ori0.size();++i){
 			int moduleId = z_ori0[i].first;
-			total_area[0] -= (m_pDB->m_modules[moduleId].m_widths[0] * m_pDB->m_modules[moduleId].m_heights[0]);
+			total_area[0] -= ((long long)m_pDB->m_modules[moduleId].m_widths[0] * m_pDB->m_modules[moduleId].m_heights[0]);
 			z[moduleId] = 1.5;
 			++moved_num;
 			if(total_area[0] < valid_area[0])
@@ -1916,7 +1916,7 @@ void MyNLP::LayerAssignment()
 		sort(z_ori1.begin(), z_ori1.end(), [](pair<int,double> const& l, pair<int,double> const& r){ return l.second < r.second; });
 		for(int i=0;i<z_ori1.size();++i){
 			int moduleId = z_ori1[i].first;
-			total_area[1] -= (m_pDB->m_modules[moduleId].m_widths[1]*m_pDB->m_modules[moduleId].m_heights[1]);
+			total_area[1] -= ((long long)m_pDB->m_modules[moduleId].m_widths[1]*m_pDB->m_modules[moduleId].m_heights[1]);
 			z[moduleId] = 0.5;
 			--moved_num;
 			if(total_area[1] < valid_area[1])
@@ -1925,9 +1925,9 @@ void MyNLP::LayerAssignment()
 	}
 	if(moved_num != 0){
 		if(moved_num > 0)
-			cout << "\033[34m[LayerAssignment]\033[0m - " << abs(moved_num) << " modules have been changed to bot-die by max_util constr.\n";
+			cout << "\n\033[34m[LayerAssignment]\033[0m - " << abs(moved_num) << " modules have been changed to bot-die by max_util constr.";
 		if(moved_num < 0)
-			cout << "\033[34m[LayerAssignment]\033[0m - " << abs(moved_num) << " modules have been changed to top-die by max_util constr.\n";
+			cout << "\n\033[34m[LayerAssignment]\033[0m - " << abs(moved_num) << " modules have been changed to top-die by max_util constr.";
 		cout << "\n\033[34m[LayerAssignment]\033[0m - cell_num: " << z_ori0.size()-moved_num << "/" << z_ori1.size()+moved_num << "\n";
 	}
 }
@@ -2724,21 +2724,21 @@ double MyNLP::GetLogSumExpWL( const vector<double>& x,	    // unuse
                      pNLP->m_nets_weighted_sum_exp_inv_xi_over_alpha[n] / pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] +
                      m_yWeight * (pNLP->m_nets_weighted_sum_exp_yi_over_alpha[n] / pNLP->m_nets_sum_exp_yi_over_alpha[n] -
                         pNLP->m_nets_weighted_sum_exp_inv_yi_over_alpha[n] / pNLP->m_nets_sum_exp_inv_yi_over_alpha[n]));
-            }else if(param.b3d){
-				for(int layer=0;layer<param.nlayer;++layer){
-					if(pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][n] != 0 && pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][n] != 0){
-						totalWL += pNLP->m_layer_nets_weighted_sum_exp_xi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][n] -
-									pNLP->m_layer_nets_weighted_sum_exp_inv_xi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][n];
-					}else{
-						//cout << "xWL of Net["<<n<<"] in layer " << layer << " is 0.\n";
-					}
-					if(pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][n] != 0 && pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][n] != 0){
-						totalWL += m_yWeight * (pNLP->m_layer_nets_weighted_sum_exp_yi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][n] -
-					 							pNLP->m_layer_nets_weighted_sum_exp_inv_yi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][n]);
-					}else{
-						//cout << "yWL of Net["<<n<<"] in layer " << layer << " is 0.\n";
-					}
-				}
+            // }else if(param.b3d){
+			// 	for(int layer=0;layer<param.nlayer;++layer){
+			// 		if(pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][n] != 0 && pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][n] != 0){
+			// 			totalWL += pNLP->m_layer_nets_weighted_sum_exp_xi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][n] -
+			// 						pNLP->m_layer_nets_weighted_sum_exp_inv_xi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][n];
+			// 		}else{
+			// 			//cout << "xWL of Net["<<n<<"] in layer " << layer << " is 0.\n";
+			// 		}
+			// 		if(pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][n] != 0 && pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][n] != 0){
+			// 			totalWL += m_yWeight * (pNLP->m_layer_nets_weighted_sum_exp_yi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][n] -
+			// 		 							pNLP->m_layer_nets_weighted_sum_exp_inv_yi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][n]);
+			// 		}else{
+			// 			//cout << "yWL of Net["<<n<<"] in layer " << layer << " is 0.\n";
+			// 		}
+			// 	}
 			}else
             {
                 totalWL +=

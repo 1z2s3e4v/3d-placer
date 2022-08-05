@@ -89,7 +89,8 @@ public:
     void create_placedb(CPlaceDB&, int dieId);
     void load_from_placedb(CPlaceDB&);
     /* GlobalPlace + Legal + DetailPlace*/
-    bool true3d_placement();
+    bool true3d_placement(); // d2d-legal-detail
+    bool true3d_placement2(); // global*2 -> legal*2 -> die0
     bool half3d_placement();
     bool ntuplace3d(); // ntuplace3d (remember to replace dir 'ntuplace' to 'ntuplace3d_bak')
     void global_place(bool& isLegal, double& totalHPWL);
