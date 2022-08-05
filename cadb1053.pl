@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Time::HiRes qw( time );
 use POSIX;
+use File::Basename;
 
 sub valid_htwl {
     my $hpwl = -1;
@@ -28,14 +29,16 @@ if ($#ARGV != 1) {
 } else {
     # print($ARGV[0] ."\n");
     # print($ARGV[1] ."\n");
-    my $temp = "temp.txt";
+	my $file = basename($ARGV[1]);
+    my $temp = "$file.tmp";
+	my $eval_log = "$file.eval";
     my $best_hpwl = POSIX::INT_MAX;
     
     my $iter = 1;
-    while (time() - $start < 60) {
+    while (time() - $start < 10) {
         system "./bin/3d-placer " .$ARGV[0] ." " .$temp ." -safe_mode -no_dump &> placer.log";
-        system "./evaluator/evaluator " .$ARGV[0] ." " .$temp ." &> evaluator/temp.log";
-        my $hpwl = &valid_htwl("evaluator/temp.log");
+        system "./evaluator/evaluator " .$ARGV[0] ." " .$temp ." |& tee " . $eval_log;
+        my $hpwl = &valid_htwl($eval_log);
         print ("[" .$iter ."] " ."HPWL = " .$hpwl ."\n");
         if ($hpwl > 0 && $hpwl < $best_hpwl) {
             $best_hpwl = $hpwl;
@@ -45,6 +48,7 @@ if ($#ARGV != 1) {
         $iter += 1;
     }
     print ("Best HPWL=" .$best_hpwl ."\n");
+	system("rm $temp");
 }
 
 # my $end = time();
