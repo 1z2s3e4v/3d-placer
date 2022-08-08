@@ -176,12 +176,7 @@ bool Placer_C::shrunked_2d_ntuplace(string para){
 }
 
 bool Placer_C::shrunked_2d_replace(){
-    for(Cell_C* cell : _vCell){
-        cell->set_die(_pChip->get_die(0));
-        cell->set_xy(Pos(_pChip->get_width()/2, _pChip->get_height()/2));
-    }
-    //rand_place(0);
-    // run ntuplace with half cell height
+    // run replace with half cell height
     AUX aux2D;
     string caseName = "shrunked-2d-replace";
     // >>> create_aux_form();
@@ -288,11 +283,11 @@ bool Placer_C::true3d_placement2(){
     if(_vCell.size() < 100)
         cell_spreading();
     else{
-        shrunked_2d_replace();
-        // for(Cell_C* cell : _vCell){
-        //     cell->set_die(_pChip->get_die(0));
-        //     cell->set_xy(Pos(_pChip->get_width()/2, _pChip->get_height()/2));
-        // }
+        //shrunked_2d_replace();
+        for(Cell_C* cell : _vCell){
+            cell->set_die(_pChip->get_die(0));
+            cell->set_xy(Pos(_pChip->get_width()/2, _pChip->get_height()/2));
+        }
     }
     total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - [1.1] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
@@ -557,11 +552,11 @@ bool Placer_C::true3d_placement(){
     if(_vCell.size() < 100)
         cell_spreading();
     else{
-        shrunked_2d_replace();
-        // for(Cell_C* cell : _vCell){
-        //     cell->set_die(_pChip->get_die(0));
-        //     cell->set_xy(Pos(_pChip->get_width()/2, _pChip->get_height()/2));
-        // }
+        //shrunked_2d_replace();
+        for(Cell_C* cell : _vCell){
+            cell->set_die(_pChip->get_die(0));
+            cell->set_xy(Pos(_pChip->get_width()/2, _pChip->get_height()/2));
+        }
     }
     total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - [1.1] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
@@ -1809,6 +1804,10 @@ bool Placer_C::shrunk2d_replace(){
     ////////////////////////////////////////////////////////////////
     cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1]" << RESET << ": Init 2D Placement.\n";
     part_time_start = (float)clock() / CLOCKS_PER_SEC;
+    for(Cell_C* cell : _vCell){
+        cell->set_die(_pChip->get_die(0));
+        cell->set_xy(Pos(_pChip->get_width()/2, _pChip->get_height()/2));
+    }
     placer_succ = shrunked_2d_replace();
     if(!placer_succ) return false;
     int total_hpwl = cal_HPWL();

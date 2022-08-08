@@ -287,8 +287,8 @@ double MyNLP::m_skewDensityPenalty2 = 1.0;
     // kaie 2009-08-29 TSVs
     if(m_bMoveZ)
     {
-	grad_potentialZ.resize( m_pDB->m_modules.size(), 0.0 ); // (kaie) potential in z direction
-	grad_via.resize( m_pDB->m_modules.size(), 0.0);
+		grad_potentialZ.resize( m_pDB->m_modules.size(), 0.0 ); // (kaie) potential in z direction
+		grad_via.resize( m_pDB->m_modules.size(), 0.0);
     }
     // @kaie 2009-08-29
     
@@ -2006,27 +2006,27 @@ bool MyNLP::AdjustForce( const int& n, const vector<double>& x, vector<double>& 
     double totalGradZ = 0;
     int size;
     if(m_bMoveZ) 
-	size = n/3; // x, y, and z directions
+		size = n/3; // x, y, and z directions
     else
-	size = n/2;
+		size = n/2;
 
     static int outCount = 0;
     outCount++; 
 
     if( gArg.CheckExist( "plotForce" ) )
     {
-	char filename[255];
-	sprintf( filename, "force%d.dat", outCount );
-	DataHandler data1;
-	for( int i=0; i<size; i++ )
-	{
-	    if(m_bMoveZ)
-	    	data1.Insert( f[3*i] * f[3*i] + f[3*i+1] * f[3*i+1] + f[3*i+2] * f[3*i+2] );
-	    else
-		data1.Insert( f[2*i] * f[2*i] + f[2*i+1] * f[2*i+1] );
-	}
-	data1.Sort();
-	data1.OutputFile( filename );
+		char filename[255];
+		sprintf( filename, "force%d.dat", outCount );
+		DataHandler data1;
+		for( int i=0; i<size; i++ )
+		{
+			if(m_bMoveZ)
+				data1.Insert( f[3*i] * f[3*i] + f[3*i+1] * f[3*i+1] + f[3*i+2] * f[3*i+2] );
+			else
+			data1.Insert( f[2*i] * f[2*i] + f[2*i+1] * f[2*i+1] );
+		}
+		data1.Sort();
+		data1.OutputFile( filename );
     }
 
     for( int i=0; i<size; i++ )
@@ -2113,15 +2113,15 @@ bool MyNLP::AdjustForce( const int& n, const vector<double>& x, vector<double> g
 	size = n/2;
     for( int i=0; i<size; i++ )
     {
-	//printf("%lf, %lf, %lf, %.f\n", grad_wl[2*i], grad_potential[2*i], grad_wl[2*i+1], grad_potential[2*i]+1);
-	double value = 
-	    (grad_wl[2*i] + grad_potential[2*i]) * (grad_wl[2*i] + grad_potential[2*i]) + 
-	    (grad_wl[2*i+1] + grad_potential[2*i+1]) * (grad_wl[2*i+1] + grad_potential[2*i+1]);
-	if(m_bMoveZ)
-	{
-	    //printf("Z: %lf, %lf\n", grad_via[i], grad_potentialZ[i]);
-	    totalGradZ += (grad_via[i] + grad_potentialZ[i]) * (grad_via[i] + grad_potentialZ[i]);
-	}
+		//printf("%lf, %lf, %lf, %.f\n", grad_wl[2*i], grad_potential[2*i], grad_wl[2*i+1], grad_potential[2*i]+1);
+		double value = 
+			(grad_wl[2*i] + grad_potential[2*i]) * (grad_wl[2*i] + grad_potential[2*i]) + 
+			(grad_wl[2*i+1] + grad_potential[2*i+1]) * (grad_wl[2*i+1] + grad_potential[2*i+1]);
+		if(m_bMoveZ)
+		{
+			//printf("Z: %lf, %lf\n", grad_via[i], grad_potentialZ[i]);
+			totalGradZ += (grad_via[i] + grad_potentialZ[i]) * (grad_via[i] + grad_potentialZ[i]);
+		}
 	totalGrad += value;
     }
 
@@ -2142,46 +2142,46 @@ bool MyNLP::AdjustForce( const int& n, const vector<double>& x, vector<double> g
     double expMaxGradSquareZ = expMaxGradZ * expMaxGradZ;
     for( int i=0; i<size; i++ )
     {
-	double valueSquare = 
-	    (grad_wl[2*i] + grad_potential[2*i]) * (grad_wl[2*i] + grad_potential[2*i]) + 
-	    (grad_wl[2*i+1] + grad_potential[2*i+1]) * (grad_wl[2*i+1] + grad_potential[2*i+1]);
-	double valueSquareZ = 0;
-	if(m_bMoveZ)
-	    valueSquareZ += (grad_via[i] + grad_potentialZ[i]) * (grad_via[i] + grad_potentialZ[i]); 
-	if( valueSquare == 0 )
-	{
-	    // avoid value = 0 let to inf
-	    grad_wl[2*i] = grad_wl[2*i+1] = 0;
-	    grad_potential[2*i] = grad_potential[2*i+1] = 0;
-	}
-	else
-	{
-	    if( valueSquare > expMaxGradSquare )
-	    {
-		double value = sqrt( valueSquare );
-		grad_wl[2*i]   = grad_wl[2*i]   * expMaxGrad / value;
-		grad_wl[2*i+1] = grad_wl[2*i+1] * expMaxGrad / value;
-		grad_potential[2*i]   = grad_potential[2*i]   * expMaxGrad / value;
-		grad_potential[2*i+1] = grad_potential[2*i+1] * expMaxGrad / value;
-	    }
-	}
-	if(m_bMoveZ)
-	{
-	    if( valueSquareZ == 0 )
-	    {
-	    	grad_via[i] = 0;
-	    	grad_potentialZ[i] = 0;
-	    }
-	    else
-	    {
-	    	if( valueSquareZ > expMaxGradSquareZ )
-	    	{
-		    double valueZ = sqrt( valueSquareZ );
-		    grad_via[i] = grad_via[i] * expMaxGradZ / valueZ;
-		    grad_potentialZ[i] = grad_potentialZ[i] * expMaxGradZ / valueZ;
-	    	}
-	    }
-	}
+		double valueSquare = 
+			(grad_wl[2*i] + grad_potential[2*i]) * (grad_wl[2*i] + grad_potential[2*i]) + 
+			(grad_wl[2*i+1] + grad_potential[2*i+1]) * (grad_wl[2*i+1] + grad_potential[2*i+1]);
+		double valueSquareZ = 0;
+		if(m_bMoveZ)
+			valueSquareZ += (grad_via[i] + grad_potentialZ[i]) * (grad_via[i] + grad_potentialZ[i]); 
+		if( valueSquare == 0 )
+		{
+			// avoid value = 0 let to inf
+			grad_wl[2*i] = grad_wl[2*i+1] = 0;
+			grad_potential[2*i] = grad_potential[2*i+1] = 0;
+		}
+		else
+		{
+			if( valueSquare > expMaxGradSquare )
+			{
+			double value = sqrt( valueSquare );
+			grad_wl[2*i]   = grad_wl[2*i]   * expMaxGrad / value;
+			grad_wl[2*i+1] = grad_wl[2*i+1] * expMaxGrad / value;
+			grad_potential[2*i]   = grad_potential[2*i]   * expMaxGrad / value;
+			grad_potential[2*i+1] = grad_potential[2*i+1] * expMaxGrad / value;
+			}
+		}
+		if(m_bMoveZ)
+		{
+			if( valueSquareZ == 0 )
+			{
+				grad_via[i] = 0;
+				grad_potentialZ[i] = 0;
+			}
+			else
+			{
+				if( valueSquareZ > expMaxGradSquareZ )
+				{
+				double valueZ = sqrt( valueSquareZ );
+				grad_via[i] = grad_via[i] * expMaxGradZ / valueZ;
+				grad_potentialZ[i] = grad_potentialZ[i] * expMaxGradZ / valueZ;
+				}
+			}
+		}
 
     }
     return true;
@@ -2724,21 +2724,21 @@ double MyNLP::GetLogSumExpWL( const vector<double>& x,	    // unuse
                      pNLP->m_nets_weighted_sum_exp_inv_xi_over_alpha[n] / pNLP->m_nets_sum_exp_inv_xi_over_alpha[n] +
                      m_yWeight * (pNLP->m_nets_weighted_sum_exp_yi_over_alpha[n] / pNLP->m_nets_sum_exp_yi_over_alpha[n] -
                         pNLP->m_nets_weighted_sum_exp_inv_yi_over_alpha[n] / pNLP->m_nets_sum_exp_inv_yi_over_alpha[n]));
-            // }else if(param.b3d){
-			// 	for(int layer=0;layer<param.nlayer;++layer){
-			// 		if(pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][n] != 0 && pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][n] != 0){
-			// 			totalWL += pNLP->m_layer_nets_weighted_sum_exp_xi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][n] -
-			// 						pNLP->m_layer_nets_weighted_sum_exp_inv_xi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][n];
-			// 		}else{
-			// 			//cout << "xWL of Net["<<n<<"] in layer " << layer << " is 0.\n";
-			// 		}
-			// 		if(pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][n] != 0 && pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][n] != 0){
-			// 			totalWL += m_yWeight * (pNLP->m_layer_nets_weighted_sum_exp_yi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][n] -
-			// 		 							pNLP->m_layer_nets_weighted_sum_exp_inv_yi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][n]);
-			// 		}else{
-			// 			//cout << "yWL of Net["<<n<<"] in layer " << layer << " is 0.\n";
-			// 		}
-			// 	}
+            }else if(param.b3d){
+				for(int layer=0;layer<param.nlayer;++layer){
+					if(pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][n] != 0 && pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][n] != 0){
+						totalWL += pNLP->m_layer_nets_weighted_sum_exp_xi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][n] -
+									pNLP->m_layer_nets_weighted_sum_exp_inv_xi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][n];
+					}else{
+						//cout << "xWL of Net["<<n<<"] in layer " << layer << " is 0.\n";
+					}
+					if(pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][n] != 0 && pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][n] != 0){
+						totalWL += m_yWeight * (pNLP->m_layer_nets_weighted_sum_exp_yi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][n] -
+					 							pNLP->m_layer_nets_weighted_sum_exp_inv_yi_over_alpha[layer][n] / pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][n]);
+					}else{
+						//cout << "yWL of Net["<<n<<"] in layer " << layer << " is 0.\n";
+					}
+				}
 			}else
             {
                 totalWL +=
@@ -3677,95 +3677,95 @@ void MyNLP::UpdateGradVia( MyNLP* pNLP, int index1, int index2 )
 	index2 = (int)pNLP->m_pDB->m_modules.size();
     for( int i=index1; i<index2; i++ )	// for each block
     {
-	if( pNLP->m_pDB->m_modules[i].m_isFixed || pNLP->m_pDB->m_modules[i].m_netsId.size() == 0 )
-	    continue;
+		if( pNLP->m_pDB->m_modules[i].m_isFixed || pNLP->m_pDB->m_modules[i].m_netsId.size() == 0 )
+			continue;
 
-	//if( pNLP->cellLock[i] == true )
-	//    continue;
-	
-	pNLP->grad_via[ i ] = 0;
-
-	for( unsigned int j=0; j<pNLP->m_pDB->m_modules[i].m_netsId.size(); j++ )
-	{
-	    // for each net connecting to the block
-	    int netId = pNLP->m_pDB->m_modules[i].m_netsId[j];
-	    if( pNLP->m_pDB->m_nets[netId].size() == 0 )  // floating-module
-	    	continue;
-
-	    int selfPinId = pNLP->m_moduleNetPinId[i][j];
-	    //if( selfPinId == -1 )
-	    //	continue;   
-	    
-	    if( pNLP->m_usePin[i] )
-	    {
-		assert( selfPinId != -1 );
-		if( param.bUseLSE )
-		{
-		    if ( true == param.bNLPNetWt )
-		    {
-		        pNLP->grad_via[ i ] += 
-			    NetWeightCalc( pNLP->m_pDB->m_nets[netId].size() ) * 
-        		    (pNLP->_expPinsZ[ selfPinId ] / pNLP->m_nets_sum_exp_zi_over_alpha[netId] -
-        		    1.0 / pNLP->_expPinsZ[ selfPinId ] / pNLP->m_nets_sum_exp_inv_zi_over_alpha[netId]) ;
-		    }
-		    else
-		    {
-        		pNLP->grad_via[ i ] += 
-        		    pNLP->_expPinsZ[ selfPinId ] / pNLP->m_nets_sum_exp_zi_over_alpha[netId] -
-        		    1.0 / pNLP->_expPinsZ[ selfPinId ] / pNLP->m_nets_sum_exp_inv_zi_over_alpha[netId];
-	            }
-		}
-		else
-		{
-		    // LP-norm
-		    double zz = pNLP->z[i];
-		    zz *= pNLP->m_posScale;
-		    pNLP->grad_via[ i ] += 
-			pNLP->m_nets_sum_p_z_pos[netId]     * pNLP->_expPinsZ[selfPinId] / zz -
-			pNLP->m_nets_sum_p_inv_z_neg[netId] / pNLP->_expPinsZ[selfPinId] / zz;
-#if 0
-		    assert( !isNaN( pNLP->grad_via[ i ] ) );
-		    assert( fabs( pNLP->grad_via[ i ] ) < DBL_MAX * 0.95 );
-#endif
-		}
-	    }
-	    else
-	    {
-		// use cell centers
+		//if( pNLP->cellLock[i] == true )
+		//    continue;
 		
-		if( param.bUseLSE )
-		{
-    		    if ( true == param.bNLPNetWt )
-    		    {
-    		        pNLP->grad_via[ i ] += 
-    		            NetWeightCalc( pNLP->m_pDB->m_nets[netId].size() ) * 
-            		    (pNLP->_expZ[i] / pNLP->m_nets_sum_exp_zi_over_alpha[netId] -
-            		    1.0 / pNLP->_expZ[i] / pNLP->m_nets_sum_exp_inv_zi_over_alpha[netId]) ;
-		    }
-		    else
-		    {
-        		pNLP->grad_via[ i ] += 
-        		    pNLP->_expZ[i] / pNLP->m_nets_sum_exp_zi_over_alpha[netId] -
-        		    1.0 / pNLP->_expZ[i] / pNLP->m_nets_sum_exp_inv_zi_over_alpha[netId];
-		    }
-		}
-		else
-		{
-		    // Lp-norm
-		    double zz = pNLP->z[ i ];
-		    zz *= pNLP->m_posScale;
-		    pNLP->grad_via[ i ] += 
-			pNLP->m_nets_sum_p_z_pos[netId]     * pNLP->_expZ[2*i] / zz  -
-			pNLP->m_nets_sum_p_inv_z_neg[netId] / pNLP->_expZ[2*i] / zz;
-#if 0
-		    assert( !isNaN( pNLP->grad_via[ i ] ) );
-		    assert( fabs( pNLP->grad_via[ i ] ) < DBL_MAX * 0.95 );
-#endif
-		}
-	    }
+		pNLP->grad_via[ i ] = 0;
 
-	} // for each pin in the module
-	//printf("via force(%d): %lf\n", i, pNLP->grad_via[i]);
+		for( unsigned int j=0; j<pNLP->m_pDB->m_modules[i].m_netsId.size(); j++ )
+		{
+			// for each net connecting to the block
+			int netId = pNLP->m_pDB->m_modules[i].m_netsId[j];
+			if( pNLP->m_pDB->m_nets[netId].size() == 0 )  // floating-module
+				continue;
+
+			int selfPinId = pNLP->m_moduleNetPinId[i][j];
+			//if( selfPinId == -1 )
+			//	continue;   
+			
+			if( pNLP->m_usePin[i] )
+			{
+				assert( selfPinId != -1 );
+				if( param.bUseLSE )
+				{
+					if ( true == param.bNLPNetWt )
+					{
+						pNLP->grad_via[ i ] += 
+						NetWeightCalc( pNLP->m_pDB->m_nets[netId].size() ) * 
+							(pNLP->_expPinsZ[ selfPinId ] / pNLP->m_nets_sum_exp_zi_over_alpha[netId] -
+							1.0 / pNLP->_expPinsZ[ selfPinId ] / pNLP->m_nets_sum_exp_inv_zi_over_alpha[netId]) ;
+					}
+					else
+					{
+						pNLP->grad_via[ i ] += 
+							pNLP->_expPinsZ[ selfPinId ] / pNLP->m_nets_sum_exp_zi_over_alpha[netId] -
+							1.0 / pNLP->_expPinsZ[ selfPinId ] / pNLP->m_nets_sum_exp_inv_zi_over_alpha[netId];
+					}
+				}
+				else
+				{
+					// LP-norm
+					double zz = pNLP->z[i];
+					zz *= pNLP->m_posScale;
+					pNLP->grad_via[ i ] += 
+					pNLP->m_nets_sum_p_z_pos[netId]     * pNLP->_expPinsZ[selfPinId] / zz -
+					pNLP->m_nets_sum_p_inv_z_neg[netId] / pNLP->_expPinsZ[selfPinId] / zz;
+		#if 0
+					assert( !isNaN( pNLP->grad_via[ i ] ) );
+					assert( fabs( pNLP->grad_via[ i ] ) < DBL_MAX * 0.95 );
+		#endif
+				}
+			}
+			else
+			{
+				// use cell centers
+				
+				if( param.bUseLSE )
+				{
+						if ( true == param.bNLPNetWt )
+						{
+							pNLP->grad_via[ i ] += 
+								NetWeightCalc( pNLP->m_pDB->m_nets[netId].size() ) * 
+								(pNLP->_expZ[i] / pNLP->m_nets_sum_exp_zi_over_alpha[netId] -
+								1.0 / pNLP->_expZ[i] / pNLP->m_nets_sum_exp_inv_zi_over_alpha[netId]) ;
+					}
+					else
+					{
+						pNLP->grad_via[ i ] += 
+							pNLP->_expZ[i] / pNLP->m_nets_sum_exp_zi_over_alpha[netId] -
+							1.0 / pNLP->_expZ[i] / pNLP->m_nets_sum_exp_inv_zi_over_alpha[netId];
+					}
+				}
+				else
+				{
+					// Lp-norm
+					double zz = pNLP->z[ i ];
+					zz *= pNLP->m_posScale;
+					pNLP->grad_via[ i ] += 
+					pNLP->m_nets_sum_p_z_pos[netId]     * pNLP->_expZ[2*i] / zz  -
+					pNLP->m_nets_sum_p_inv_z_neg[netId] / pNLP->_expZ[2*i] / zz;
+		#if 0
+					assert( !isNaN( pNLP->grad_via[ i ] ) );
+					assert( fabs( pNLP->grad_via[ i ] ) < DBL_MAX * 0.95 );
+		#endif
+				}
+			}
+
+		} // for each pin in the module
+		//printf("via force(%d): %lf\n", i, pNLP->grad_via[i]);
     } // for each module
     
 }
@@ -3998,17 +3998,17 @@ void MyNLP::GetPointPotentialGrad( double cellX, double cellY, double cellZ, dou
     double top    = cellY + ( cellY - bottom );
     double front  = cellZ + ( cellZ - back );
     if( left   < pNLP->m_pDB->m_coreRgn.left  - pNLP->m_potentialGridPadding * pNLP->m_potentialGridWidth )     
-	left   = pNLP->m_pDB->m_coreRgn.left  - pNLP->m_potentialGridPadding * pNLP->m_potentialGridWidth;
+		left   = pNLP->m_pDB->m_coreRgn.left  - pNLP->m_potentialGridPadding * pNLP->m_potentialGridWidth;
     if( right  > pNLP->m_pDB->m_coreRgn.right + pNLP->m_potentialGridPadding * pNLP->m_potentialGridWidth )    
-	right  = pNLP->m_pDB->m_coreRgn.right + pNLP->m_potentialGridPadding * pNLP->m_potentialGridWidth;
+		right  = pNLP->m_pDB->m_coreRgn.right + pNLP->m_potentialGridPadding * pNLP->m_potentialGridWidth;
     if( bottom < pNLP->m_pDB->m_coreRgn.bottom - pNLP->m_potentialGridPadding * pNLP->m_potentialGridHeight )   
-	bottom = pNLP->m_pDB->m_coreRgn.bottom - pNLP->m_potentialGridPadding * pNLP->m_potentialGridHeight;
+		bottom = pNLP->m_pDB->m_coreRgn.bottom - pNLP->m_potentialGridPadding * pNLP->m_potentialGridHeight;
     if( top    > pNLP->m_pDB->m_coreRgn.top    + pNLP->m_potentialGridPadding * pNLP->m_potentialGridHeight )      
-	top    = pNLP->m_pDB->m_coreRgn.top    + pNLP->m_potentialGridPadding * pNLP->m_potentialGridHeight;
+		top    = pNLP->m_pDB->m_coreRgn.top    + pNLP->m_potentialGridPadding * pNLP->m_potentialGridHeight;
     if( back   < pNLP->m_pDB->m_back - pNLP->m_potentialGridPadding * pNLP->m_potentialGridThickness )
-	back   = pNLP->m_pDB->m_back - pNLP->m_potentialGridPadding * pNLP->m_potentialGridThickness;
+		back   = pNLP->m_pDB->m_back - pNLP->m_potentialGridPadding * pNLP->m_potentialGridThickness;
     if( front  > pNLP->m_pDB->m_front + pNLP->m_potentialGridPadding * pNLP->m_potentialGridThickness )
-	front  = pNLP->m_pDB->m_front + pNLP->m_potentialGridPadding * pNLP->m_potentialGridThickness;
+		front  = pNLP->m_pDB->m_front + pNLP->m_potentialGridPadding * pNLP->m_potentialGridThickness;
     
     int gx, gy, gz;
     pNLP->GetClosestGrid( left, bottom, back, gx, gy, gz);
@@ -4036,64 +4036,64 @@ void MyNLP::GetPointPotentialGrad( double cellX, double cellY, double cellZ, dou
     	for( gxx = gx, xx = pNLP->GetXGrid( gx ); xx <= right && gxx<(int)pNLP->m_gridPotential[gzz].size(); 
 			gxx++, xx += pNLP->m_potentialGridWidth )
     	{
-	    for( gyy = gy, yy = pNLP->GetYGrid( gy ); yy <= top && gyy<(int)pNLP->m_gridPotential[gzz][gxx].size(); 
-			gyy++, yy += pNLP->m_potentialGridHeight )
-	    {
-		double gX =
-		    GetGradPotential( cellX, xx, pNLP->_potentialRX, width ) *
-		    GetPotential(     cellY, yy, pNLP->_potentialRY, height ) *
-		    GetPotential(     cellZ, zz, pNLP->_potentialRZ, thickness ) *
-		    ( pNLP->m_gridPotential[gzz][gxx][gyy] - pNLP->m_expBinPotential[gzz][gxx][gyy] );
-	    	double gY =
-		    GetPotential(     cellX, xx, pNLP->_potentialRX, width  ) *
-		    GetGradPotential( cellY, yy, pNLP->_potentialRY, height ) *
-		    GetPotential(     cellZ, zz, pNLP->_potentialRZ, thickness ) *
-		    ( pNLP->m_gridPotential[gzz][gxx][gyy] - pNLP->m_expBinPotential[gzz][gxx][gyy] );
-	    	double gZ = 0;
-		if(pNLP->m_bMoveZ)
-		{ 
-		    gZ = 
-		    	GetPotential(     cellX, xx, pNLP->_potentialRX, width  ) *
-		    	GetPotential(     cellY, yy, pNLP->_potentialRY, height ) *
-		    	GetGradPotential( cellZ, zz, pNLP->_potentialRZ, thickness ) *
-		    	( pNLP->m_gridPotential[gzz][gxx][gyy] - pNLP->m_expBinPotential[gzz][gxx][gyy] );
+			for( gyy = gy, yy = pNLP->GetYGrid( gy ); yy <= top && gyy<(int)pNLP->m_gridPotential[gzz][gxx].size(); 
+				gyy++, yy += pNLP->m_potentialGridHeight )
+			{
+				double gX =
+					GetGradPotential( cellX, xx, pNLP->_potentialRX, width ) *
+					GetPotential(     cellY, yy, pNLP->_potentialRY, height ) *
+					GetPotential(     cellZ, zz, pNLP->_potentialRZ, thickness ) *
+					( pNLP->m_gridPotential[gzz][gxx][gyy] - pNLP->m_expBinPotential[gzz][gxx][gyy] );
+					double gY =
+					GetPotential(     cellX, xx, pNLP->_potentialRX, width  ) *
+					GetGradPotential( cellY, yy, pNLP->_potentialRY, height ) *
+					GetPotential(     cellZ, zz, pNLP->_potentialRZ, thickness ) *
+					( pNLP->m_gridPotential[gzz][gxx][gyy] - pNLP->m_expBinPotential[gzz][gxx][gyy] );
+					double gZ = 0;
+				if(pNLP->m_bMoveZ)
+				{ 
+					gZ = 
+						GetPotential(     cellX, xx, pNLP->_potentialRX, width  ) *
+						GetPotential(     cellY, yy, pNLP->_potentialRY, height ) *
+						GetGradPotential( cellZ, zz, pNLP->_potentialRZ, thickness ) *
+						( pNLP->m_gridPotential[gzz][gxx][gyy] - pNLP->m_expBinPotential[gzz][gxx][gyy] );
+				}
+				
+				if( m_skewDensityPenalty1 != 1.0 )
+				{
+					if( pNLP->m_gridPotential[gzz][gxx][gyy] < pNLP->m_expBinPotential[gzz][gxx][gyy] )
+						gX /= m_skewDensityPenalty2;
+					else
+						gX *= m_skewDensityPenalty1;
+					if( pNLP->m_gridPotential[gzz][gxx][gyy] < pNLP->m_expBinPotential[gzz][gxx][gyy] )
+						gY /= m_skewDensityPenalty2;
+					else
+						gY *= m_skewDensityPenalty1;
+					if(pNLP->m_bMoveZ)
+					{
+						if( pNLP->m_gridPotential[gzz][gxx][gyy] < pNLP->m_expBinPotential[gzz][gxx][gyy] )
+							gZ /= m_skewDensityPenalty2;
+						else
+							gZ *= m_skewDensityPenalty1;
+					}
+				}
+			
+				if( bMulti )
+				{
+					gradX += gX * m_weightDensity[gzz][gxx][gyy];
+					gradY += gY * m_weightDensity[gzz][gxx][gyy];
+					if(pNLP->m_bMoveZ)
+						gradZ += gZ * m_weightDensity[gzz][gxx][gyy];
+				}
+				else
+				{		
+					gradX += gX;
+					gradY += gY;
+					if(pNLP->m_bMoveZ)
+						gradZ += gZ;
+				}
+			}
 		}
-	    
-	    	if( m_skewDensityPenalty1 != 1.0 )
-	    	{
-		    if( pNLP->m_gridPotential[gzz][gxx][gyy] < pNLP->m_expBinPotential[gzz][gxx][gyy] )
-		    	gX /= m_skewDensityPenalty2;
-		    else
-		    	gX *= m_skewDensityPenalty1;
-		    if( pNLP->m_gridPotential[gzz][gxx][gyy] < pNLP->m_expBinPotential[gzz][gxx][gyy] )
-		    	gY /= m_skewDensityPenalty2;
-		    else
-		    	gY *= m_skewDensityPenalty1;
-		    if(pNLP->m_bMoveZ)
-		    {
-		    	if( pNLP->m_gridPotential[gzz][gxx][gyy] < pNLP->m_expBinPotential[gzz][gxx][gyy] )
-		    	    gZ /= m_skewDensityPenalty2;
-		    	else
-		    	    gZ *= m_skewDensityPenalty1;
-		    }
-	    	}
-	    
-	    	if( bMulti )
-	    	{
-		    gradX += gX * m_weightDensity[gzz][gxx][gyy];
-		    gradY += gY * m_weightDensity[gzz][gxx][gyy];
-		    if(pNLP->m_bMoveZ)
-		    	gradZ += gZ * m_weightDensity[gzz][gxx][gyy];
-	    	}
-	    	else
-	    	{		
-		    gradX += gX;
-		    gradY += gY;
-		    if(pNLP->m_bMoveZ)
-		    	gradZ += gZ;
-	    	}
-	    }
-	}
     } // for each grid
 }
 
@@ -7142,16 +7142,18 @@ bool MyNLP::InitObjWeights( double wWire )
     //Brian 2007-04-30
     if (param.bCongObj)
     {
-	if( !AdjustForceNet( grad_wire, grad_potential, grad_congestion ) ) // truncation
-		{cout << "\n !AdjustForceNet()\n";
-	    return false;	// bad values in grad_wire or grad_potential
+		if( !AdjustForceNet( grad_wire, grad_potential, grad_congestion ) ) // truncation
+		{
+			cout << "\n !AdjustForceNet()\n";
+	    	return false;	// bad values in grad_wire or grad_potential
 		}
     }
     else
     {
-	if( !AdjustForce( n, x, grad_wire, grad_potential, grad_potentialZ) ) // truncation
-		{cout << "\n !AdjustForce()\n";
-	    return false;	// bad values in grad_wire or grad_potential
+		if( !AdjustForce( n, x, grad_wire, grad_potential, grad_potentialZ) ) // truncation
+		{
+			cout << "\n !AdjustForce()\n";
+	    	return false;	// bad values in grad_wire or grad_potential
 		}
     }
     //@Brian 2007-04-30
