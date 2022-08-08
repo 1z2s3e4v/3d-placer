@@ -17,10 +17,12 @@
 #include "../dataModel/bin.h"
 #include "../utility/paramHdl.h"
 #include "../utility/drawHtml.h"
+#include "../partitioner/partitioner.h"
 
 #include "ntuplace/PlaceDB/placedb.h"
 #include "ntuplace/NLPlace/mlnlp.h"
 #include "ntuplace/PlaceCommon/ParamPlacement.h"
+
 
 using namespace std;
 
@@ -72,6 +74,7 @@ public:
     void mincut_k_partition();
     void bin_based_partition_real();
     void bin_based_partition(int bin_num);
+    void bin_based_partition_new();
     void init_place_ball();
     void run_ntuplace3(string caseName);
     void run_ntuplace3(string caseName, string otherPara);
