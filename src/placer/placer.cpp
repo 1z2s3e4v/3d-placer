@@ -2448,18 +2448,18 @@ void Placer_C::mincut_k_partition(){
 }
 void Placer_C::bin_based_partition_new() {
 
-    double cutline = 0.5;
-    double width_avg0 = 0;
-    double width_avg1 = 0;
-    for(Cell_C* cell : _vCell){ // Todo v_cell ?= _vCell
-        width_avg0 += (double)cell->get_width(0)/ _vCell.size();
-        width_avg1 += (double)cell->get_width(1)/ _vCell.size();
-    }
-    cutline = ((width_avg1*_pChip->get_die(1)->get_row_height()) / (width_avg1*_pChip->get_die(1)->get_row_height() + width_avg0*_pChip->get_die(0)->get_row_height())) * (_pChip->get_die(0)->get_max_util() / _pChip->get_die(1)->get_max_util());
+    // double cutline = 0.5;
+    // double width_avg0 = 0;
+    // double width_avg1 = 0;
+    // for(Cell_C* cell : _vCell){ // Todo v_cell ?= _vCell
+    //     width_avg0 += (double)cell->get_width(0)/ _vCell.size();
+    //     width_avg1 += (double)cell->get_width(1)/ _vCell.size();
+    // }
+    // cutline = ((width_avg1*_pChip->get_die(1)->get_row_height()) / (width_avg1*_pChip->get_die(1)->get_row_height() + width_avg0*_pChip->get_die(0)->get_row_height())) * (_pChip->get_die(0)->get_max_util() / _pChip->get_die(1)->get_max_util());
 
     
     Partitioner* partitioner = new Partitioner();
-    partitioner->parseInput(_vCell, _vNet);
+    partitioner->parseInput(_vCell, _vNet, _pChip);
     partitioner->partition();
     partitioner->printSummary();
     vector<vector<int> >& cellPart = partitioner->get_part_result();
