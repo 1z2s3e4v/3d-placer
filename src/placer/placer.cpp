@@ -1821,11 +1821,11 @@ bool Placer_C::shrunk2d_replace(){
     ////////////////////////////////////////////////////////////////
     cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2]" << RESET << ": Min-Cut Partition.\n";
     part_time_start = (float)clock() / CLOCKS_PER_SEC;
-    if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
-        mincut_partition(); // set_die() for each cell
-    else 
-        mincut_k_partition(); // set_die() for each cell
-    // bin_based_partition_real();
+    // if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
+    //     mincut_partition(); // set_die() for each cell
+    // else 
+    //     mincut_k_partition(); // set_die() for each cell
+    bin_based_partition_new();
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Partition: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     cout << BLUE << "[Placer]" << RESET << " - Partition result: " << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << ".\n";
@@ -2445,7 +2445,32 @@ void Placer_C::mincut_k_partition(){
         if(count_move > 0) cout << BLUE << "[Partition]" << RESET << " - " << count_move << " cells moved from die1->die0.\n";
     }
 }
-void Placer_C::bin_based_partition_real(){
+void Placer_C::bin_based_partition_new() {
+
+    double cutline = 0.5;
+    double width_avg0 = 0;
+    double width_avg1 = 0;
+    for(Cell_C* cell : _vCell){ // Todo v_cell ?= _vCell
+        width_avg0 += (double)cell->get_width(0)/ _vCell.size();
+        width_avg1 += (double)cell->get_width(1)/ _vCell.size();
+    }
+    cutline = ((width_avg1*_pChip->get_die(1)->get_row_height()) / (width_avg1*_pChip->get_die(1)->get_row_height() + width_avg0*_pChip->get_die(0)->get_row_height())) * (_pChip->get_die(0)->get_max_util() / _pChip->get_die(1)->get_max_util());
+
+    
+    Partitioner* partitioner = new Partitioner();
+    partitioner->parseInput(_vCell, _vNet);
+    partitioner->partition();
+    partitioner->printSummary();
+    vector<vector<int> >& cellPart = partitioner->get_part_result();
+
+    for (int i=0; i<2; ++i){
+        for(int cellId : cellPart[i]){ 
+            _vCell[cellId]->set_die(_pChip->get_die(i));
+        }
+    }
+    
+}
+void Placer_C::bin_based_partition_real() {
 
     int bins_per_row_top = 45;
     int bins_per_col_top = 45;
