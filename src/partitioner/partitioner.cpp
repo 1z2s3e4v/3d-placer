@@ -10,10 +10,11 @@
 #include "partitioner.h"
 using namespace std;
 
-void Partitioner::parseInput(vector<Cell_C*>& v_Cell, vector<Net_C*>& _vNet, Chip_C* _pChip) 
+void Partitioner::parseInput(vector<Cell_C*>& v_Cell, vector<Net_C*>& _vNet, Chip_C* p_Chip) 
 {
-    
+
     _vCell = v_Cell;
+    _pChip = p_Chip;
     _maxArea[0] = _pChip->get_die(0)->get_width() * _pChip->get_die(0)->get_height() * _pChip->get_die(0)->get_max_util();
     _maxArea[1] = _pChip->get_die(1)->get_width() * _pChip->get_die(1)->get_height() * _pChip->get_die(1)->get_max_util();
     for (Cell_C* cell_ex : _vCell) {
@@ -22,10 +23,6 @@ void Partitioner::parseInput(vector<Cell_C*>& v_Cell, vector<Net_C*>& _vNet, Chi
         Cell* cell = new Cell(cellName, 0, cellId);
         _cellArray.push_back(cell);
         _cellName2Id[cellName] = cellId;
-        cell->setPinNum(cell_ex->get_pin_num());
-        if (_maxPinNum < _cellArray[cellId]->getPinNum()) {
-            _maxPinNum = _cellArray[cellId]->getPinNum();
-        }
         ++ _cellNum;
         
         for (Pin_C* pin : cell_ex->get_pins()) {
@@ -37,22 +34,27 @@ void Partitioner::parseInput(vector<Cell_C*>& v_Cell, vector<Net_C*>& _vNet, Chi
                     Net_FM* net = new Net_FM(netName);
                     _netArray.emplace_back(net);
                     _netName2Id[netName] = netId;
-                    _cellArray[cellId]->addNet(netId);
-                    // _cellArray[cellId]->incPinNum();
-                    _netArray[netId]->addCell(cellId);
+                    cell->addNet(netId);
+                    cell->incPinNum();
+                    net->addCell(cellId);
                     ++ _netNum;
                     
                 } else {
                     int netId = _netName2Id[netName];
-                    if (find(_netArray[netId]->getCellList().begin(), _netArray[netId]->getCellList().end(), cellId) == _netArray[netId]->getCellList().end()) {
-                        _cellArray[cellId]->addNet(netId);
-                        // _cellArray[cellId]->incPinNum();
-                        _netArray[netId]->addCell(cellId);
-                    }
+                    Net_FM* net = _netArray[netId];
+                    if (find(net->getCellList().begin(), net->getCellList().end(), cellId) == net->getCellList().end()) {
+                        cell->addNet(netId);
+                        cell->incPinNum();
+                        net->addCell(cellId);
+                    } //else {cout << "here~~~~\n";}
                     
                 }
             }
             
+        }
+        
+        if (_maxPinNum < cell->getPinNum()) { 
+            _maxPinNum = cell->getPinNum();
         }
         
         
@@ -60,70 +62,13 @@ void Partitioner::parseInput(vector<Cell_C*>& v_Cell, vector<Net_C*>& _vNet, Chi
     
     // for (Net_FM* net : _netArray) {
     //     if (net->getCellList().size() == 1) {
-    //         _cellAlone.push_back(_cellArray[net->getCellList()[0]]);
-    //         _cellArray[net->getCellList()[0]]->lock();
+    //         cout << _cellArray[net->getCellList()[0]] << "\n";
+    //         // _cellAlone.push_back(_cellArray[net->getCellList()[0]]);
+    //         // _cellArray[net->getCellList()[0]]->lock();
     //     }
     // }
     
 }
-// void Partitioner::parseInput(fstream& inFile)
-// {
-//     string str;
-//     // Set balance factor
-//     inFile >> str;
-//     _bFactor = stod(str);
-
-//     // Set up whole circuit
-//     while (inFile >> str) {
-//         if (str == "NET") {
-//             string netName, cellName, tmpCellName = "";
-//             inFile >> netName;
-//             int netId = _netNum;
-//             _netArray.push_back(new Net(netName));
-//             _netName2Id[netName] = netId;
-
-//             while (inFile >> cellName) {
-//                 if (cellName == ";") {
-//                     tmpCellName = "";
-//                     break;
-//                 }
-//                 else {
-//                     // a newly seen cell
-//                     if (_cellName2Id.count(cellName) == 0) {
-//                         int cellId = _cellNum;
-//                         _cellArray.push_back(new Cell(cellName, 0, cellId));
-//                         _cellName2Id[cellName] = cellId;
-//                         _cellArray[cellId]->addNet(netId);
-//                         _cellArray[cellId]->incPinNum();
-//                         _netArray[netId]->addCell(cellId);
-//                         ++_cellNum;
-//                         tmpCellName = cellName;
-//                         if (_maxPinNum < _cellArray[cellId]->getPinNum()) {
-//                             _maxPinNum = _cellArray[cellId]->getPinNum();
-//                         }
-//                     }
-//                     // an existed cell
-//                     else {
-//                         if (cellName != tmpCellName) {
-//                             assert(_cellName2Id.count(cellName) == 1);
-//                             int cellId = _cellName2Id[cellName];
-//                             _cellArray[cellId]->addNet(netId);
-//                             _cellArray[cellId]->incPinNum();
-//                             _netArray[netId]->addCell(cellId);
-//                             tmpCellName = cellName;
-//                             if (_maxPinNum < _cellArray[cellId]->getPinNum()) {
-//                                 _maxPinNum = _cellArray[cellId]->getPinNum();
-//                             }
-//                         }
-//                     }
-//                 }
-//             }
-//             ++_netNum;
-//         }
-//     }
-//     return;
-// }
-
 
 void Partitioner::initial_partition() {
     for (int i=0; i<_cellNum; i++) {
@@ -132,7 +77,7 @@ void Partitioner::initial_partition() {
         if (i < _cellNum / 2) {
             cell->setPart(0);
             _partSize[0] += 1;
-            _partArea[0] += _vCell[cell->getName()]->get_width(0) * _vCell[cell->getName()]->get_height(0);
+            _partArea[0] += _vCell[cell->getName()]->get_width(_pChip->get_die(0)->get_techId()) * _vCell[cell->getName()]->get_height(_pChip->get_die(0)->get_techId());
 
             for (int j=0; j<cell->getNetList().size(); j++) {
                 _netArray[cell->getNetList()[j]]->incPartCount(0); 
@@ -141,13 +86,16 @@ void Partitioner::initial_partition() {
         } else {
             cell->setPart(1);
             _partSize[1] += 1;
-            _partArea[1] += _vCell[cell->getName()]->get_width(1) * _vCell[cell->getName()]->get_height(1);
+            _partArea[1] += _vCell[cell->getName()]->get_width(_pChip->get_die(1)->get_techId()) * _vCell[cell->getName()]->get_height(_pChip->get_die(1)->get_techId());
+            // Todo: case3 get_width(1) == 0 get_height(1) == 0
+            // cout << _vCell[cell->getName()]->get_width(1) << "," << _vCell[cell->getName()]->get_height(1)<<"\n";
             for (int j=0; j<cell->getNetList().size(); j++) {
                 _netArray[cell->getNetList()[j]]->incPartCount(1); 
             }
             
         }
     }
+    //cout << "~~~~~~~~~~~~~_partArea[1] = " << _partArea[1] <<"\n";
 
     return;
 
@@ -236,25 +184,25 @@ Cell* Partitioner::find_cell_to_move() {
     //     _canBeFromSide[1] = true;
     // }
 
-    // if (getPartSize(0) / _cellNum < 0.65) {
+    // if ((float) getPartSize(0) / _cellNum < 0.65) {
     //     _canBeFromSide[0] = false;
     // } else {
     //     _canBeFromSide[0] = true;
     // }
-    // if (getPartSize(1) / _cellNum < 0.3) {
-    //     _canBeFromSide[0] = false;
+    // if ((float) getPartSize(1) / _cellNum < 0.3) {
+    //     _canBeFromSide[1] = false;
     // } else {
-    //     _canBeFromSide[0] = true;
+    //     _canBeFromSide[1] = true;
     // }
-    if (getPartSize(0) < _maxArea[0]) {
-        _canBeFromSide[0] = false;
-    } else {
-        _canBeFromSide[0] = true;
-    }
-    if (getPartSize(1) < _maxArea[1]) {
+    if (getPartArea(0) > _maxArea[0]) {
         _canBeFromSide[1] = false;
     } else {
         _canBeFromSide[1] = true;
+    }
+    if (getPartArea(1) > _maxArea[1]) {
+        _canBeFromSide[0] = false;
+    } else {
+        _canBeFromSide[0] = true;
     }
 
     Node* node_to_move = _maxGainCell;
@@ -314,8 +262,8 @@ void Partitioner::move_cell(Cell* cell) {
     cell->setPart(to_side);
     _partSize[from_side] -= 1;
     _partSize[to_side] += 1;
-    _partArea[from_side] -= _vCell[cell->getName()]->get_width(from_side) * _vCell[cell->getName()]->get_height(from_side);
-    _partArea[to_side] += _vCell[cell->getName()]->get_width(to_side) * _vCell[cell->getName()]->get_height(to_side);
+    _partArea[from_side] -= _vCell[cell->getName()]->get_width(_pChip->get_die(from_side)->get_techId()) * _vCell[cell->getName()]->get_height(_pChip->get_die(from_side)->get_techId());
+    _partArea[to_side] += _vCell[cell->getName()]->get_width(_pChip->get_die(to_side)->get_techId()) * _vCell[cell->getName()]->get_height(_pChip->get_die(to_side)->get_techId());
     _moveNum += 1;
     _moveStack.push_back(cell->getNode()->getId());
     _accGain += cell->getGain();
@@ -391,12 +339,12 @@ void Partitioner::update_gain() {
 
     // cout << "update gain" << endl;
 
-    Cell* cell = Partitioner::find_cell_to_move();
+    Cell* cell = find_cell_to_move();
     
     int from_side = cell->getPart();
     int to_side = 1 - from_side;
     // cell->lock();
-    Partitioner::move_cell(cell);
+    move_cell(cell);
 
     
 
@@ -411,7 +359,7 @@ void Partitioner::update_gain() {
             //  increment gains of all free cells on n
             for (int j=0; j<net->getCellList().size(); j++) {
                 if ( ! _cellArray[net->getCellList()[j]]->getLock()) {
-                    Partitioner::incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 0);         
+                    incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 0);         
                 }
             }
                 
@@ -419,7 +367,7 @@ void Partitioner::update_gain() {
             // decrement gain of the only T cell on n, if it is free
             for (int j=0; j<net->getCellList().size(); j++) {
                 if (! _cellArray[net->getCellList()[j]]->getLock() && _cellArray[net->getCellList()[j]]->getPart() == to_side) {
-                    Partitioner::incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 1);
+                    incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 1);
                 }
             }      
         }
@@ -437,14 +385,14 @@ void Partitioner::update_gain() {
             // decrement gains of all free cells on n
             for (int j=0; j<net->getCellList().size(); j++) {
                 if ( ! _cellArray[net->getCellList()[j]]->getLock()) {
-                    Partitioner::incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 1);         
+                    incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 1);         
                 }
             }
         } else if (from_num == 1) {
             // increment gain of the only F cell on n, if it is free
             for (int j=0; j<net->getCellList().size(); j++) {
                 if (_cellArray[net->getCellList()[j]]->getPart() == from_side && (! _cellArray[net->getCellList()[j]]->getLock())) {
-                    Partitioner::incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 0);
+                    incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 0);
                 }
             }      
         }
@@ -485,8 +433,8 @@ void Partitioner::trace_back() {
         
         _partSize[cell->getPart()] -= 1;
         _partSize[1 - cell->getPart()] += 1;
-        _partArea[cell->getPart()] -= _vCell[cell->getName()]->get_width(cell->getPart()) * _vCell[cell->getName()]->get_height(cell->getPart());
-        _partArea[1 - cell->getPart()] += _vCell[cell->getName()]->get_width(1 - cell->getPart()) * _vCell[cell->getName()]->get_height(1 - cell->getPart());
+        _partArea[cell->getPart()] -= _vCell[cell->getName()]->get_width(_pChip->get_die(cell->getPart())->get_techId()) * _vCell[cell->getName()]->get_height(_pChip->get_die(cell->getPart())->get_techId());
+        _partArea[1 - cell->getPart()] += _vCell[cell->getName()]->get_width(_pChip->get_die(1 - cell->getPart())->get_techId()) * _vCell[cell->getName()]->get_height(_pChip->get_die(1 - cell->getPart())->get_techId());
 
         for (int j=0; j<cell->getNetList().size(); j++) {
             _netArray[cell->getNetList()[j]]->decPartCount(cell->getPart());
@@ -494,7 +442,7 @@ void Partitioner::trace_back() {
         } 
 
         cell->setPart(1 - cell->getPart());
-        _cellPart[1 - cell->getPart()].emplace_back(cell->getName());
+        
     }
 }
 
@@ -509,13 +457,13 @@ void Partitioner::partition() {
     int count = 0;
     for (int iter=0; iter<2; iter++) {
         
-        Partitioner::initiate_gain();
+        initiate_gain();
 
         Node* pre;
         for (int step=0; step<_cellNum; step++) {
 
             // cout << "step" << step <<endl;
-            Partitioner::update_gain();
+            update_gain();
 
             if (_accGain >= _maxAccGain) {
                 _maxAccGain = _accGain;
@@ -529,7 +477,7 @@ void Partitioner::partition() {
         // cout << "accGain: " << _accGain << endl;
         gain.push_back(_maxAccGain);
         
-        Partitioner::trace_back();
+        trace_back();
 
         // int threhold;
         // if (_cellNum / 2 + _netNum / 2 > 300000) {
@@ -559,10 +507,17 @@ void Partitioner::partition() {
     }
 
     for (int i=0; i<gain.size(); i++) {
-        // cout << gain[i] << " , ";
+        cout << gain[i] << " , ";
     }
  
-    Partitioner::calc_cutsize();
+    calc_cutsize();
+}
+
+vector<vector<int> >& Partitioner::get_part_result() {
+    for (Cell* cell : _cellArray) {
+        _cellPart[cell->getPart()].emplace_back(cell->getName());
+    }
+    return _cellPart;
 }
 
 void Partitioner::printSummary() const
