@@ -19,6 +19,8 @@ public:
         // parseInput(inFile);
         _partSize[0] = 0;
         _partSize[1] = 0;
+        _partArea[0] = 0;
+        _partArea[1] = 0;
         _cellPart.resize(2,vector<int>());
     }
     ~Partitioner() {
@@ -31,10 +33,11 @@ public:
     int getCellNum() const          { return _cellNum; }
     double getBFactor() const       { return _bFactor; }
     int getPartSize(int part) const { return _partSize[part]; }
+    double getPartArea(int part) const { return _partArea[part]; }
     
 
     // modify method
-    void parseInput(vector<Cell_C*>& _vCell, vector<Net_C*>& _vNet);
+    void parseInput(vector<Cell_C*>& v_Cell, vector<Net_C*>& _vNet, Chip_C* p_Chip);
     // void parseInput(fstream& inFile);
     void initial_partition();
     void initiate_gain();
@@ -45,7 +48,7 @@ public:
     void calc_cutsize();
     void trace_back();
     void partition();
-    vector<vector<int> >& get_part_result() {return _cellPart;}
+    vector<vector<int> >& get_part_result();// {return _cellPart;}
 
     // member functions about reporting
     void printSummary() const;
@@ -56,6 +59,7 @@ public:
 private:
     int                 _cutSize;       // cut size
     int                 _partSize[2];   // size (cell number) of partition A(0) and B(1)
+    double                 _partArea[2];   // area size (cell area) of partition A(0) and B(1)
     int                 _netNum;        // number of nets
     int                 _cellNum;       // number of cells
     int                 _maxPinNum;     // Pmax for building bucket list
@@ -79,6 +83,9 @@ private:
     bool                _canBeFromSide[2]; // whether can be from side or not
     vector<Cell*>       _cellAlone;      // cell does not be connected to other cells in the bin
     vector<vector<int> > _cellPart; 
+    vector<Cell_C*>     _vCell;
+    Chip_C*             _pChip;
+    double              _maxArea[2];
 
     // Clean up partitioner
     void clear();

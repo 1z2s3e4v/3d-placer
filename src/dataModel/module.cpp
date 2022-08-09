@@ -299,8 +299,6 @@ void Cell_C::set_die(Die_C* die){
         die->add_cell(this);
     } else if(_die == nullptr){
         die->add_cell(this);
-    } else if(_die->get_id() != die->get_id()){
-        return;
     }
     _dieId = die->get_id();
     set_pos(Pos(_dieId, _pos.x, _pos.y));
