@@ -151,6 +151,8 @@ CParamPlacement::CParamPlacement()
     bLayerPreAssign = false;
     dWeightTSV = 0.0;
     stepZ = 0.2;
+    bF2FhpwlEnhance = false;
+    bStabilityEnhance = false;
 }
 
 void CParamPlacement::Print()

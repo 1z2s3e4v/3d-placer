@@ -266,6 +266,7 @@ Cell_C::Cell_C(string name, CellLib_C* masterCell){
     _pos = Pos(0,0,0);
     _die = nullptr;
     _dieId = 0;
+    _degree = 0;
 }
 void Cell_C::set_id(int id){
     _id = id;
@@ -286,16 +287,27 @@ void Cell_C::set_xy(Pos pos){
     _pos.x = pos.x;
     _pos.y = pos.y;
 }
+void Cell_C::set_die_quick(Die_C* die){
+    die->add_cell(this);
+    _dieId = die->get_id();
+    set_pos(Pos(_dieId, _pos.x, _pos.y));
+    _die = die;
+}
 void Cell_C::set_die(Die_C* die){
     if(_die != nullptr && _die->get_id() != die->get_id()){// change die
         _die->remove_cell(this);
         die->add_cell(this);
     } else if(_die == nullptr){
         die->add_cell(this);
+    } else if(_die->get_id() != die->get_id()){
+        return;
     }
     _dieId = die->get_id();
     set_pos(Pos(_dieId, _pos.x, _pos.y));
     _die = die;
+}
+void Cell_C::set_degree(int degree){
+    _degree = degree;
 }
 string Cell_C::get_name(){
     return _name;
@@ -365,6 +377,9 @@ bool Cell_C::check_drc(){
         return false;
     return true;
 }
+int Cell_C::get_degree(){
+    return _degree;
+}
 //-----------------------------------------------------------------------------------------------------//
 Chip_C::Chip_C(){}
 Chip_C::Chip_C(int sizeX, int sizeY, int dieNum){
@@ -413,7 +428,12 @@ int Chip_C::get_max_ball_num(){
     return _maxBallNum;
 }
 //-----------------------------------------------------------------------------------------------------//
-Design_C::Design_C(){}
+Design_C::Design_C(){
+    _maxNetDegree = -1;
+    _minNetDegree = INT_MAX;
+    _maxCellDegree = -1;
+    _minCellDegree = INT_MAX;
+}
 void Design_C::add_cell(Cell_C* cell){
     cell->set_id(_vCells.size());
     _mCells.emplace(cell->get_name(),cell);
@@ -423,6 +443,19 @@ void Design_C::add_net(Net_C* net){
     net->set_id(_vNets.size());
     _mNets.emplace(net->get_name(),net);
     _vNets.emplace_back(net);
+    _maxNetDegree = max(_maxNetDegree, net->get_pin_num());
+    _minNetDegree = min(_minNetDegree, net->get_pin_num());
+}
+void Design_C::set_cell_degree(){
+    for(Cell_C* cell : _vCells){
+        int cellDegree = 0;
+        for(int i=0;i<cell->get_pin_num();++i){
+            if(cell->get_pin(i)->get_net() != nullptr) cellDegree++;
+        }
+        cell->set_degree(cellDegree);
+        _maxCellDegree = max(_maxCellDegree, cell->get_degree());
+        _minCellDegree = min(_minCellDegree, cell->get_degree());
+    }
 }
 int Design_C::get_cell_num(){
     return _vCells.size();

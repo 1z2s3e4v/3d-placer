@@ -216,30 +216,15 @@ void Partitioner::initiate_gain() {
 }
 
 Cell* Partitioner::find_cell_to_move() {
-
-    // float lower_bound = (1 - _bFactor) / 2 * _cellNum;
-    // float upper_bound = (1 + _bFactor) / 2 * _cellNum;
-
-    // if (Partitioner::getPartSize(0) - 1 < lower_bound || Partitioner::getPartSize(1) + 1 > upper_bound) {
-    //     _canBeFromSide[0] = false;
-    // } else {
-    //     _canBeFromSide[0] = true;
-    // }
-    // if (Partitioner::getPartSize(1) - 1 < lower_bound || Partitioner::getPartSize(0) + 1 > upper_bound) {
-    //     _canBeFromSide[1] = false;
-    // } else {
-    //     _canBeFromSide[1] = true;
-    // }
-
     if (getPartSize(0) / _cellNum < 0.65) {
         _canBeFromSide[0] = false;
     } else {
         _canBeFromSide[0] = true;
     }
     if (getPartSize(1) / _cellNum < 0.3) {
-        _canBeFromSide[0] = false;
+        _canBeFromSide[1] = false;
     } else {
-        _canBeFromSide[0] = true;
+        _canBeFromSide[1] = true;
     }
 
     Node* node_to_move = _maxGainCell;
@@ -248,11 +233,8 @@ Cell* Partitioner::find_cell_to_move() {
     int to_side = 1 - from_side;
 
     // cout << "partSize: "<<_partSize[0] << "," << _partSize[1] <<endl;
-
-    if ( ! _canBeFromSide[from_side]) {
-        
+    if ( ! _canBeFromSide[from_side]) { // choose from another side
         int legal_from_side = 1 - from_side;
-        
         for (int i=_maxGain; i>-1*_maxPinNum; i--) {
             if (_bList[legal_from_side][i] != NULL) {
                 node_to_move = _bList[legal_from_side][i];
@@ -263,10 +245,7 @@ Cell* Partitioner::find_cell_to_move() {
             }
         }
     }
-         
-     
     // cout << "cell_to_move: " << cell_to_move->getNode() << " " << cell_to_move->getNode()->getId() << endl;
-    
     return cell_to_move;
 }
 
@@ -439,7 +418,6 @@ void Partitioner::update_gain() {
         if (_bList[prefer_from_side][g] != NULL) {
             _maxGainCell = _bList[prefer_from_side][g];
             _maxGain = g;
-            
             break;
         } else if (_bList[1 - prefer_from_side][g] != NULL) {
             _maxGainCell = _bList[1 - prefer_from_side][g];

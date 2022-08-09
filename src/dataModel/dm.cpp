@@ -56,6 +56,8 @@ DmMgr_C::DmMgr_C(Parser_C& parser, ParamHdl_C& paramHdl, clock_t tStart){
         if(it==mNetDegree.end()) mNetDegree[net.numPins] = 1;
         else mNetDegree[net.numPins]++; 
     }
+    _pDesign->set_cell_degree();
+
     for(auto it : mNetDegree){
         _vSortedNetDegree.emplace_back(pair<int,int>(it.first,it.second));   
     }
@@ -63,10 +65,7 @@ DmMgr_C::DmMgr_C(Parser_C& parser, ParamHdl_C& paramHdl, clock_t tStart){
     // cells degree
     vector<Cell_C*> v_cell = _pDesign->get_cells();
     for(Cell_C* cell : v_cell){
-        int cellDegree = 0;
-        for(int i=0;i<cell->get_pin_num();++i){
-            if(cell->get_pin(i)->get_net() != nullptr) cellDegree++;
-        }
+        int cellDegree = cell->get_degree();
         auto it = mCellDegree.find(cellDegree);
         if(it==mCellDegree.end()) mCellDegree[cellDegree] = 1;
         else mCellDegree[cellDegree]++; 

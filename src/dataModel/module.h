@@ -173,6 +173,7 @@ class Cell_C{
     int _dieId;
     Die_C* _die;
     Row_C* _row;
+    int _degree;
 public:
     Cell_C();
 	Cell_C(string name, CellLib_C* master_cell);
@@ -180,6 +181,8 @@ public:
     void set_pos(Pos);
     void set_xy(Pos);
     void set_die(Die_C*);
+    void set_die_quick(Die_C*); // use this when set die for all cell
+    void set_degree(int);
     string get_name();
     int get_id();
     int get_width();
@@ -187,6 +190,7 @@ public:
     int get_width(int); // get width with techId
     int get_height(int); // get height with techId
     int get_pin_num();
+    int get_degree();
     Pin_C* get_pin(int); // get pin with pinId
     Pin_C* get_pin(string); // get pin with pinName
     vector<Pin_C*>& get_pins();
@@ -235,10 +239,16 @@ class Design_C{
     map<string, Net_C*> _mNets;
     map<string, Cell_C*> _mCells;
 
+    int _maxNetDegree;
+    int _minNetDegree;
+    int _maxCellDegree;
+    int _minCellDegree;
+
 public:
     Design_C();
     void add_net(Net_C* net);
     void add_cell(Cell_C* cell);
+    void set_cell_degree();
     int get_cell_num();
     int get_net_num();
     Cell_C* get_cell(string); // get cell with cellName

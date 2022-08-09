@@ -75,6 +75,7 @@ public:
     void bin_based_partition_real();
     void bin_based_partition(int bin_num);
     void bin_based_partition_new();
+    void gnn_partition();
     void init_place_ball();
     void run_ntuplace3(string caseName);
     void run_ntuplace3(string caseName, string otherPara);

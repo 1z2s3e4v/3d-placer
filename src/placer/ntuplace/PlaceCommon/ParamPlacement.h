@@ -175,6 +175,8 @@ public:
     bool bLayerPreAssign;
     double dWeightTSV;
     double stepZ;
+    double bF2FhpwlEnhance;
+    double bStabilityEnhance;
 };
 
 extern CParamPlacement param;	// global variable

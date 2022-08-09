@@ -38,7 +38,7 @@ bool multilevel_nlp( CPlaceDB& placedb,
 {
     double mlnlp_start = seconds();
 
-    int targetBlock = 6000;
+    int targetBlock = 20000000;
     double ratio = 5;
     int maxLevel = INT_MAX;
     

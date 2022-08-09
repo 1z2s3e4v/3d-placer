@@ -3,6 +3,7 @@
 #include <ctime>
 #include <cmath>
 #include <algorithm>   
+#include <fstream>
 #include <vector> 
 #include <random>
 #include <iostream>
@@ -296,10 +297,12 @@ bool Placer_C::true3d_placement2(){
         draw_layout_result_plt(false, "-1.1-2Dplace");
     }
     // die-partition
-    if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
-        mincut_partition();
-    else 
-        mincut_k_partition();
+    // if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
+    //     mincut_partition();
+    // else 
+    //     mincut_k_partition();
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1.2]" << RESET << ": Bin-based FM Partition.\n";
+    bin_based_partition_new();
     init_ball_place();
     cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
     cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
@@ -565,10 +568,12 @@ bool Placer_C::true3d_placement(){
         draw_layout_result_plt(false, "-1.1-2Dplace");
     }
     // die-partition
-    if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
-        mincut_partition();
-    else 
-        mincut_k_partition();
+    // if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
+    //     mincut_partition();
+    // else 
+    //     mincut_k_partition();
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1.2]" << RESET << ": Bin-based FM Partition.\n";
+    bin_based_partition_new();
     init_ball_place();
     cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
     cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
@@ -814,6 +819,8 @@ void Placer_C::global_place(bool& isLegal, double& totalHPWL){ // Analytical Glo
     param.dWeightTSV = 0.5;
     //param.step = 5;
     param.stepZ = 2;
+    param.bF2FhpwlEnhance = true;
+    param.bStabilityEnhance = true;
 
     // Setting placedb
     CPlaceDB placedb;
@@ -1627,10 +1634,12 @@ bool Placer_C::shrunk2d_ntuplace(){
     ////////////////////////////////////////////////////////////////
     cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2]" << RESET << ": Min-Cut Partition.\n";
     part_time_start = (float)clock() / CLOCKS_PER_SEC;
-    if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
-        mincut_partition(); // set_die() for each cell
-    else 
-        mincut_k_partition(); // set_die() for each cell
+    // if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
+    //     mincut_partition(); // set_die() for each cell
+    // else 
+    //     mincut_k_partition(); // set_die() for each cell
+    bin_based_partition_new();
+    init_ball_place();
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Partition: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     cout << BLUE << "[Placer]" << RESET << " - Partition result: " << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << ".\n";
@@ -1819,13 +1828,14 @@ bool Placer_C::shrunk2d_replace(){
     ////////////////////////////////////////////////////////////////
     // Partition
     ////////////////////////////////////////////////////////////////
-    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2]" << RESET << ": Min-Cut Partition.\n";
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2]" << RESET << ": Bin-based FM Partition.\n";
     part_time_start = (float)clock() / CLOCKS_PER_SEC;
     // if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
     //     mincut_partition(); // set_die() for each cell
     // else 
     //     mincut_k_partition(); // set_die() for each cell
     bin_based_partition_new();
+    gnn_partition();
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Partition: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     cout << BLUE << "[Placer]" << RESET << " - Partition result: " << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << ".\n";
@@ -2445,8 +2455,45 @@ void Placer_C::mincut_k_partition(){
         if(count_move > 0) cout << BLUE << "[Partition]" << RESET << " - " << count_move << " cells moved from die1->die0.\n";
     }
 }
-void Placer_C::bin_based_partition_new() {
+void Placer_C::gnn_partition(){
+    // cutline for layer assignment
+    double cutline = 0.5;
+    double width_avg0 = 0;
+    double width_avg1 = 0;
+    for(Cell_C* cell : _vCell){
+        width_avg0 += (double)cell->get_width(0)/ _vCell.size();
+        width_avg1 += (double)cell->get_width(1)/ _vCell.size();
+    }
+    cutline = ((width_avg1*_pChip->get_die(1)->get_row_height()) / (width_avg1*_pChip->get_die(1)->get_row_height() + width_avg0*_pChip->get_die(0)->get_row_height())) * (_pChip->get_die(0)->get_max_util() / _pChip->get_die(1)->get_max_util());
 
+    /////////// gnn partition /////////////
+    string outFile = _RUNDIR + _paramHdl.get_case_name() + "-gnn.txt";
+    ofstream outfile( outFile.c_str() , ios::out );
+    // write file (graph)
+    outfile << _vNet.size() << "," << _vCell.size() << "\n";
+    for(Net_C* net : _vNet){
+        set<int> s_cellId;
+        for(int i=0;i<net->get_pin_num();++i){
+            s_cellId.insert(net->get_pin(i)->get_cell()->get_id());
+        }
+        for (auto it=s_cellId.begin(); it!=s_cellId.end(); ++it){
+            if(it != s_cellId.begin()) outfile << ",";
+            outfile << *it;
+        } outfile << "\n"; 
+    }
+    // write file (features)
+    for(Cell_C* cell : _vCell){
+        outfile << cell->get_posX() << "," << cell->get_posY() << "," << cell->get_width(_pChip->get_die(0)->get_techId()) << "," << cell->get_width(_pChip->get_die(1)->get_techId()) << "," << cell->get_degree();
+        outfile << "\n"; 
+    }
+
+    // RUN GNN
+
+
+    // load partition result
+
+}
+void Placer_C::bin_based_partition_new() {
     double cutline = 0.5;
     double width_avg0 = 0;
     double width_avg1 = 0;
