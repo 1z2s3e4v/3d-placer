@@ -37,7 +37,7 @@ public:
     
 
     // modify method
-    void parseInput(vector<Cell_C*>& v_Cell, vector<Net_C*>& _vNet, Chip_C* _pChip);
+    void parseInput(vector<Cell_C*>& v_Cell, vector<Net_C*>& _vNet, Chip_C* p_Chip);
     // void parseInput(fstream& inFile);
     void initial_partition();
     void initiate_gain();
@@ -48,7 +48,7 @@ public:
     void calc_cutsize();
     void trace_back();
     void partition();
-    vector<vector<int> >& get_part_result() {return _cellPart;}
+    vector<vector<int> >& get_part_result();// {return _cellPart;}
 
     // member functions about reporting
     void printSummary() const;
@@ -83,8 +83,9 @@ private:
     bool                _canBeFromSide[2]; // whether can be from side or not
     vector<Cell*>       _cellAlone;      // cell does not be connected to other cells in the bin
     vector<vector<int> > _cellPart; 
-    vector<Cell_C*>    _vCell;
-    double                 _maxArea[2];
+    vector<Cell_C*>     _vCell;
+    Chip_C*             _pChip;
+    double              _maxArea[2];
 
     // Clean up partitioner
     void clear();
