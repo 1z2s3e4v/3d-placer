@@ -2658,39 +2658,39 @@ void MyNLP::UpdateNetsSumExp( const vector<double>& x, const vector<double>& z, 
 
     if( param.bUseLSE == false )  // for Lp-norm
     {
-	for( int n=index1; n<index2; n++ )
-	{
-	    pNLP->m_nets_sum_p_x_pos[n]     = pow( pNLP->m_nets_sum_exp_xi_over_alpha[n], 1/pNLP->_alpha-1 );
-	    pNLP->m_nets_sum_p_y_pos[n]     = pow( pNLP->m_nets_sum_exp_yi_over_alpha[n], 1/pNLP->_alpha-1 );
-	    pNLP->m_nets_sum_p_inv_x_pos[n] = pow( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n], 1/pNLP->_alpha-1 );
-	    pNLP->m_nets_sum_p_inv_y_pos[n] = pow( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n], 1/pNLP->_alpha-1 );
+		for( int n=index1; n<index2; n++ )
+		{
+			pNLP->m_nets_sum_p_x_pos[n]     = pow( pNLP->m_nets_sum_exp_xi_over_alpha[n], 1/pNLP->_alpha-1 );
+			pNLP->m_nets_sum_p_y_pos[n]     = pow( pNLP->m_nets_sum_exp_yi_over_alpha[n], 1/pNLP->_alpha-1 );
+			pNLP->m_nets_sum_p_inv_x_pos[n] = pow( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n], 1/pNLP->_alpha-1 );
+			pNLP->m_nets_sum_p_inv_y_pos[n] = pow( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n], 1/pNLP->_alpha-1 );
 
-	    pNLP->m_nets_sum_p_x_neg[n]     = pow( pNLP->m_nets_sum_exp_xi_over_alpha[n], -1/pNLP->_alpha-1 );
-	    pNLP->m_nets_sum_p_y_neg[n]     = pow( pNLP->m_nets_sum_exp_yi_over_alpha[n], -1/pNLP->_alpha-1 );
-	    pNLP->m_nets_sum_p_inv_x_neg[n] = pow( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n], -1/pNLP->_alpha-1 );
-	    pNLP->m_nets_sum_p_inv_y_neg[n] = pow( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n], -1/pNLP->_alpha-1 );
+			pNLP->m_nets_sum_p_x_neg[n]     = pow( pNLP->m_nets_sum_exp_xi_over_alpha[n], -1/pNLP->_alpha-1 );
+			pNLP->m_nets_sum_p_y_neg[n]     = pow( pNLP->m_nets_sum_exp_yi_over_alpha[n], -1/pNLP->_alpha-1 );
+			pNLP->m_nets_sum_p_inv_x_neg[n] = pow( pNLP->m_nets_sum_exp_inv_xi_over_alpha[n], -1/pNLP->_alpha-1 );
+			pNLP->m_nets_sum_p_inv_y_neg[n] = pow( pNLP->m_nets_sum_exp_inv_yi_over_alpha[n], -1/pNLP->_alpha-1 );
 
-	    //// kaie 2009-08-29
-	    if(pNLP->m_bMoveZ)
-	    {
-	    	pNLP->m_nets_sum_p_z_pos[n]	    = pow( pNLP->m_nets_sum_exp_zi_over_alpha[n], 1/pNLP->_alpha-1 );
-	    	pNLP->m_nets_sum_p_inv_z_pos[n] = pow( pNLP->m_nets_sum_exp_inv_zi_over_alpha[n], 1/pNLP->_alpha-1 );
-	    	pNLP->m_nets_sum_p_z_neg[n]	    = pow( pNLP->m_nets_sum_exp_zi_over_alpha[n], -1/pNLP->_alpha-1 );
-	    	pNLP->m_nets_sum_p_inv_z_neg[n] = pow( pNLP->m_nets_sum_exp_inv_zi_over_alpha[n], -1/pNLP->_alpha-1 );
-	    }
-	    // @kaie 2009-08-29
-	    
-#if 0
-	    assert( !isNaN( pNLP->m_nets_sum_p_x_pos[n] ) );
-	    assert( !isNaN( pNLP->m_nets_sum_p_y_pos[n] ) );
-	    assert( !isNaN( pNLP->m_nets_sum_p_inv_x_pos[n] ) );
-	    assert( !isNaN( pNLP->m_nets_sum_p_inv_y_pos[n] ) );
-	    assert( !isNaN( pNLP->m_nets_sum_p_x_neg[n] ) );
-	    assert( !isNaN( pNLP->m_nets_sum_p_y_neg[n] ) );
-	    assert( !isNaN( pNLP->m_nets_sum_p_inv_x_neg[n] ) );
-	    assert( !isNaN( pNLP->m_nets_sum_p_inv_y_neg[n] ) );
-#endif
-	}
+			//// kaie 2009-08-29
+			if(pNLP->m_bMoveZ)
+			{
+				pNLP->m_nets_sum_p_z_pos[n]	    = pow( pNLP->m_nets_sum_exp_zi_over_alpha[n], 1/pNLP->_alpha-1 );
+				pNLP->m_nets_sum_p_inv_z_pos[n] = pow( pNLP->m_nets_sum_exp_inv_zi_over_alpha[n], 1/pNLP->_alpha-1 );
+				pNLP->m_nets_sum_p_z_neg[n]	    = pow( pNLP->m_nets_sum_exp_zi_over_alpha[n], -1/pNLP->_alpha-1 );
+				pNLP->m_nets_sum_p_inv_z_neg[n] = pow( pNLP->m_nets_sum_exp_inv_zi_over_alpha[n], -1/pNLP->_alpha-1 );
+			}
+			// @kaie 2009-08-29
+			
+	#if 0
+			assert( !isNaN( pNLP->m_nets_sum_p_x_pos[n] ) );
+			assert( !isNaN( pNLP->m_nets_sum_p_y_pos[n] ) );
+			assert( !isNaN( pNLP->m_nets_sum_p_inv_x_pos[n] ) );
+			assert( !isNaN( pNLP->m_nets_sum_p_inv_y_pos[n] ) );
+			assert( !isNaN( pNLP->m_nets_sum_p_x_neg[n] ) );
+			assert( !isNaN( pNLP->m_nets_sum_p_y_neg[n] ) );
+			assert( !isNaN( pNLP->m_nets_sum_p_inv_x_neg[n] ) );
+			assert( !isNaN( pNLP->m_nets_sum_p_inv_y_neg[n] ) );
+	#endif
+		}
     }
 
 }

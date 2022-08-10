@@ -296,13 +296,20 @@ bool Placer_C::true3d_placement2(){
         draw_layout_result("-1.1-2Dplace");
         draw_layout_result_plt(false, "-1.1-2Dplace");
     }
-    // die-partition
-    // if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
-    //     mincut_partition();
-    // else 
-    //     mincut_k_partition();
-    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1.2]" << RESET << ": Bin-based FM Partition.\n";
-    bin_based_partition_new();
+    if(_paramHdl.check_flag_exist("part") && _paramHdl.get_para("part")=="tpgnn"){
+        cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1.2]" << RESET << ": GNN Partition.\n";
+        gnn_partition();
+    }   
+    else if(_paramHdl.check_flag_exist("part") && _paramHdl.get_para("part")=="mincut"){
+        cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1.2]" << RESET << ": Mincut Partition.\n";
+        if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
+            mincut_partition(); // set_die() for each cell
+        else 
+            mincut_k_partition(); // set_die() for each cell
+    } else{
+        cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1.2]" << RESET << ": Bin-based FM Partition.\n";
+        bin_based_partition_new();
+    }
     init_ball_place();
     cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
     cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
@@ -555,10 +562,13 @@ bool Placer_C::true3d_placement(){
     if(_vCell.size() < 100)
         cell_spreading();
     else{
-        //shrunked_2d_replace();
-        for(Cell_C* cell : _vCell){
-            cell->set_die(_pChip->get_die(0));
-            cell->set_xy(Pos(_pChip->get_width()/2, _pChip->get_height()/2));
+        if(_vCell.size() > 70000){
+            shrunked_2d_replace();
+        } else{
+            for(Cell_C* cell : _vCell){
+                cell->set_die(_pChip->get_die(0));
+                cell->set_xy(Pos(_pChip->get_width()/2, _pChip->get_height()/2));
+            }
         }
     }
     total_hpwl = cal_HPWL();
@@ -567,13 +577,20 @@ bool Placer_C::true3d_placement(){
         draw_layout_result("-1.1-2Dplace");
         draw_layout_result_plt(false, "-1.1-2Dplace");
     }
-    // die-partition
-    // if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
-    //     mincut_partition();
-    // else 
-    //     mincut_k_partition();
-    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1.2]" << RESET << ": Bin-based FM Partition.\n";
-    bin_based_partition_new();
+    if(_paramHdl.check_flag_exist("part") && _paramHdl.get_para("part")=="tpgnn"){
+        cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1.2]" << RESET << ": GNN Partition.\n";
+        gnn_partition();
+    }   
+    else if(_paramHdl.check_flag_exist("part") && _paramHdl.get_para("part")=="mincut"){
+        cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1.2]" << RESET << ": Mincut Partition.\n";
+        if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
+            mincut_partition(); // set_die() for each cell
+        else 
+            mincut_k_partition(); // set_die() for each cell
+    } else{
+        cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1.2]" << RESET << ": Bin-based FM Partition.\n";
+        bin_based_partition_new();
+    }
     init_ball_place();
     cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
     cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
@@ -1639,11 +1656,15 @@ bool Placer_C::shrunk2d_ntuplace(){
     else 
         mincut_k_partition(); // set_die() for each cell
     // bin_based_partition_new();
-    gnn_partition();
+    // gnn_partition();
     init_ball_place();
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Partition: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     cout << BLUE << "[Placer]" << RESET << " - Partition result: " << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << ".\n";
+    init_ball_place();
+    cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
+    int total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [2] Tier-Partition total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
 
     ////////////////////////////////////////////////////////////////
     // D2D Placement with Pin Projection
@@ -1714,7 +1735,7 @@ bool Placer_C::shrunk2d_ntuplace(){
         placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
         if(!placer_succ) return false;
     }
-    int total_hpwl = cal_HPWL();
+    total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - [3.3] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     // 4. Replace die0 again with projected die1 and balls
     if(_pChip->get_die(0)->get_cells().size() > 0){
@@ -1829,14 +1850,21 @@ bool Placer_C::shrunk2d_replace(){
     ////////////////////////////////////////////////////////////////
     // Partition
     ////////////////////////////////////////////////////////////////
-    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2]" << RESET << ": Bin-based FM Partition.\n";
     part_time_start = (float)clock() / CLOCKS_PER_SEC;
-    // if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
-    //     mincut_partition(); // set_die() for each cell
-    // else 
-    //     mincut_k_partition(); // set_die() for each cell
-    bin_based_partition_new();
-    gnn_partition();
+    if(_paramHdl.check_flag_exist("part") && _paramHdl.get_para("part")=="tpgnn"){
+        cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2]" << RESET << ": GNN Partition.\n";
+        gnn_partition();
+    }   
+    else if(_paramHdl.check_flag_exist("part") && _paramHdl.get_para("part")=="mincut"){
+        cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2]" << RESET << ": Mincut Partition.\n";
+        if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
+            mincut_partition(); // set_die() for each cell
+        else 
+            mincut_k_partition(); // set_die() for each cell
+    } else{
+        cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2]" << RESET << ": Bin-based FM Partition.\n";
+        bin_based_partition_new();
+    }
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Partition: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     cout << BLUE << "[Placer]" << RESET << " - Partition result: " << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << ".\n";
@@ -2469,6 +2497,7 @@ void Placer_C::gnn_partition(){
     
     /////////// gnn partition /////////////
     string outFile = _RUNDIR + _paramHdl.get_case_name() + "-gnn.txt";
+    string inFile = outFile + ".out";
     ofstream outfile( outFile.c_str() , ios::out );
     // write file (graph)
     outfile << _vNet.size() << "," << _vCell.size() << "\n";
@@ -2490,10 +2519,23 @@ void Placer_C::gnn_partition(){
     outfile.close();
 
     // RUN GNN
-
+    //system("cp ./run_tmp/case2_output.csv ./run_tmp/case2/case2-gnn.txt.out");
+    string cmd = "python3 ./bin/gnn-partition.py " + outFile + " " + inFile;
 
     // load partition result
-
+    ifstream fin(inFile);
+    string line;
+    getline(fin, line); // lable
+    getline(fin, line); // part
+    std::replace( line.begin(), line.end(), ',', ' '); // replace all 'x' to 'y'
+    cout << line << "\n";
+    stringstream ss(line);
+    for(int i=0;i<_vCell.size();++i){
+        int part = -1;
+        ss >> part;
+        _vCell[i]->set_die(_pChip->get_die(part));
+    }
+    fin.close();
 }
 void Placer_C::bin_based_partition_new() {
     Partitioner* partitioner = new Partitioner();
