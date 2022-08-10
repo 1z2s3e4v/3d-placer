@@ -169,6 +169,7 @@ void Partitioner::initiate_gain() {
 }
 
 Cell* Partitioner::find_cell_to_move() {
+
     // float lower_bound = (1 - _bFactor) / 2 * _cellNum;
     // float upper_bound = (1 + _bFactor) / 2 * _cellNum;
 
@@ -199,9 +200,9 @@ Cell* Partitioner::find_cell_to_move() {
         _canBeFromSide[1] = true;
     }
     if (getPartArea(1) > _maxArea[1]) {
-        _canBeFromSide[1] = false;
+        _canBeFromSide[0] = false;
     } else {
-        _canBeFromSide[1] = true;
+        _canBeFromSide[0] = true;
     }
 
     Node* node_to_move = _maxGainCell;
@@ -210,8 +211,11 @@ Cell* Partitioner::find_cell_to_move() {
     int to_side = 1 - from_side;
 
     // cout << "partSize: "<<_partSize[0] << "," << _partSize[1] <<endl;
-    if ( ! _canBeFromSide[from_side]) { // choose from another side
+
+    if ( ! _canBeFromSide[from_side]) {
+        
         int legal_from_side = 1 - from_side;
+        
         for (int i=_maxGain; i>-1*_maxPinNum; i--) {
             if (_bList[legal_from_side][i] != NULL) {
                 node_to_move = _bList[legal_from_side][i];
@@ -222,7 +226,10 @@ Cell* Partitioner::find_cell_to_move() {
             }
         }
     }
+         
+     
     // cout << "cell_to_move: " << cell_to_move->getNode() << " " << cell_to_move->getNode()->getId() << endl;
+    
     return cell_to_move;
 }
 
@@ -397,6 +404,7 @@ void Partitioner::update_gain() {
         if (_bList[prefer_from_side][g] != NULL) {
             _maxGainCell = _bList[prefer_from_side][g];
             _maxGain = g;
+            
             break;
         } else if (_bList[1 - prefer_from_side][g] != NULL) {
             _maxGainCell = _bList[1 - prefer_from_side][g];

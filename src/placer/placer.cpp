@@ -1343,8 +1343,8 @@ void Placer_C::create_placedb(CPlaceDB& placedb, int dieId){
     placedb.SetCoreRegion();
     // .node
     placedb.ReserveModuleMemory(_pChip->get_die(dieId)->get_cells().size());
-    vector<Cell_C*>& v_cell = _pChip->get_die(dieId)->get_cells();
-    for(Cell_C* cell : v_cell){
+    unordered_set<Cell_C*>& s_cell = _pChip->get_die(dieId)->get_cells();
+    for(Cell_C* cell : s_cell){
         placedb.AddModule( cell->get_name(), cell->get_width(), cell->get_height(), false );
         // for terminal: placedb.AddModule( name, w, h, true );
         // for terminal_NI: placedb.AddModule( name, w, h, true, true );
@@ -1355,7 +1355,7 @@ void Placer_C::create_placedb(CPlaceDB& placedb, int dieId){
     // .nets
     unordered_map<string,vector<Pin_C*> > m_net;
     int nPins = 0;
-    for(Cell_C* cell : v_cell){
+    for(Cell_C* cell : s_cell){
         for(int i=0;i<cell->get_pin_num();++i){
             ++nPins;
             Pin_C* pin = cell->get_pin(i);
@@ -1401,7 +1401,7 @@ void Placer_C::create_placedb(CPlaceDB& placedb, int dieId){
     placedb.m_pins.resize( placedb.m_pins.size() );
     placedb.m_nets.resize( placedb.m_nets.size() );
     // .pl
-    for(Cell_C* cell : v_cell){
+    for(Cell_C* cell : s_cell){
         int moduleId = placedb.GetModuleId( cell->get_name() );
         char dir[1000]; dir[0] = 'N'; dir[1] = '\0';
         placedb.SetModuleLocation( moduleId, cell->get_posX(), cell->get_posY());
@@ -1634,11 +1634,12 @@ bool Placer_C::shrunk2d_ntuplace(){
     ////////////////////////////////////////////////////////////////
     cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2]" << RESET << ": Min-Cut Partition.\n";
     part_time_start = (float)clock() / CLOCKS_PER_SEC;
-    // if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
-    //     mincut_partition(); // set_die() for each cell
-    // else 
-    //     mincut_k_partition(); // set_die() for each cell
-    bin_based_partition_new();
+    if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
+        mincut_partition(); // set_die() for each cell
+    else 
+        mincut_k_partition(); // set_die() for each cell
+    // bin_based_partition_new();
+    gnn_partition();
     init_ball_place();
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Partition: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
@@ -2376,9 +2377,9 @@ void Placer_C::mincut_partition(){
     long long valid_area = (long long)_pChip->get_width() * (long long)_pChip->get_height() * _pChip->get_die(0)->get_max_util();
     //long long total_area = 0;
     Die_C* die = _pChip->get_die(0);
-    vector<Cell_C*>& v_cell = die->get_cells();
+    unordered_set<Cell_C*>& s_cell = die->get_cells();
     vector<int> v_cellId;
-    for(Cell_C* cell : v_cell){
+    for(Cell_C* cell : s_cell){
         v_cellId.emplace_back(cell->get_id());
         //total_area += (long long)cell->get_width() * (long long)cell->get_height();
     }
@@ -2437,9 +2438,9 @@ void Placer_C::mincut_k_partition(){
         // move cells for matching die's max_utilization
         long long valid_area = (long long)_pChip->get_width() * (long long)_pChip->get_height() * _pChip->get_die(0)->get_max_util();
         Die_C* die = _pChip->get_die(0);
-        vector<Cell_C*>& v_cell = die->get_cells();
+        unordered_set<Cell_C*>& s_cell = die->get_cells();
         vector<int> v_cellId;
-        for(Cell_C* cell : v_cell)
+        for(Cell_C* cell : s_cell)
             v_cellId.emplace_back(cell->get_id());
         int count_move = 0;
         for(int i=0;i<v_cellId.size();++i){
@@ -2486,6 +2487,7 @@ void Placer_C::gnn_partition(){
         outfile << cell->get_posX() << "," << cell->get_posY() << "," << cell->get_width(_pChip->get_die(0)->get_techId()) << "," << cell->get_width(_pChip->get_die(1)->get_techId()) << "," << cell->get_degree();
         outfile << "\n"; 
     }
+    outfile.close();
 
     // RUN GNN
 
@@ -2505,7 +2507,6 @@ void Placer_C::bin_based_partition_new() {
             _vCell[cellId]->set_die(_pChip->get_die(i));
         }
     }
-    
 }
 void Placer_C::bin_based_partition_real() {
 
@@ -3033,8 +3034,8 @@ void Placer_C::create_aux_form(AUX &aux, int dieId, string caseName){  // output
     system(cmd.c_str());
     aux = AUX(aux_dir, caseName);
     // nodes
-    vector<Cell_C*>& v_cells = _pChip->get_die(dieId)->get_cells();
-    for(Cell_C* cell : v_cells){
+    unordered_set<Cell_C*>& s_cells = _pChip->get_die(dieId)->get_cells();
+    for(Cell_C* cell : s_cells){
         aux.add_node(cell->get_name(), cell->get_width(), cell->get_height(), cell->get_posX(), cell->get_posY(),0);
         for(int i=0;i<cell->get_pin_num();++i){
             Pin_C* pin = cell->get_pin(i);
@@ -3084,8 +3085,8 @@ void Placer_C::create_aux_form_replace(AUX &aux, int dieId, string caseName){  /
     system(cmd.c_str());
     aux = AUX(aux_dir, caseName);
     // nodes
-    vector<Cell_C*>& v_cells = _pChip->get_die(dieId)->get_cells();
-    for(Cell_C* cell : v_cells){
+    unordered_set<Cell_C*>& s_cells = _pChip->get_die(dieId)->get_cells();
+    for(Cell_C* cell : s_cells){
         aux.add_node(cell->get_name(), cell->get_width(), cell->get_height(), cell->get_posX(), cell->get_posY(),0);
         for(int i=0;i<cell->get_pin_num();++i){
             Pin_C* pin = cell->get_pin(i);
@@ -3131,8 +3132,8 @@ void Placer_C::create_aux_form_for_ball_replace(AUX &aux, string caseName){  // 
 }
 void Placer_C::add_project_pin(AUX &aux, int dieId){
     // project pins of nodes in die[dieId]
-    vector<Cell_C*>& v_cells = _pChip->get_die(dieId)->get_cells();
-    for(Cell_C* cell : v_cells){
+    unordered_set<Cell_C*>& s_cells = _pChip->get_die(dieId)->get_cells();
+    for(Cell_C* cell : s_cells){
         bool cellAdded = false;
         for(int i=0;i<cell->get_pin_num();++i){
             Pin_C* pin = cell->get_pin(i);

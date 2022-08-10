@@ -228,7 +228,11 @@ bool multilevel_nlp( CPlaceDB& placedb,
 
 		double layerThickness = (currentDB->m_front - currentDB->m_back) / (double)(currentDB->m_totalLayer);
 		if(currentDB->m_totalLayer > 1 && !param.bLayerPreAssign){
-			currentDB->LayerAssignmentByPartition(currentDB->m_totalLayer);
+			//currentDB->LayerAssignmentByPartition(currentDB->m_totalLayer);
+			for(unsigned int i = 0; i < currentDB->m_modules.size(); i++){
+				currentDB->m_modules[i].m_cz = 0.5 * layerThickness;
+				//currentDB->m_modules[i].m_z = (int)(0.5 * currentDB->m_totalLayer) * layerThickness;
+			}
 		}
                     
 	    for(unsigned int i = 0; i < currentDB->m_modules.size(); i++){

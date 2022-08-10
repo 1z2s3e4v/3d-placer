@@ -34,8 +34,8 @@ class Placer_C{
     vector<Pos> _vCellBestPos;
     vector<Cell_C*>& _vCell;
     vector<Net_C*>& _vNet;
-    map<string,Cell_C*>& _mCell;
-    map<string,Net_C*>& _mNet;
+    unordered_map<string,Cell_C*>& _mCell;
+    unordered_map<string,Net_C*>& _mNet;
     clock_t _tStart;
     string _RUNDIR = "./run_tmp/"; // become './run_tmp/<casename>' in run();
     string _DRAWDIR = "./draw/"; // become './draw/<casename>' in run();

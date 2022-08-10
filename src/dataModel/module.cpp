@@ -101,10 +101,11 @@ Die_C::Die_C(int id, int sizeX, int sizeY, int maxUtil, int techId, int rowHeigh
     }
 }
 void Die_C::add_cell(Cell_C* cell){
-    _vCells.emplace_back(cell);
+    _sCells.insert(cell);
 }
 void Die_C::remove_cell(Cell_C * cell){
-    _vCells.erase(std::remove(_vCells.begin(), _vCells.end(), cell), _vCells.end());
+    //_vCells.erase(std::remove(_vCells.begin(), _vCells.end(), cell), _vCells.end());
+    _sCells.erase(_sCells.find(cell));
 }
 int Die_C::get_id(){
     return _id;
@@ -127,8 +128,8 @@ int Die_C::get_height(){
 int Die_C::get_row_num(){
     return _vRows.size();
 }
-vector<Cell_C*>& Die_C::get_cells(){
-    return _vCells;
+unordered_set<Cell_C*>& Die_C::get_cells(){
+    return _sCells;
 }
 //-----------------------------------------------------------------------------------------------------//
 Pin_C::Pin_C(int id, Cell_C *cell){
@@ -479,9 +480,9 @@ vector<Cell_C*>& Design_C::get_cells(){
 vector<Net_C*>& Design_C::get_nets(){
     return _vNets;
 }
-map<string,Cell_C*>& Design_C::get_cells_map(){
+unordered_map<string,Cell_C*>& Design_C::get_cells_map(){
     return _mCells;
 }
-map<string,Net_C*>& Design_C::get_nets_map(){
+unordered_map<string,Net_C*>& Design_C::get_nets_map(){
     return _mNets;
 }
