@@ -37,7 +37,8 @@ private:
                                      {"safe_mode", "run the safe-flow once and than run stronger flow."},
                                      {"no_dump", "without any dump file"},
                                      {"no_draw", "without any visualization"},
-                                     {"only_draw_result", "only visualize the result"}};
+                                     {"only_draw_result", "only visualize the result"},
+                                     {"draw_gp", "draw analytical step result."}};
     map<string, string> m_otherFlag{{"time_limit", "time limit, default=3600(s)."}, 
                                     {"repeat", "repeat the code with n times and store the best result. defalt=1."},
                                     {"flow", "placer flow (default is shrunk2d_replace)"},

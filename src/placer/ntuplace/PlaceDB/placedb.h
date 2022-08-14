@@ -183,6 +183,8 @@ class Module
 	    m_blockType = BT_OTHER;
 	    m_isFixed   = false;
         m_isNI      = false; // 2022-05-13 (frank)
+        m_isVia     = false;
+        m_isFiller  = false;
 	}
 	
 	void CalcCenter()
@@ -227,6 +229,7 @@ class Module
 	BLOCK_TYPE m_blockType;	    // 2006-06-22 (donnie)
     bool   m_isNI;          // 2022-05-13 (frank)
     bool   m_isVia;         // 2022-07-25 (frank) for F2F Terminal
+    bool   m_isFiller;         // 2022-08-12 (frank) for eDensity
 
 	vector<int> m_pinsId;
 	vector<int> m_netsId;

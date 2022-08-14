@@ -177,6 +177,13 @@ public:
     double stepZ;
     double bF2FhpwlEnhance;
     double bStabilityEnhance;
+    bool bUseNAG;
+    bool bFast;
+    bool bUseEDensity;
+    string plotDir;
+    bool noZ;
+    int denRefWL;
+    double initDensityPenalty;
 };
 
 extern CParamPlacement param;	// global variable
