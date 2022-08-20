@@ -174,6 +174,8 @@ class Cell_C{
     Die_C* _die;
     Row_C* _row;
     int _degree;
+
+    vector<double> _vGnnFeatures; // size=9: [z, x, y, cellDegree, avgNetDegree, pullForce_x, pullForce_y, pushForce_x, pushForce_y]
 public:
     Cell_C();
 	Cell_C(string name, CellLib_C* master_cell);
@@ -203,6 +205,9 @@ public:
     int get_dieId();
 
     bool check_drc(); // check if the position is satisfied for the constraints. (no overlap with rows and in die)
+
+    vector<double>& get_GnnFeatures();
+    void setGnnFeatures(vector<double>);
 };
 
 class Chip_C{

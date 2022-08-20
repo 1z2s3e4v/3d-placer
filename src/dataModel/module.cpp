@@ -379,6 +379,12 @@ bool Cell_C::check_drc(){
 int Cell_C::get_degree(){
     return _degree;
 }
+vector<double>& Cell_C::get_GnnFeatures(){
+    return _vGnnFeatures;
+}
+void Cell_C::setGnnFeatures(vector<double> v_feature){
+    _vGnnFeatures = v_feature;
+}
 //-----------------------------------------------------------------------------------------------------//
 Chip_C::Chip_C(){}
 Chip_C::Chip_C(int sizeX, int sizeY, int dieNum){

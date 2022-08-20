@@ -230,6 +230,10 @@ class Module
     bool   m_isNI;          // 2022-05-13 (frank)
     bool   m_isVia;         // 2022-07-25 (frank) for F2F Terminal
     bool   m_isFiller;         // 2022-08-12 (frank) for eDensity
+    
+    // size=9: [z, x, y, cellDegree, avgNetDegree, pullForce_x, pullForce_y, pushForce_x, pushForce_y]
+    vector<double>  m_vFeatures; // 2022-08-16 (frank) for GNN partition
+
 
 	vector<int> m_pinsId;
 	vector<int> m_netsId;

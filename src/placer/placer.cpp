@@ -1,5 +1,6 @@
 #include "placer.h"
 //#include <bits/types/clock_t.h>
+#include <cstdlib>
 #include <ctime>
 #include <cmath>
 #include <algorithm>   
@@ -89,6 +90,8 @@ void Placer_C::run(){
                 place_succ = true3d_placement2();
             } else if(_paramHdl.get_para("flow") == "ntuplace3d"){
                 place_succ = ntuplace3d();
+            } else if(_paramHdl.get_para("flow") == "test_gnn"){
+                place_succ = placement_loadGNN();
             } else{
                 cout << BLUE << "[Placer]" << RESET << " - Please assign a valid flow name.\n";
                 exit(1);
@@ -576,11 +579,7 @@ bool Placer_C::true3d_placement(){
         draw_layout_result("-1.1-2Dplace");
         draw_layout_result_plt(false, "-1.1-2Dplace");
     }
-    if(_paramHdl.check_flag_exist("part") && _paramHdl.get_para("part")=="tpgnn"){
-        cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1.2]" << RESET << ": GNN Partition.\n";
-        gnn_partition();
-    }   
-    else if(_paramHdl.check_flag_exist("part") && _paramHdl.get_para("part")=="mincut"){
+    if(_paramHdl.check_flag_exist("part") && _paramHdl.get_para("part")=="mincut"){
         cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1.2]" << RESET << ": Mincut Partition.\n";
         if(_pChip->get_die(0)->get_row_num()==_pChip->get_die(1)->get_row_num())
             mincut_partition(); // set_die() for each cell
@@ -623,6 +622,21 @@ bool Placer_C::true3d_placement(){
         draw_layout_result("-2-global");
         draw_layout_result_plt(false, "-2-global");
     }
+    // GNN Partition
+    if(_paramHdl.check_flag_exist("part") && _paramHdl.get_para("part")=="tpgnn"){
+        cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 2.2]" << RESET << ": GNN Partition.\n";
+        gnn_partition(); 
+        set_ball();
+        cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
+        cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
+        total_hpwl = cal_HPWL();
+        cout << BLUE << "[Placer]" << RESET << " - [2.2] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+        if(!_paramHdl.check_flag_exist("no_draw") && !_paramHdl.check_flag_exist("only_draw_result")){
+            draw_layout_result("-2.2-tpgnn");
+            draw_layout_result_plt(false, "-2.2-tpgnn");
+        }
+    } 
+
 
     // check via usage
     if(cal_ball_num() > _pChip->get_max_ball_num()){
@@ -836,7 +850,7 @@ void Placer_C::global_place(bool& isLegal, double& totalHPWL){ // Analytical Glo
     param.noZ = true;
     //param.step = 5;
     param.stepZ = 2;
-    param.bF2FhpwlEnhance = true;
+    param.bF2FhpwlEnhance = false;
     param.bStabilityEnhance = true;
     param.bUseNAG = false;
     param.bFast = false;
@@ -845,6 +859,7 @@ void Placer_C::global_place(bool& isLegal, double& totalHPWL){ // Analytical Glo
     if(_paramHdl.check_flag_exist("draw_gp")){
         param.bPlot = true;
     }
+    param.nGNNFeature = 9; // [z, x, y, cellDegree, avgNetDegree, pullForce_x, pullForce_y, pushForce_x, pushForce_y]
 
     // plot dir
     string cmd = "mkdir -p " + param.plotDir;
@@ -1251,6 +1266,23 @@ void Placer_C::create_placedb(CPlaceDB& placedb){
             curModule.m_widths[i] = cell->get_width(i);
             curModule.m_heights[i] = cell->get_height(i);
         }
+        // feature for gnn
+        if(param.nGNNFeature > 0){
+            curModule.m_vFeatures.resize(param.nGNNFeature, 0);
+            curModule.m_vFeatures[0] = cell->get_posZ();
+            curModule.m_vFeatures[1] = cell->get_posX();
+            curModule.m_vFeatures[2] = cell->get_posY();
+            curModule.m_vFeatures[3] = cell->get_degree();
+            vector<Pin_C*>& v_pin = cell->get_pins();
+            int count_net, sum_netDegree;
+            for(Pin_C* pin : v_pin){
+                if(pin->get_net() != nullptr){
+                    sum_netDegree += pin->get_net()->get_pin_num();
+                    count_net++;
+                }
+            }
+            curModule.m_vFeatures[4] = (double)sum_netDegree/count_net;
+        }
     }
     if(add_dummy_node_as_ball){
         for(Net_C* net: v_net){ // Balls
@@ -1467,6 +1499,9 @@ void Placer_C::load_from_placedb(CPlaceDB& placedb){
                         ++count_zChanged;
                         //cout << "~~~~~~~~~~~ " << cell->get_name() << ".z() changed from "<<cell->get_posZ()<<" to " << placedb.m_modules[i].GetZ() << "\n";
                     cell->set_die(_pChip->get_die((int)placedb.m_modules[i].GetZ()));
+                }
+                if(param.nGNNFeature > 0){
+                    cell->setGnnFeatures(placedb.m_modules[i].m_vFeatures);
                 }
             }
         }
@@ -2416,25 +2451,27 @@ void Placer_C::mincut_partition(){
     //cout << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell)num = " << _pChip->get_die(1)->get_cells().size() << "\n";
 
     // move cells for matching die's max_utilization
-    long long valid_area = (long long)_pChip->get_width() * (long long)_pChip->get_height() * _pChip->get_die(0)->get_max_util();
-    //long long total_area = 0;
-    Die_C* die = _pChip->get_die(0);
-    unordered_set<Cell_C*>& s_cell = die->get_cells();
-    vector<int> v_cellId;
-    for(Cell_C* cell : s_cell){
-        v_cellId.emplace_back(cell->get_id());
-        //total_area += (long long)cell->get_width() * (long long)cell->get_height();
-    }
+    vector<double> valid_area(2,0);
+    vector<double> used_area(2,0); 
     int count_move = 0;
-    for(int i=0;i<v_cellId.size();++i){
-        Cell_C* cell = _vCell[v_cellId[i]];
-        long long cell_area = (long long)(cell->get_width()*cell->get_height());
-        if(valid_area > cell_area){
-            valid_area -= cell_area;
-        }else{
-            cell->set_die(_pChip->get_die(1));
-            ++count_move;
+    bool top_die_full = false;
+    for(int i=0;i<2;++i) {
+        valid_area[i] = (double)_pChip->get_width() * (double)_pChip->get_height() * _pChip->get_die(i)->get_max_util();
+        Die_C* die = _pChip->get_die(i);
+        unordered_set<Cell_C*>& s_cell = die->get_cells();
+        for(Cell_C* cell : s_cell) {
+            double cell_area = (double)cell->get_width()*cell->get_height();
+            if(valid_area[i] < used_area[i]+cell_area){ // full
+                if(i==0) top_die_full = true;
+                used_area[1-i] += (double)cell->get_width()*cell->get_height();
+                cell->set_die(_pChip->get_die(1-i));
+                ++count_move;
+            }
+            else{
+                used_area[i] += (double)cell->get_width()*cell->get_height();
+            }
         }
+        if(top_die_full) break;
     }
     if(count_move > 0) cout << BLUE << "[Partition]" << RESET << " - " << count_move << " cells moved from die1->die0.\n";
 }
@@ -2478,22 +2515,27 @@ void Placer_C::mincut_k_partition(){
         mincut_partition();
     }else{
         // move cells for matching die's max_utilization
-        long long valid_area = (long long)_pChip->get_width() * (long long)_pChip->get_height() * _pChip->get_die(0)->get_max_util();
-        Die_C* die = _pChip->get_die(0);
-        unordered_set<Cell_C*>& s_cell = die->get_cells();
-        vector<int> v_cellId;
-        for(Cell_C* cell : s_cell)
-            v_cellId.emplace_back(cell->get_id());
+        vector<double> valid_area(2,0);
+        vector<double> used_area(2,0); 
         int count_move = 0;
-        for(int i=0;i<v_cellId.size();++i){
-            Cell_C* cell = _vCell[v_cellId[i]];
-            long long cell_area = (long long)(cell->get_width()*cell->get_height());
-            if(valid_area > cell_area){
-                valid_area -= cell_area;
-            }else{
-                cell->set_die(_pChip->get_die(1));
-                ++count_move;
+        bool top_die_full = false;
+        for(int i=0;i<2;++i) {
+            valid_area[i] = (double)_pChip->get_width() * (double)_pChip->get_height() * _pChip->get_die(i)->get_max_util();
+            Die_C* die = _pChip->get_die(i);
+            unordered_set<Cell_C*>& s_cell = die->get_cells();
+            for(Cell_C* cell : s_cell) {
+                double cell_area = (double)cell->get_width()*cell->get_height();
+                if(valid_area[i] < used_area[i]+cell_area){ // full
+                    if(i==0) top_die_full = true;
+                    used_area[1-i] += (double)cell->get_width()*cell->get_height();
+                    cell->set_die(_pChip->get_die(1-i));
+                    ++count_move;
+                }
+                else{
+                    used_area[i] += (double)cell->get_width()*cell->get_height();
+                }
             }
+            if(top_die_full) break;
         }
         if(count_move > 0) cout << BLUE << "[Partition]" << RESET << " - " << count_move << " cells moved from die1->die0.\n";
     }
@@ -2527,29 +2569,35 @@ void Placer_C::gnn_partition(){
     }
     // write file (features)
     for(Cell_C* cell : _vCell){
-        outfile << cell->get_posX() << "," << cell->get_posY() << "," << cell->get_width(_pChip->get_die(0)->get_techId()) << "," << cell->get_width(_pChip->get_die(1)->get_techId()) << "," << cell->get_degree();
+        vector<double>& v_feature = cell->get_GnnFeatures();
+        for(int i=0;i<v_feature.size();++i){
+        // [z, x, y, cellDegree, avgNetDegree, pullForce_x, pullForce_y, pushForce_x, pushForce_y]
+            outfile << v_feature[i];
+            if(i!=v_feature.size()-1) outfile << ", ";
+        }
         outfile << "\n"; 
     }
     outfile.close();
 
     // RUN GNN
-    //system("cp ./run_tmp/case2_output.csv ./run_tmp/case2/case2-gnn.txt.out");
-    string cmd = "python3 ./bin/gnn-partition.py " + outFile + " " + inFile;
+    // python3 ./bin/gnn-partition.py <input_file_for_tpgnn> <output_file_from_tpgnn>
+    // string cmd = "python3 ./bin/gnn-partition.py " + outFile + " " + inFile;
+    // system(cmd.c_str());
 
-    // load partition result
-    ifstream fin(inFile);
-    string line;
-    getline(fin, line); // lable
-    getline(fin, line); // part
-    std::replace( line.begin(), line.end(), ',', ' '); // replace all 'x' to 'y'
-    cout << line << "\n";
-    stringstream ss(line);
-    for(int i=0;i<_vCell.size();++i){
-        int part = -1;
-        ss >> part;
-        _vCell[i]->set_die(_pChip->get_die(part));
-    }
-    fin.close();
+    // // load partition result
+    // ifstream fin(inFile);
+    // string line;
+    // getline(fin, line); // lable
+    // getline(fin, line); // part
+    // std::replace( line.begin(), line.end(), ',', ' '); // replace all 'x' to 'y'
+    // cout << line << "\n";
+    // stringstream ss(line);
+    // for(int i=0;i<_vCell.size();++i){
+    //     int part = -1;
+    //     ss >> part;
+    //     _vCell[i]->set_die(_pChip->get_die(part));
+    // }
+    // fin.close();
 }
 void Placer_C::bin_based_partition_new() {
     Partitioner* partitioner = new Partitioner();
@@ -3471,4 +3519,270 @@ void Placer_C::clear(){
 
     _vCell.clear();
     _vNet.clear();
+}
+
+// test
+bool Placer_C::placement_loadGNN(){
+    cout << BLUE << "[Placer]" << RESET << " - Start GNN Placement Flow.\n";
+    double part_time_start=0, total_part_time=0;
+    int total_hpwl = 0;
+    ////////////////////////////////////////////////////////////////
+    // Load Result from GNN
+    ////////////////////////////////////////////////////////////////
+    part_time_start = (float)clock() / CLOCKS_PER_SEC;
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 1]" << RESET << ": Load from GNN.\n";
+    
+    // load original plcement result 
+    ifstream fin1("./test-gnn/case2-gnn.csv");
+    string line;
+    getline(fin1, line); // cell, net
+    std::replace( line.begin(), line.end(), ',', ' '); // replace all ',' to ' '
+    stringstream ss(line);
+    int netNum, cellNum;
+    ss >> netNum >> cellNum;
+    for(int i=0;i<netNum;++i){
+        getline(fin1, line); // net (cells)
+    }
+    for(int i=0;i<cellNum;++i){
+        getline(fin1, line); // cell (features)
+        std::replace( line.begin(), line.end(), ',', ' '); // replace all ',' to ' '
+        // << "cell["<<i<<"]: "<< line<<"\n";
+        stringstream ss2(line);
+        double z,x,y;
+        ss2 >> z >> x >> y;
+        //cout << "z="<<z<<", x="<<x<<", y="<<y<<"\n";
+        _vCell[i]->set_xy(Pos(x,y));
+        _vCell[i]->set_die(_pChip->get_die(z));
+    }
+    
+    // // 2d placement with RePlAce 
+    // for(Cell_C* cell:_vCell)
+    //     cell->set_die(_pChip->get_die(0));
+    // shrunked_2d_replace();
+    set_ball();
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [1.1] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") && !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-1.1-loadpl");
+        draw_layout_result_plt(false, "-1.1-loadpl");
+    }
+    
+
+    // load gnn partition result
+    string line2;
+    ifstream fin2("./test-gnn/case2_0820_128_output.csv");
+    getline(fin2, line2); // lable
+    getline(fin2, line2); // part
+    std::replace( line2.begin(), line2.end(), ',', ' '); // replace all 'x' to 'y'
+    stringstream ss1(line2);
+    for(int i=0;i<_vCell.size();++i){
+        int part = -1;
+        ss1 >> part;
+        _vCell[i]->set_die(_pChip->get_die(part));
+    }
+    fin2.close();
+
+    set_ball();
+    cout << BLUE << "[Placer]" << RESET << " - Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << "\n";
+    cout << BLUE << "[Placer]" << RESET << " - #Terminal = " << cal_ball_num() << "\n";
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [1.2] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") && !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-1.2-tpgnn");
+        draw_layout_result_plt(false, "-1.2-tpgnn");
+    }
+
+    ////////////////////////////////////////////////////////////////
+    // D2D Placement with Pin Projection
+    ////////////////////////////////////////////////////////////////
+    //pin3d_ntu_d2d_legal_detail()
+    bool placer_succ = true;
+    cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 3]" << RESET << ": D2D LG+DP with Pin Projection.\n";
+    part_time_start = (float)clock() / CLOCKS_PER_SEC;
+    // 1. Place balls
+    if(cal_ball_num() > 0){
+        AUX aux;
+        create_aux_form_for_ball(aux, "ball");
+        //create_aux_form_for_ball_replace(aux, "ball");
+        add_project_pin(aux, 0);
+        add_project_pin(aux, 1);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("ball", "-nolegal -nodetail");
+        placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+        // run_replace("ball");
+        // placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR + "/outputs/IBM/" + "ball" + "/experiment0/tiers/0/" + "ball.pl");
+        if(!placer_succ) return false;
+    }
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [3.1] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") && !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.1-ball-global");
+        draw_layout_result_plt(false, "-3.1-ball-global");
+    }
+    // 2. Place die0 with projected die1
+    if(_pChip->get_die(0)->get_cells().size() > 0){
+        AUX aux;
+        create_aux_form(aux, 0, "die0");
+        // create_aux_form_replace(aux, 0, "die0");
+        add_project_ball(aux);
+        //add_project_pin(aux, 1);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("die0");
+        placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
+        // run_replace("die0");
+        // placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + "die0" + "/experiment0/tiers/0/" + "die0.pl", 0);
+        if(!placer_succ) return false;
+    }
+    if(cal_ball_num() > 0){
+        AUX aux;
+        create_aux_form_for_ball(aux, "ball");
+        add_project_pin(aux, 0);
+        //add_project_pin(aux, 1);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("ball");
+        placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+        if(!placer_succ) return false;
+    }
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [3.2] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") && !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.2-die0-legal");
+        draw_layout_result_plt(false, "-3.2-die0-legal");
+    }
+    // 3. Place die1 with projected die0
+    if(_pChip->get_die(1)->get_cells().size() > 0){
+        AUX aux;
+        create_aux_form(aux, 1, "die1");
+        // create_aux_form_replace(aux, 1, "die1");
+        //add_project_pin(aux, 0);
+        add_project_ball(aux);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("die1");
+        placer_succ = read_pl_and_set_pos(_RUNDIR+"die1.ntup.pl", 1);
+        // run_replace("die1");
+        // placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + "die1" + "/experiment0/tiers/0/" + "die1.pl", 1);
+        if(!placer_succ) return false;
+    }
+    if(cal_ball_num() > 0){
+        AUX aux;
+        create_aux_form_for_ball(aux, "ball");
+        add_project_pin(aux, 0);
+        add_project_pin(aux, 1);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("ball");
+        placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+        if(!placer_succ) return false;
+    }
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [3.3] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") && !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.3-die1-legal");
+        draw_layout_result_plt(false, "-3.3-die1-legal");
+    }
+    // 4. Replace die0 again with projected die1 and balls
+    if(_pChip->get_die(0)->get_cells().size() > 0){
+        AUX aux;
+        create_aux_form(aux, 0, "die0");
+        //add_project_pin(aux, 1);
+        add_project_ball(aux);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("die0");
+        placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
+        if(!placer_succ) return false;
+    }
+    if(cal_ball_num() > 0){ // replace balls
+        AUX aux;
+        create_aux_form_for_ball(aux, "ball");
+        add_project_pin(aux, 0);
+        add_project_pin(aux, 1);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("ball");
+        placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+        if(!placer_succ) return false;
+    }
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [3.4] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") && !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.4-die0-re");
+        draw_layout_result_plt(false, "-3.4-die0-re");
+    }
+    // 5. Replace die1 again with projected die0 and balls
+    if(_pChip->get_die(1)->get_cells().size() > 0){
+        AUX aux;
+        create_aux_form(aux, 1, "die1");
+        //add_project_pin(aux, 0);
+        add_project_ball(aux);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("die1");
+        placer_succ = read_pl_and_set_pos(_RUNDIR+"die1.ntup.pl", 1);
+        if(!placer_succ) return false;
+    }
+    if(cal_ball_num() > 0){ // replace balls
+        AUX aux;
+        create_aux_form_for_ball(aux, "ball");
+        add_project_pin(aux, 0);
+        add_project_pin(aux, 1);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("ball");
+        placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+        if(!placer_succ) return false;
+    }
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - [3.5] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") && !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.5-die1-re");
+        draw_layout_result_plt(false, "-3.5-die1-re");
+    }
+    // 6. Replace die0 again with projected die1 and balls
+    if(_pChip->get_die(0)->get_cells().size() > 0){
+        AUX aux;
+        create_aux_form(aux, 0, "die0");
+        //add_project_pin(aux, 1);
+        add_project_ball(aux);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("die0");
+        placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
+        if(!placer_succ) return false;
+    }
+    if(cal_ball_num() > 0){ // replace balls
+        AUX aux;
+        create_aux_form_for_ball(aux, "ball");
+        add_project_pin(aux, 0);
+        add_project_pin(aux, 1);
+        // check nets
+        aux.remove_open_net();
+        aux.write_files();
+        run_ntuplace3("ball");
+        placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+        if(!placer_succ) return false;
+    }
+    total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
+    cout << BLUE << "[Placer]" << RESET << " - D2D-PL: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    if(!_paramHdl.check_flag_exist("no_draw") && !_paramHdl.check_flag_exist("only_draw_result")){
+        draw_layout_result("-3.6-die0-re");
+        draw_layout_result_plt(false, "-3.6-die0-re");
+    }
+    return true;
 }

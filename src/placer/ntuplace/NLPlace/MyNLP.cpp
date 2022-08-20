@@ -226,7 +226,7 @@ MyNLP::MyNLP(CPlaceDB &db)
   m_nets_sum_exp_inv_xi_over_alpha.resize(m_pDB->m_nets.size(), 0);
   m_nets_sum_exp_inv_yi_over_alpha.resize(m_pDB->m_nets.size(), 0);
   // frank 2022-07-23 3d
-  if (param.b3d && param.bF2FhpwlEnhance && m_bMoveZ) {
+  if (param.b3d && param.bF2FhpwlEnhance) {
     m_layer_nets_sum_exp_xi_over_alpha.resize(
         param.nlayer, vector<double>(m_pDB->m_nets.size(), 0));
     m_layer_nets_sum_exp_yi_over_alpha.resize(
@@ -250,7 +250,7 @@ MyNLP::MyNLP(CPlaceDB &db)
     m_nets_weighted_sum_exp_yi_over_alpha.resize(m_pDB->m_nets.size(), 0);
     m_nets_weighted_sum_exp_inv_xi_over_alpha.resize(m_pDB->m_nets.size(), 0);
     m_nets_weighted_sum_exp_inv_yi_over_alpha.resize(m_pDB->m_nets.size(), 0);
-    if (param.b3d && param.bF2FhpwlEnhance && m_bMoveZ) {
+    if (param.b3d && param.bF2FhpwlEnhance) {
       vector<double> tmp_v;
       tmp_v.resize(m_pDB->m_nets.size(), 0);
       m_layer_nets_weighted_sum_exp_xi_over_alpha.resize(param.nlayer, tmp_v);
@@ -661,17 +661,7 @@ bool MyNLP::GoSolve(double wWire, double target_density,
       if (innerIte % checkStep == 0) {
         printf(".");
         fflush(stdout);
-        // Early exit when current HPWL > bestLegalHPWL
-        if (!param.bCong && bestLegalWL != DBL_MAX && innerIte % (2 * checkStep) == 0) {
-          if (m_bMoveZ)
-            LayerAssignment();
-          Parallel(UpdateBlockPositionThread, m_pDB->m_modules.size());
-          if (m_pDB->CalcHPWL() > bestLegalWL) { // gWL > LAL-WL
-            printf("[X] Early exit: current HPWL > bestLegalHPWL\n");
-            fflush(stdout);
-            break;
-          }
-        }
+        
         UpdateDensityGrid(n, x, z); // find the exact bin density
         totalOverDen = GetTotalOverDensity();
         totalOverPotential = GetTotalOverPotential();
@@ -721,7 +711,12 @@ bool MyNLP::GoSolve(double wWire, double target_density,
       Parallel(BoundXThread, m_pDB->m_modules.size());
       if (m_bMoveZ)
         Parallel(BoundZThread, m_pDB->m_modules.size());
-      if(param.bPlot) plotPL("gp-"+to_string(global_iter), global_iter);
+      if(param.bPlot && global_iter%10==0){
+        char fileName[128];
+        sprintf(fileName, "gp-%04d", global_iter);
+        plotPL(string(move(fileName)), global_iter);
+      } 
+      
 
       // [2.1.4] - Update WL & Density Force
       // New block positions must be ready
@@ -1095,6 +1090,7 @@ void MyNLP::LayerAssignment() {
   // check the more side of two die
   int lower = 0, higher = 0;
   for (int i = 0; i < m_pDB->m_modules.size(); ++i) {
+    if(m_pDB->m_modules[i].m_isFiller || m_pDB->m_modules[i].m_isVia) continue;
     z[i] -= 0.5; // z_after = [0:1]
     if (z[i] <= 0.5)
       lower++;
@@ -1108,7 +1104,7 @@ void MyNLP::LayerAssignment() {
   vector<pair<int, double>> z_ori1; // z_ori[moduleId] = z_ori  // die1
   vector<double> total_area(2, 0.0);
   for (int i = 0; i < m_pDB->m_modules.size(); ++i) {
-    if (!m_pDB->m_modules[i].m_isVia) {
+    if (!m_pDB->m_modules[i].m_isVia && !m_pDB->m_modules[i].m_isFiller) {
       // z[i] = (z[i] <= cutline) ? 0.5 : 1.5;
       if (z[i] <= cutline) {
         z_ori0.emplace_back(pair<int, double>(i, z[i]));
@@ -1121,6 +1117,8 @@ void MyNLP::LayerAssignment() {
                           m_pDB->m_modules[i].m_heights[1]);
         z[i] = 1.5;
       }
+    } else if(m_pDB->m_modules[i].m_isFiller) {
+      z[i] = m_pDB->m_modules[i].m_z + 0.5;
     } else {
       z[i] = 0.5;
     }
@@ -1780,7 +1778,7 @@ void MyNLP::UpdateNetsSumExp(const vector<double> &x, const vector<double> &z,
     // @kaie 2009-08-29
 
     // frank 2022-07-31
-    if (param.b3d && param.bF2FhpwlEnhance && pNLP->m_bMoveZ) {
+    if (param.b3d && param.bF2FhpwlEnhance) {
       vector<double> layer_sum_exp_xi_over_alpha;
       vector<double> layer_sum_exp_inv_xi_over_alpha;
       vector<double> layer_sum_exp_yi_over_alpha;
@@ -1834,7 +1832,7 @@ void MyNLP::UpdateNetsSumExp(const vector<double> &x, const vector<double> &z,
       pNLP->m_nets_weighted_sum_exp_inv_yi_over_alpha[n] =
           weighted_sum_exp_inv_yi_over_alpha;
 
-      if (param.b3d && param.bF2FhpwlEnhance && pNLP->m_bMoveZ) {
+      if (param.b3d && param.bF2FhpwlEnhance) {
         vector<double> layer_weighted_sum_exp_xi_over_alpha;
         vector<double> layer_weighted_sum_exp_inv_xi_over_alpha;
         vector<double> layer_weighted_sum_exp_yi_over_alpha;
@@ -1957,7 +1955,7 @@ double MyNLP::GetLogSumExpWL(const vector<double> &x,    // unuse
                               pNLP->m_nets_sum_exp_yi_over_alpha[n] -
                           pNLP->m_nets_weighted_sum_exp_inv_yi_over_alpha[n] /
                               pNLP->m_nets_sum_exp_inv_yi_over_alpha[n]));
-      } else if (param.b3d && param.bF2FhpwlEnhance && pNLP->m_bMoveZ) {
+      } else if (param.b3d && param.bF2FhpwlEnhance) {
         for (int layer = 0; layer < param.nlayer; ++layer) {
           if (pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][n] != 0 &&
               pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][n] != 0) {
@@ -2008,26 +2006,20 @@ double MyNLP::GetLogSumExpWL(const vector<double> &x,    // unuse
                m_yWeight *
                    (log(pNLP->m_nets_sum_exp_yi_over_alpha[n]) + // max(y)
                     log(pNLP->m_nets_sum_exp_inv_yi_over_alpha[n])));
-        } else if (param.b3d && param.bF2FhpwlEnhance && pNLP->m_bMoveZ) {
+        } else if (param.b3d && param.bF2FhpwlEnhance) {
           totalWL +=
               log(pNLP->m_layer_nets_sum_exp_xi_over_alpha[0][n]) + // max(x) in
                                                                     // die0
-              log(pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[0]
-                                                              [n]) + // -min(x)
+              log(pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[0][n]) + // -min(x)
                                                                      // in die0
-              m_yWeight * (log(pNLP->m_layer_nets_sum_exp_yi_over_alpha
-                                   [0][n]) + // max(y) in die0
-                           log(pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha
-                                   [0][n])) + // -min(y) in die0
+              m_yWeight * (log(pNLP->m_layer_nets_sum_exp_yi_over_alpha[0][n]) + // max(y) in die0
+                           log(pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[0][n])) + // -min(y) in die0
               log(pNLP->m_layer_nets_sum_exp_xi_over_alpha[1][n]) + // max(x) in
                                                                     // die1
-              log(pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[1]
-                                                              [n]) + // -min(x)
+              log(pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[1][n]) + // -min(x)
                                                                      // in die1
-              m_yWeight * (log(pNLP->m_layer_nets_sum_exp_yi_over_alpha
-                                   [1][n]) + // max(y) in die1
-                           log(pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha
-                                   [1][n])); // -min(y) in die1
+              m_yWeight * (log(pNLP->m_layer_nets_sum_exp_yi_over_alpha[1][n]) + // max(y) in die1
+                           log(pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[1][n])); // -min(y) in die1
         } else {
           totalWL +=
               log(pNLP->m_nets_sum_exp_xi_over_alpha[n]) +     // max(x)
@@ -2368,19 +2360,36 @@ void MyNLP::UpdateGradWire(MyNLP *pNLP, int index1, int index2) {
 
       if (pNLP->m_usePin[i]) {
         if (param.bUseWAE) {
-          if (param.b3d && param.bF2FhpwlEnhance && pNLP->m_bMoveZ) {
-            int layer = (pNLP->z[i] < pNLP->m_pDB->m_dCutline) ? 0 : 1;
-            if (pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][netId] != 0 && pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][netId] != 0) {
-              pNLP->grad_wire[2 * i] +=
-                  pNLP->x[2 * i] * pNLP->_expPins[2 * selfPinId] / pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][netId] -
-                  pNLP->x[2 * i] * (1.0/pNLP->_expPins[2 * selfPinId]) / pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][netId];
+          if (param.b3d && param.bF2FhpwlEnhance) {
+            if(pNLP->m_pDB->m_modules[i].m_isVia){ // via
+              for(int k=0;k<param.nlayer;++k){
+                if (pNLP->m_layer_nets_sum_exp_xi_over_alpha[k][netId] != 0 && pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[k][netId] != 0) {
+                  pNLP->grad_wire[2 * i] +=
+                      pNLP->x[2 * i] * pNLP->_expPins[2 * selfPinId] / pNLP->m_layer_nets_sum_exp_xi_over_alpha[k][netId] -
+                      pNLP->x[2 * i] * (1.0/pNLP->_expPins[2 * selfPinId]) / pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[k][netId];
+                }
+                if (pNLP->m_layer_nets_sum_exp_yi_over_alpha[k][netId] != 0 && pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[k][netId] != 0) {
+                  pNLP->grad_wire[2 * i + 1] +=
+                      pNLP->x[2 * i + 1] * pNLP->_expPins[2 * selfPinId + 1] / pNLP->m_layer_nets_sum_exp_yi_over_alpha[k][netId] -
+                      pNLP->x[2 * i + 1] * (1.0/pNLP->_expPins[2 * selfPinId + 1]) / pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[k][netId];
+                }
+              }
+              pNLP->grad_wire[2 * i] /= param.nlayer;
+              pNLP->grad_wire[2 * i + 1] /= param.nlayer;
+            } else{ // cells
+              int layer = (pNLP->z[i] < pNLP->m_pDB->m_dCutline) ? 0 : 1;
+              if (pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][netId] != 0 && pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][netId] != 0) {
+                pNLP->grad_wire[2 * i] +=
+                    pNLP->x[2 * i] * pNLP->_expPins[2 * selfPinId] / pNLP->m_layer_nets_sum_exp_xi_over_alpha[layer][netId] -
+                    pNLP->x[2 * i] * (1.0/pNLP->_expPins[2 * selfPinId]) / pNLP->m_layer_nets_sum_exp_inv_xi_over_alpha[layer][netId];
+              }
+              if (pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][netId] != 0 && pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][netId] != 0) {
+                pNLP->grad_wire[2 * i + 1] +=
+                    pNLP->x[2 * i + 1] * pNLP->_expPins[2 * selfPinId + 1] / pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][netId] -
+                    pNLP->x[2 * i + 1] * (1.0/pNLP->_expPins[2 * selfPinId + 1]) / pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][netId];
+              }
             }
-            if (pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][netId] != 0 && pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][netId] != 0) {
-              pNLP->grad_wire[2 * i + 1] +=
-                  pNLP->x[2 * i + 1] * pNLP->_expPins[2 * selfPinId + 1] / pNLP->m_layer_nets_sum_exp_yi_over_alpha[layer][netId] -
-                  pNLP->x[2 * i + 1] * (1.0/pNLP->_expPins[2 * selfPinId + 1]) / pNLP->m_layer_nets_sum_exp_inv_yi_over_alpha[layer][netId];
-            }
-          } else{
+          } else{ // !param.bF2FhpwlEnhance
             pNLP->grad_wire[2 * i] +=
                 pNLP->x[2 * i] * pNLP->_expPins[2 * selfPinId] / pNLP->m_nets_sum_exp_xi_over_alpha[netId] -
                 pNLP->x[2 * i] * (1.0/pNLP->_expPins[2 * selfPinId]) / pNLP->m_nets_sum_exp_inv_xi_over_alpha[netId];
@@ -2537,6 +2546,13 @@ void MyNLP::UpdateGradWire(MyNLP *pNLP, int index1, int index2) {
       }
 
     } // for each pin in the module
+
+    // wirelength feature for gnn partition
+    if(param.nGNNFeature > 0
+      && !pNLP->m_pDB->m_modules[i].m_isVia && !pNLP->m_pDB->m_modules[i].m_isFiller ){
+      pNLP->m_pDB->m_modules[i].m_vFeatures[5] = pNLP->grad_wire[2*i]; // pullForce_x
+      pNLP->m_pDB->m_modules[i].m_vFeatures[6] = pNLP->grad_wire[2*i+1]; // pullForce_y
+    }
   }   // for each module
 
   // 2006-09-27 Y-weight (donnie)
@@ -2689,8 +2705,7 @@ void MyNLP::UpdateGradPotential(MyNLP *pNLP, int index1, int index2) {
           // printf("(Fast) %lf, %lf, %lf\n", gradDensityX, gradDensityY, gradDensityZ);
         }
       } else
-        GetPotentialGrad(pNLP->x, pNLP->z, i, gradDensityX, gradDensityY,
-                        gradDensityZ, pNLP); // bell-shaped potential
+        GetPotentialGrad(pNLP->x, pNLP->z, i, gradDensityX, gradDensityY, gradDensityZ, pNLP); // bell-shaped potential
       gradDensityX *= pNLP->_cellPotentialNorm[i];
       gradDensityY *= pNLP->_cellPotentialNorm[i];
       gradDensityZ *= pNLP->_cellPotentialNorm[i];
@@ -2704,6 +2719,13 @@ void MyNLP::UpdateGradPotential(MyNLP *pNLP, int index1, int index2) {
       pNLP->grad_potentialZ[i] += gradDensityZ;
     // if(param.bShow)
     //   printf( "cell %d  spreading force (%g %g %g)\n", i, gradDensityX, gradDensityY, gradDensityZ);
+
+    // potential feature for gnn partition
+    if(param.nGNNFeature > 0
+      && !pNLP->m_pDB->m_modules[i].m_isVia && !pNLP->m_pDB->m_modules[i].m_isFiller ){
+      pNLP->m_pDB->m_modules[i].m_vFeatures[7] = gradDensityX; // pushForce_x
+      pNLP->m_pDB->m_modules[i].m_vFeatures[8] = gradDensityY; // pushForce_y
+    }
   } // for each cell
 }
 
@@ -3316,8 +3338,10 @@ void MyNLP::calc_sum_exp_using_pin_for_layers(
         layer_sum_exp_inv_xi_over_alpha[layer] += 1.0 / expPins[2 * pinId];
         layer_sum_exp_yi_over_alpha[layer] += expPins[2 * pinId + 1];
         layer_sum_exp_inv_yi_over_alpha[layer] += 1.0 / expPins[2 * pinId + 1];
-        layer_sum_exp_zi_over_alpha[layer] += expPinsZ[pinId];
-        layer_sum_exp_inv_zi_over_alpha[layer] += 1.0 / expPinsZ[pinId];
+        if(!param.noZ){
+          layer_sum_exp_zi_over_alpha[layer] += expPinsZ[pinId];
+          layer_sum_exp_inv_zi_over_alpha[layer] += 1.0 / expPinsZ[pinId];
+        }
       }
     } else {
       // use block center
@@ -3325,8 +3349,10 @@ void MyNLP::calc_sum_exp_using_pin_for_layers(
       layer_sum_exp_inv_xi_over_alpha[layer] += 1.0 / expX[2 * blockId];
       layer_sum_exp_yi_over_alpha[layer] += expX[2 * blockId + 1];
       layer_sum_exp_inv_yi_over_alpha[layer] += 1.0 / expX[2 * blockId + 1];
-      layer_sum_exp_zi_over_alpha[layer] += expZ[blockId];
-      layer_sum_exp_inv_zi_over_alpha[layer] += 1.0 / expZ[blockId];
+      if(!param.noZ){
+        layer_sum_exp_zi_over_alpha[layer] += expZ[blockId];
+        layer_sum_exp_inv_zi_over_alpha[layer] += 1.0 / expZ[blockId];
+      }
     }
   }
 }
@@ -3409,6 +3435,13 @@ void MyNLP::UpdateBlockPosition(const vector<double> &x,
           pNLP->m_pDB->m_modules[i].m_z = 3;
       else
           pNLP->m_pDB->m_modules[i].m_z = 2;*/
+      // potential feature for gnn partition
+      if(param.nGNNFeature > 0
+        && !pNLP->m_pDB->m_modules[i].m_isVia && !pNLP->m_pDB->m_modules[i].m_isFiller ){
+        pNLP->m_pDB->m_modules[i].m_vFeatures[0] = z[i]-0.5; // z (layer)
+        pNLP->m_pDB->m_modules[i].m_vFeatures[1] = x[i * 2]; // cx
+        pNLP->m_pDB->m_modules[i].m_vFeatures[2] = x[i * 2 + 1]; // cy
+      }
     }
   }
 }

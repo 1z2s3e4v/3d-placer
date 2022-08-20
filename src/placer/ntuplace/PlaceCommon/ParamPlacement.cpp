@@ -160,6 +160,7 @@ CParamPlacement::CParamPlacement()
     bPlot = false;
     denRefWL = 446000000;
     initDensityPenalty = 0.00008;
+    nGNNFeature = 0;
 }
 
 void CParamPlacement::Print()

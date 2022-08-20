@@ -184,6 +184,7 @@ public:
     bool noZ;
     int denRefWL;
     double initDensityPenalty;
+    int nGNNFeature;
 };
 
 extern CParamPlacement param;	// global variable

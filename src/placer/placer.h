@@ -119,6 +119,9 @@ public:
     void draw_layout_result(string tag);
     void draw_layout_result_plt(bool show_hpwl);
     void draw_layout_result_plt(bool show_hpwl, string tag);
+
+    // test
+    bool placement_loadGNN();
 };
 
 #endif
