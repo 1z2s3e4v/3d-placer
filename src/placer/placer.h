@@ -121,7 +121,7 @@ public:
     void draw_layout_result_plt(bool show_hpwl, string tag);
 
     // test
-    bool placement_loadGNN();
+    bool placement_testGNN();
 };
 
 #endif

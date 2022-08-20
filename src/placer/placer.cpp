@@ -91,7 +91,7 @@ void Placer_C::run(){
             } else if(_paramHdl.get_para("flow") == "ntuplace3d"){
                 place_succ = ntuplace3d();
             } else if(_paramHdl.get_para("flow") == "test_gnn"){
-                place_succ = placement_loadGNN();
+                place_succ = placement_testGNN();
             } else{
                 cout << BLUE << "[Placer]" << RESET << " - Please assign a valid flow name.\n";
                 exit(1);
@@ -2451,29 +2451,34 @@ void Placer_C::mincut_partition(){
     //cout << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell)num = " << _pChip->get_die(1)->get_cells().size() << "\n";
 
     // move cells for matching die's max_utilization
-    vector<double> valid_area(2,0);
-    vector<double> used_area(2,0); 
     int count_move = 0;
     bool top_die_full = false;
     for(int i=0;i<2;++i) {
-        valid_area[i] = (double)_pChip->get_width() * (double)_pChip->get_height() * _pChip->get_die(i)->get_max_util();
         Die_C* die = _pChip->get_die(i);
+        double valid_area = (double)_pChip->get_width() * (double)_pChip->get_height() * die->get_max_util();
+        double used_area = 0;
         unordered_set<Cell_C*>& s_cell = die->get_cells();
+        vector<Cell_C*> v_cell;
         for(Cell_C* cell : s_cell) {
+            v_cell.emplace_back(cell);
+        }
+        for(Cell_C* cell : v_cell) {
             double cell_area = (double)cell->get_width()*cell->get_height();
-            if(valid_area[i] < used_area[i]+cell_area){ // full
+            if(valid_area < used_area+cell_area){ // full
                 if(i==0) top_die_full = true;
-                used_area[1-i] += (double)cell->get_width()*cell->get_height();
                 cell->set_die(_pChip->get_die(1-i));
                 ++count_move;
             }
             else{
-                used_area[i] += (double)cell->get_width()*cell->get_height();
+                used_area += cell_area;
             }
         }
         if(top_die_full) break;
     }
-    if(count_move > 0) cout << BLUE << "[Partition]" << RESET << " - " << count_move << " cells moved from die1->die0.\n";
+    if(count_move > 0) {
+        if(top_die_full) cout << BLUE << "[Partition]" << RESET << " - " << count_move << " cells moved from die0->die1.\n";
+        else cout << BLUE << "[Partition]" << RESET << " - " << count_move << " cells moved from die1->die0.\n";
+    }
 }
 void Placer_C::mincut_k_partition(){
     int row_sum = _pChip->get_die(0)->get_row_num()+_pChip->get_die(1)->get_row_num();
@@ -2515,29 +2520,34 @@ void Placer_C::mincut_k_partition(){
         mincut_partition();
     }else{
         // move cells for matching die's max_utilization
-        vector<double> valid_area(2,0);
-        vector<double> used_area(2,0); 
         int count_move = 0;
         bool top_die_full = false;
         for(int i=0;i<2;++i) {
-            valid_area[i] = (double)_pChip->get_width() * (double)_pChip->get_height() * _pChip->get_die(i)->get_max_util();
             Die_C* die = _pChip->get_die(i);
+            double valid_area = (double)_pChip->get_width() * (double)_pChip->get_height() * die->get_max_util();
+            double used_area = 0;
             unordered_set<Cell_C*>& s_cell = die->get_cells();
+            vector<Cell_C*> v_cell;
             for(Cell_C* cell : s_cell) {
+                v_cell.emplace_back(cell);
+            }
+            for(Cell_C* cell : v_cell) {
                 double cell_area = (double)cell->get_width()*cell->get_height();
-                if(valid_area[i] < used_area[i]+cell_area){ // full
+                if(valid_area < used_area+cell_area){ // full
                     if(i==0) top_die_full = true;
-                    used_area[1-i] += (double)cell->get_width()*cell->get_height();
                     cell->set_die(_pChip->get_die(1-i));
                     ++count_move;
                 }
                 else{
-                    used_area[i] += (double)cell->get_width()*cell->get_height();
+                    used_area += cell_area;
                 }
             }
             if(top_die_full) break;
         }
-        if(count_move > 0) cout << BLUE << "[Partition]" << RESET << " - " << count_move << " cells moved from die1->die0.\n";
+        if(count_move > 0) {
+            if(top_die_full) cout << BLUE << "[Partition]" << RESET << " - " << count_move << " cells moved from die0->die1.\n";
+            else cout << BLUE << "[Partition]" << RESET << " - " << count_move << " cells moved from die1->die0.\n";
+        }
     }
 }
 void Placer_C::gnn_partition(){
@@ -3522,7 +3532,7 @@ void Placer_C::clear(){
 }
 
 // test
-bool Placer_C::placement_loadGNN(){
+bool Placer_C::placement_testGNN(){
     cout << BLUE << "[Placer]" << RESET << " - Start GNN Placement Flow.\n";
     double part_time_start=0, total_part_time=0;
     int total_hpwl = 0;
