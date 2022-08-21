@@ -148,7 +148,9 @@ bool Placer_C::shrunked_2d_ntuplace(string para){
         // nodes
         vector<Cell_C*>& v_cells = _vCell;
         for(Cell_C* cell : v_cells){
-            int cellW = ceil((cell->get_width(0)+cell->get_width(1))/2.0);
+            int techId0 = _pChip->get_die(0)->get_techId();
+            int techId1 = _pChip->get_die(1)->get_techId();
+            int cellW = ceil((cell->get_width(techId0)+cell->get_width(techId1))/2.0);
             aux2D.add_node(cell->get_name(), cellW, rowH, cell->get_posX(), cell->get_posY(),0);
             for(int i=0;i<cell->get_pin_num();++i){
                 Pin_C* pin = cell->get_pin(i);
@@ -195,7 +197,9 @@ bool Placer_C::shrunked_2d_replace(){
         // nodes
         vector<Cell_C*>& v_cells = _vCell;
         for(Cell_C* cell : v_cells){
-            int cellW = ceil((cell->get_width(0)+cell->get_width(1))/2.0);
+            int techId0 = _pChip->get_die(0)->get_techId();
+            int techId1 = _pChip->get_die(1)->get_techId();
+            int cellW = ceil((cell->get_width(techId0)+cell->get_width(techId1))/2.0);
             aux2D.add_node(cell->get_name(), cellW, rowH, cell->get_posX(), cell->get_posY(),0);
             for(int i=0;i<cell->get_pin_num();++i){
                 Pin_C* pin = cell->get_pin(i);
@@ -850,12 +854,14 @@ void Placer_C::global_place(bool& isLegal, double& totalHPWL){ // Analytical Glo
     param.noZ = true;
     //param.step = 5;
     param.stepZ = 2;
-    param.bF2FhpwlEnhance = false;
+    param.bF2FhpwlEnhance = true;
     param.bStabilityEnhance = true;
     param.bUseNAG = false;
     param.bFast = false;
     param.bUseEDensity = true;
+    param.bPre2dPlace = false;
     param.plotDir = _DRAWDIR + "gp/";
+    param.plotDir2 = _DRAWDIR + "plot/";
     if(_paramHdl.check_flag_exist("draw_gp")){
         param.bPlot = true;
     }
@@ -1254,8 +1260,10 @@ void Placer_C::create_placedb(CPlaceDB& placedb){
         moduleNum += v_net.size();
     placedb.ReserveModuleMemory(moduleNum);
     for(Cell_C* cell : v_cell){ // Cells
+        int techId0 = _pChip->get_die(0)->get_techId();
+        int techId1 = _pChip->get_die(1)->get_techId();
         int cellH = rowH;
-        int cellW = ceil((cell->get_width(0)+cell->get_width(1))/2);
+        int cellW = ceil((cell->get_width(techId0)+cell->get_width(techId1))/2);
         placedb.AddModule( cell->get_name(), cellW, cellH, false );
         // for terminal: placedb.AddModule( name, w, h, true );
         // for terminal_NI: placedb.AddModule( name, w, h, true, true );
@@ -1263,8 +1271,9 @@ void Placer_C::create_placedb(CPlaceDB& placedb){
         curModule.m_widths.resize(param.nlayer,0);
         curModule.m_heights.resize(param.nlayer,0);
         for(int i=0;i<param.nlayer;++i){
-            curModule.m_widths[i] = cell->get_width(i);
-            curModule.m_heights[i] = cell->get_height(i);
+            int techId = _pChip->get_die(i)->get_techId();
+            curModule.m_widths[i] = cell->get_width(techId);
+            curModule.m_heights[i] = cell->get_height(techId);
         }
         // feature for gnn
         if(param.nGNNFeature > 0){
@@ -1302,8 +1311,10 @@ void Placer_C::create_placedb(CPlaceDB& placedb){
     double width_avg0 = 0;
     double width_avg1 = 0;
     for(Cell_C* cell : v_cell){
-        width_avg0 += (double)cell->get_width(0)/ v_cell.size();
-        width_avg1 += (double)cell->get_width(1)/ v_cell.size();
+        int techId0 = _pChip->get_die(0)->get_techId();
+        int techId1 = _pChip->get_die(1)->get_techId();
+        width_avg0 += (double)cell->get_width(techId0)/ v_cell.size();
+        width_avg1 += (double)cell->get_width(techId1)/ v_cell.size();
     }
     cutline = ((width_avg1*_pChip->get_die(1)->get_row_height()) / (width_avg1*_pChip->get_die(1)->get_row_height() + width_avg0*_pChip->get_die(0)->get_row_height())) * (_pChip->get_die(0)->get_max_util() / _pChip->get_die(1)->get_max_util());
     // if(add_dummy_node_as_ball){ 
@@ -1599,7 +1610,9 @@ void Placer_C::cell_spreading(){
         // nodes
         vector<Cell_C*>& v_cells = _vCell;
         for(Cell_C* cell : v_cells){
-            int cellW = ceil((cell->get_width(0)+cell->get_width(1))/2.0);
+            int techId0 = _pChip->get_die(0)->get_techId();
+            int techId1 = _pChip->get_die(1)->get_techId();
+            int cellW = ceil((cell->get_width(techId0)+cell->get_width(techId1))/2.0);
             aux2D.add_node(cell->get_name(), cellW, rowH, cell->get_posX(), cell->get_posY(),0);
             for(int i=0;i<cell->get_pin_num();++i){
                 Pin_C* pin = cell->get_pin(i);
@@ -2403,7 +2416,9 @@ bool Placer_C::coloquinte_place(){
     // <cell_cnt>
     fout << _vCell.size() << "\n";
     for(int i=0;i<_vCell.size();++i){
-        int cellW = ceil((_vCell[i]->get_width(0)+_vCell[i]->get_width(1))/2.0);
+        int techId0 = _pChip->get_die(0)->get_techId();
+        int techId1 = _pChip->get_die(1)->get_techId();
+        int cellW = ceil((_vCell[i]->get_width(techId0)+_vCell[i]->get_width(techId1))/2.0);
         // <cell_ind> <x_s> <y_s>
         fout << i << " " << cellW << " " << rowH << "\n";
     }
@@ -2488,8 +2503,10 @@ void Placer_C::mincut_k_partition(){
     double width_avg0 = 0;
     double width_avg1 = 0;
     for(Cell_C* cell : _vCell){
-        width_avg0 += (double)cell->get_width(0)/ _vCell.size();
-        width_avg1 += (double)cell->get_width(1)/ _vCell.size();
+        int techId0 = _pChip->get_die(0)->get_techId();
+        int techId1 = _pChip->get_die(1)->get_techId();
+        width_avg0 += (double)cell->get_width(techId0)/ _vCell.size();
+        width_avg1 += (double)cell->get_width(techId1)/ _vCell.size();
     }
     int slice = round((((width_avg1*_pChip->get_die(1)->get_row_height()) / (width_avg1*_pChip->get_die(1)->get_row_height() + width_avg0*_pChip->get_die(0)->get_row_height())) * (_pChip->get_die(0)->get_max_util() / _pChip->get_die(1)->get_max_util())) * k_part);
     //int slice = round(((double)_pChip->get_die(1)->get_row_num()) / ((double)_pChip->get_die(0)->get_row_num()) * k_part) ;
@@ -2556,8 +2573,10 @@ void Placer_C::gnn_partition(){
     double width_avg0 = 0;
     double width_avg1 = 0;
     for(Cell_C* cell : _vCell){
-        width_avg0 += (double)cell->get_width(0)/ _vCell.size();
-        width_avg1 += (double)cell->get_width(1)/ _vCell.size();
+        int techId0 = _pChip->get_die(0)->get_techId();
+        int techId1 = _pChip->get_die(1)->get_techId();
+        width_avg0 += (double)cell->get_width(techId0)/ _vCell.size();
+        width_avg1 += (double)cell->get_width(techId1)/ _vCell.size();
     }
     cutline = ((width_avg1*_pChip->get_die(1)->get_row_height()) / (width_avg1*_pChip->get_die(1)->get_row_height() + width_avg0*_pChip->get_die(0)->get_row_height())) * (_pChip->get_die(0)->get_max_util() / _pChip->get_die(1)->get_max_util());
     

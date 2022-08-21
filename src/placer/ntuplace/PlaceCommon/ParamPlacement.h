@@ -181,10 +181,12 @@ public:
     bool bFast;
     bool bUseEDensity;
     string plotDir;
+    string plotDir2;
     bool noZ;
     int denRefWL;
     double initDensityPenalty;
     int nGNNFeature;
+    bool bPre2dPlace;
 };
 
 extern CParamPlacement param;	// global variable

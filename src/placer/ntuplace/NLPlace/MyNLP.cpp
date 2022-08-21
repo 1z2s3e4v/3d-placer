@@ -47,7 +47,7 @@ double time_via_force = 0; // kaie
 
 // static variables
 bool MyNLP::m_bXArch = false;
-double MyNLP::m_yWeight = 1.0;
+double MyNLP::m_yWeight = 2.0;
 vector<vector<vector<double>>> MyNLP::m_weightDensity; // (kaie) 2009-09-10 3d
 double MyNLP::m_skewDensityPenalty1 = 1.0;
 double MyNLP::m_skewDensityPenalty2 = 1.0;
@@ -383,8 +383,10 @@ bool MyNLP::MySolve(double wWire, double target_density, int currentLevel) {  //
   if(param.bUseEDensity){
     get_starting_point(x, z);
     if(param.bPlot) plotPL("filler-insert", -1);
-    // FillerSpreading(); // Fix cells and Spread fillers with eDensity
-    // if(param.bPlot) plotPL("filler-spread", -1);
+    if(param.bPre2dPlace){
+      FillerSpreading(wWire, target_density); // Fix cells and Spread fillers with eDensity
+      if(param.bPlot) plotPL("filler-spread", -1);
+    }
   }
 
   int counter = 0;
@@ -711,10 +713,11 @@ bool MyNLP::GoSolve(double wWire, double target_density,
       Parallel(BoundXThread, m_pDB->m_modules.size());
       if (m_bMoveZ)
         Parallel(BoundZThread, m_pDB->m_modules.size());
-      if(param.bPlot && global_iter%10==0){
+      if(param.bPlot && global_iter%5==0){
         char fileName[128];
         sprintf(fileName, "gp-%04d", global_iter);
-        plotPL(string(move(fileName)), global_iter);
+        //plotPL(string(move(fileName)), global_iter);
+        draw_field(global_iter, "");
       } 
       
 
@@ -5686,7 +5689,7 @@ bool MyNLP::InitObjWeights(double wWire) {
   //@(kaie) 2009-10-19
   // Fix density weight, change wire weight
   if(param.bUseEDensity) 
-    _weightDensity = param.initDensityPenalty; // TODO: fix this bug...
+    _weightDensity = param.initDensityPenalty / 50; // TODO: fix this bug...
   else 
     _weightDensity = totalWireGradient / totalPotentialGradient ;
   if(param.bShow)
@@ -5741,7 +5744,14 @@ void MyNLP::UpdateObjWeights() {
   //@Brian 2007-07-23
   else {
     if(param.bUseEDensity){
-      _weightDensity = abs(curWL_ - lastWL_) / param.denRefWL;
+      double cof_min=0.95, cof_max=1.05, cof=1.0;
+      double p = (curWL_ - lastWL_) / param.denRefWL;
+      if(p < 0){
+        cof = cof_max;
+      } else {
+        cof = max(cof_min, pow(cof_max, 1-p));
+      }
+      _weightDensity *= cof;
     }
     else{
       _weightDensity *= m_weightIncreaseFactor;
@@ -5789,6 +5799,7 @@ fastModulo(const int input, const int ceil) {
 void
 MyNLP::InitFillerPlace(){
   nModule_ = m_pDB->m_nModules;
+  nFiller_ = 0;
   vUsedArea_.resize(param.nlayer, 0.0);
   vCellN_.resize(param.nlayer, 0);
   vTargetDensity_.resize(param.nlayer, 0);
@@ -5799,6 +5810,7 @@ MyNLP::InitFillerPlace(){
   for(int i=0;i<m_pDB->m_nModules;++i){
     if(m_pDB->m_modules[i].m_isVia || m_pDB->m_modules[i].m_isFixed) continue;
     int layer = m_pDB->m_modules[i].m_z;
+    //cout << "cell["<<i<<"]: layer="<<layer<<", area="<<m_pDB->m_modules[i].m_widths[layer] * m_pDB->m_modules[i].m_heights[layer]<<"\n";
     vUsedArea_[layer] += m_pDB->m_modules[i].m_widths[layer] * m_pDB->m_modules[i].m_heights[layer];
     vSumW[layer] += m_pDB->m_modules[i].m_widths[layer];
     vSumH[layer] += m_pDB->m_modules[i].m_heights[layer];
@@ -5816,6 +5828,7 @@ MyNLP::InitFillerPlace(){
     vMovableArea_[k] = coreArea_ * vTargetDensity_[k]; //m_pDB->m_maxUtils[k];
     vTotalFillerArea_[k] = vMovableArea_[k] - vUsedArea_[k];
     int fillerCnt = vTotalFillerArea_[k] / (fillerW_*fillerH_);
+    nFiller_ += fillerCnt;
     if(1){
       cout << "Layer " << k << ":\n";
       cout << "  coreArea = " << coreArea_ << "\n";
@@ -5864,6 +5877,8 @@ MyNLP::InitEDensity(){
       break;
     }
   }
+  if(foundBinCnt<1024)
+    foundBinCnt *= 2;
   // initialize bin grid structure
   // binNumX_ = m_potentialGridSize + m_potentialGridPadding + 1;
   // binNumY_ = m_potentialGridSize + m_potentialGridPadding + 1;
@@ -5942,11 +5957,314 @@ MyNLP::InitEDensity(){
 }
 
 void
-MyNLP::FillerSpreading(){
+MyNLP::FillerSpreading(double wWire, double target_density){
+  cout << "Start FillerSpreading ...............\n";
   for(int i=0;i<nModule_;++i){
     m_pDB->m_modules[i].m_isFixed = true;
   }
   
+  Parallel(BoundXThread, m_pDB->m_modules.size());
+  if (m_bMoveZ) // kaie z-direction move
+    Parallel(BoundZThread, m_pDB->m_modules.size());
+
+  m_currentStep = param.step;
+  if (m_targetUtil > 1.0)
+    m_targetUtil = 1.0;
+
+  int n;
+  if (m_bMoveZ)
+    n = 3 * m_pDB->m_modules.size(); // (kaie) 2009-09-12 add z direction
+  else
+    n = 2 * m_pDB->m_modules.size();
+
+  double designUtil = m_pDB->m_totalMovableModuleVolumn / m_pDB->m_totalFreeSpace;
+
+  double baseUtil = 0.05; // experience value preventing over-spreading
+  m_targetUtil = min(1.0, m_targetUtil + baseUtil);
+
+  double lowestUtil = min(1.0, designUtil + baseUtil);
+  if (m_targetUtil > 0) // has user-defined target utilization
+  {
+    if (m_targetUtil < lowestUtil) {
+      if (param.bShow)
+        printf("NOTE: Target utilization (%f) is too low\n", m_targetUtil);
+      if (gArg.CheckExist("forceLowUtil") == false)
+        m_targetUtil = lowestUtil;
+    }
+  } else // no given utilization
+  {
+    printf("No given target utilization.\n"); //  Distribute blocks evenly
+    m_targetUtil = lowestUtil;
+  }
+  
+  if (param.bShow) {
+    printf("INFO: Design utilization: %f\n", designUtil);
+    printf("DBIN: Target utilization: %f\n", m_targetUtil);
+  }
+
+  fill(grad_f.begin(), grad_f.end(), 0.0);
+  fill(last_grad_f.begin(), last_grad_f.end(), 0.0);
+
+  CreatePotentialGrid(); // Create potential grid according to
+                         // "m_potentialGridSize"
+  int densityGridSize =
+      m_potentialGridSize / 4; // Use larger grid for density computing
+  CreateDensityGrid(densityGridSize);
+  UpdateDensityGridSpace(n, x, z);
+  UpdatePotentialGridBase(x, z);
+  // SmoothBasePotential3D();
+  UpdateExpBinPotential(m_targetUtil, true);
+  assert(m_targetUtil > 0);
+  // wirelength
+  Parallel(UpdateExpValueForEachCellThread, m_pDB->m_modules.size());
+  Parallel(UpdateExpValueForEachPinThread, m_pDB->m_pins.size());
+  Parallel(UpdateNetsSumExpThread, (int)m_pDB->m_nets.size());
+  wirelength = GetLogSumExpWL(x, _expX, _alpha, this); // WA
+  if (m_bMoveZ)
+    GetLogSumExpVia(z, _expZ, _alpha, this);
+  // density
+  Parallel(ComputeNewPotentialGridThread, m_pDB->m_modules.size());
+  UpdatePotentialGrid(z);
+  UpdateDensityGrid(n, x, z);
+  density = GetDensityPanelty();
+  if(param.bUseEDensity){
+    updateDensityForceBin();
+  }
+
+  ///////////// [1] - Init /////////////
+  m_dWeightCong = 1.0;
+  if (!InitObjWeights(wWire)) {
+    printf("InitObjWeight OVERFLOW!\n");
+  }
+  int maxIte = m_maxIte;
+  bool newDir = true;
+  double obj_value;
+  eval_f(n, x, _expX, true, obj_value);
+  if(param.bUseEDensity){
+    updateDensityForceBin();
+  }
+  ComputeBinGrad();
+  Parallel(eval_grad_f_thread, m_pDB->m_modules.size());
+  UpdateDensityGrid(n, x, z);
+  double maxDen = GetMaxDensity();
+  double lastMaxDen = maxDen;
+  double totalOverDen = GetTotalOverDensity();
+  double totalOverDenLB = GetTotalOverDensityLB();
+  double totalOverPotential = GetTotalOverPotential();
+  double totalOverDenNet = GetTotalOverDensityNet();
+  double totalOverPotentialNet = GetTotalOverPotentialNet();
+  double maxDenNet = GetMaxDensityNet();
+  double lastTotalOverNet = 0;
+  double lastTotalOverPotentialNet = DBL_MAX;
+  double lastMaxDenNet = maxDenNet;
+  double overNet = totalOverDenNet;
+
+  if (obj_value > DBL_MAX * 0.5) {
+    printf("Objective value OVERFLOW!\n");
+  }
+  fflush(stdout);
+
+  double lastTotalOver = 0;
+  double lastTotalOverPotential = DBL_MAX;
+  double over = totalOverDen;
+  int totalIte = 0;
+  double bestLegalWL = DBL_MAX;
+  int lookAheadLegalCount = 0;
+  double totalLegalTime = 0.0;
+  bool startDecreasing = false;
+  int checkStep = 5;
+  int outStep = 50;
+  if (param.bShow == false) outStep = INT_MAX;
+  int forceBreakLoopCount = INT_MAX;
+  if (m_topLevel == false) forceBreakLoopCount = INT_MAX;
+
+  // Legalization related configurations
+  // int tetrisDir = 0;	// 0: both   1: left   2: right
+  int LALnoGoodCount = 0;
+  int maxNoGoodCount = 2;
+
+  vector<Module> bestGPresult; // for LAL (Look Ahead Legal)
+
+  static double lastHPWL = 0; // test
+  static double lastTSV = 0;  // kaie
+  ////////////////////////////////////////////////////////////
+
+  // [2] - Iteration Optimization
+  newDir = true;
+  bool bUpdateWeight = true;
+  int global_iter = 0;
+  for (int ite = 0; ite < maxIte; ite++) { //////////////////////////////////////////////////////////////////////
+    m_ite++;
+    int innerIte = 0;
+    double old_obj = DBL_MAX;
+    double last_obj_value = DBL_MAX;
+
+    m_currentStep = param.step;
+    if (bUpdateWeight == false) newDir = false;
+    else newDir = true;
+    bUpdateWeight = true;
+
+    // [2.1] - inner loop, minimize "f" 
+    double lastDensityCost = density; // for startDecreasing determination
+    while (true) {                     
+      innerIte++;
+      global_iter++;
+      swap(last_grad_f, grad_f); // save for computing the congujate gradient direction
+      swap(last_walk_direction, walk_direction);
+      // [2.1.1] - Compute BinGrad and Adjust Force
+      if(param.bUseEDensity){
+        updateDensityForceBin();
+      }
+      ComputeBinGrad();
+      Parallel(eval_grad_f_thread, m_pDB->m_modules.size());
+
+      if (!AdjustForce(n, x, grad_f)) {
+        printf("AdjustForce, NaN or Inf\n");
+      }
+
+      if (innerIte % checkStep == 0) {
+        if (m_useEvalF) {
+          old_obj = last_obj_value; // backup the old value
+          if (m_bMoveZ) 
+            LayerAssignment();
+          Parallel(UpdateBlockPositionThread, m_pDB->m_modules.size());
+          // m_pDB->CalcHPWL();
+          eval_f(n, x, _expX, true, obj_value);
+          last_obj_value = obj_value;
+        } else // Observe the wirelength change
+        {
+          if (m_bMoveZ)
+            LayerAssignment();
+          Parallel(UpdateBlockPositionThread, m_pDB->m_modules.size());
+          m_pDB->CalcHPWL();
+          if (m_pDB->GetHPWL() < lastHPWL) {
+            lastHPWL = 0;
+            break;
+          }
+          lastHPWL = m_pDB->GetHPWL();
+        }
+      }
+
+      // [2.1.3] - Compute beta and Gradient Direction
+      if (newDir == true) {
+        // gradient direction
+        newDir = false;
+        for (int i = 0; i < n; i++) {
+          grad_f[i] = -grad_f[i];
+          walk_direction[i] = grad_f[i];
+        }
+      } else {
+        // gradient direction
+        if (FindBeta(n, grad_f, last_grad_f, m_beta) == false) {
+          printf("FindBeta OVERFLOW!\n");
+        }
+        Parallel(UpdateGradThread, n);
+      }
+      LineSearch(n, x, walk_direction, m_stepSize); // Calculate a_k (step size)
+      
+      xMax.resize(m_pDB->m_nets.size(), 0);
+      yMax.resize(m_pDB->m_nets.size(), 0);
+      zMax.resize(m_pDB->m_nets.size(), 0);
+      Parallel(UpdateXThread, m_pDB->m_modules.size()); // Update X. (x_{k+1} = x_{k} + \alpha_k * d_k)
+      Parallel(BoundXThread, m_pDB->m_modules.size());
+      if (m_bMoveZ)
+        Parallel(BoundZThread, m_pDB->m_modules.size());
+      if(param.bPlot && global_iter%5==0){
+        char fileName[128];
+        sprintf(fileName, "gp-%04d", global_iter);
+        //plotPL(string(move(fileName)), global_iter);
+        draw_field(global_iter, "plot-filler/");
+      } 
+      
+
+      // [2.1.4] - Update WL & Density Force
+      // New block positions must be ready
+      // 1. UpdateExpValueForEachCellThread    (wire force)
+      // 2. UpdateExpValueForEachPinThread     (wire force)
+      // 3. ComputeNewPotentialGridThread      (spreading force)
+      Parallel(UpdateNLPDataThread, m_pDB->m_modules.size(), m_pDB->m_pins.size(), m_pDB->m_modules.size());
+      // New EXP values must be ready
+      double time_used = seconds();
+      Parallel(UpdateNetsSumExpThread, (int)m_pDB->m_nets.size());
+      time_wire_force += seconds() - time_used;
+      if(param.bUseEDensity){
+        if(m_bMoveZ)
+          updateBinsGCellDensityVolumn();
+        else
+          updateBinsGCellDensityArea();
+      }
+      time_used = seconds();
+      UpdatePotentialGrid(z);
+      time_spreading_force += seconds() - time_used; 
+
+      if (innerIte == forceBreakLoopCount) {
+        printf("b");
+        bUpdateWeight = false;
+        break;
+      }
+    } // inner loop ///////////////////////////////////////////////////////////////////////
+
+    // [2.2] - check result for this iter //////////
+    if (param.bShow) {
+      printf("%d\n", innerIte);
+      fflush(stdout);
+    } else
+      printf("\n");
+    totalIte += innerIte;
+
+    if(param.bUseEDensity){
+      updateDensityForceBin();
+    }
+    UpdateDensityGrid(n, x, z);
+    maxDen = GetMaxDensity();
+    totalOverDen = GetTotalOverDensity();
+    totalOverDenLB = GetTotalOverDensityLB();
+    totalOverPotential = GetTotalOverPotential();
+
+    if (m_bMoveZ)
+      LayerAssignment();
+    Parallel(UpdateBlockPositionThread, m_pDB->m_modules.size()); // update to placeDB
+
+    if (obj_value > DBL_MAX * 0.5) {
+      printf("Objective value OVERFLOW!\n");
+    }
+
+    fflush(stdout);
+
+    bool spreadEnough = totalOverPotential < 1.3;
+    bool increaseOverPotential = totalOverPotential > lastTotalOverPotential;
+    bool increaseMaxDen = maxDen > lastMaxDen;
+    bool enoughIteration = ite > 3;
+    bool notEfficientOptimize = 0.5 * density * _weightDensity / obj_value * 100.0 > 95;
+    // PrintPotentialGrid();
+    if (enoughIteration && notEfficientOptimize) {
+      printf("Failed to further optimize (enoughIteration && notEfficientOptimize)\n");
+      break;
+    }
+    if (enoughIteration && increaseOverPotential && increaseMaxDen && spreadEnough) {
+      printf("Cannot further reduce over potential! (skip LAL)\n");
+      break;
+    }
+    if (startDecreasing && over < target_density) {
+      printf("Meet constraint! (startDecreasing && over < target_density)\n");
+      break;
+    }
+    if(ite >= 2){
+      printf("Meet constraint! (ite >= 2)\n");
+      break;
+    }
+    
+    // [2.3] - Update Weights
+    if (bUpdateWeight)
+      UpdateObjWeights();
+
+    lastTotalOverPotential = totalOverPotential;
+    lastMaxDen = maxDen;
+    lastTotalOverPotentialNet = totalOverPotentialNet;
+    lastMaxDenNet = maxDenNet;
+
+  } // outer loop /////////////////////////////////////////////////////////////////////////////////////////////////////
+  cout << "FillerSpreading Finished !\n";
 }
 
 void MyNLP::updateDensityForceBin(){
@@ -5956,6 +6274,8 @@ void MyNLP::updateDensityForceBin(){
       for(int j=0;j<bins_[k][i].size();++j){
         Bin* bin = bins_[k][i][j];
         fft_[k]->updateDensity(bin->x_, bin->y_, bin->density_);
+        // if(i%10==0 && j%10==0)
+        //   cout << "bins_["<<k<<"]["<<i<<"]["<<j<<"]: ("<<bin->x_<<","<<bin->y_<<"), density="<<bin->density_<<"\n";
       }
     }
     // do FFT
@@ -6046,6 +6366,7 @@ void MyNLP::GetPotentialGrad_eDensity(const vector<double> &x, const vector<doub
           gradY -= overlapVolumn * bin->electroForceY_;
           // gradZ += overlapVolumn * bin->electroForceZ_;
         } else{
+          if(gz != pNLP->m_pDB->m_modules[i].m_z) continue;
           double overlapArea = pNLP->getOverlapDensityArea(bin, left, right, bottom, top) * pNLP->cellDensityScales_[i];
           gradX -= overlapArea * bin->electroForceX_;
           gradY -= overlapArea * bin->electroForceY_;
@@ -6122,11 +6443,12 @@ MyNLP::getDensityMinMaxIdxY(int bottom, int top){
   return std::make_pair(lowerIdx, upperIdx);
 }
 pair<int, int> 
-MyNLP::getDensityMinMaxIdxZ(int back, int front){
-  int lowerIdx = back/binNumZ_;
+MyNLP::getDensityMinMaxIdxZ(double back, double front){
+  //return std::make_pair(0, 2);
+  int lowerIdx = back/binSizeZ_;
   int upperIdx = 
-   ( fastModulo(front, binNumZ_) == 0)? 
-   front / binNumZ_ : front / binNumZ_ + 1;
+   ( fastModulo(front, binSizeZ_) == 0)? 
+   front / binSizeZ_ : front / binSizeZ_ + 1;
   return std::make_pair(lowerIdx, upperIdx);
 }
 double 
@@ -6308,11 +6630,13 @@ MyNLP::updateBinsGCellDensityArea(){
       for(int gx = pairX.first; gx < pairX.second; gx++) {
         for(int gy = pairY.first; gy < pairY.second; gy++) {
           if(gz>=binNumZ_ || gx>=binNumX_ || gy>=binNumY_) continue;
+          if(gz != m_pDB->m_modules[i].m_z) continue;
           if( !m_pDB->m_modules[i].m_isVia && !m_pDB->m_modules[i].m_isFiller ) {
             // normal cells
             Bin* bin = bins_[gz][gx][gy];
             double overlapArea = getOverlapDensityArea(bin, left, right, bottom, top) * cellDensityScales_[i];
             bin->instPlacedArea_ += overlapArea; 
+            //cout << "bin["<<gz<<"]["<<gx<<"]["<<gy<<"]: cell["<<i<<"] pos("<<cellZ<<","<<cellX<<","<<cellY<<"), bbox("<<back<<","<<left<<","<<bottom<<")->("<<front<<","<<right<<","<<top<<") --> overlap volumn="<<overlapArea<<"\n";
           } else if( m_pDB->m_modules[i].m_isFiller ) {
             Bin* bin = bins_[gz][gx][gy];
             double overlapArea = getOverlapDensityArea(bin, left, right, bottom, top)  * cellDensityScales_[i];
@@ -6448,4 +6772,78 @@ void MyNLP::plotPL(string fileName, int iter){
   outfile << "EOF" << endl << endl;
   outfile.close();
   system(("gnuplot " + outFile + " &> tmp.txt; rm " + outFile).c_str());
+}
+
+void MyNLP::draw_field(int iter, string subDir){
+  string dir = param.plotDir2 + subDir + "iter-" + to_string(iter)+"/";
+  string mkdir_cmd = "mkdir -p " + dir;
+  system(mkdir_cmd.c_str());
+
+  // die.csv
+  ofstream out_die( (dir+"die.csv").c_str() , ios::out );
+  out_die << m_pDB->m_coreRgn.left << ", " << m_pDB->m_coreRgn.right << "\n";
+  out_die << m_pDB->m_coreRgn.bottom << ", " << m_pDB->m_coreRgn.top;
+  out_die.close();
+  // cell-*.csv
+  ofstream out_cellUp( (dir+"cell-up.csv").c_str() , ios::out );
+  ofstream out_cellDown( (dir+"cell-down.csv").c_str() , ios::out );
+  ofstream out_hb( (dir+"hb.csv").c_str() , ios::out );
+  ofstream out_fillerUp( (dir+"filler-up.csv").c_str() , ios::out );
+  ofstream out_fillerDown( (dir+"filler-down.csv").c_str() , ios::out );
+  for(int i=0;i<m_pDB->m_modules.size();++i){
+    if(m_pDB->m_modules[i].m_isVia) {
+      out_hb << x[2*i] << ", " << x[2*i+1] << ", " << m_pDB->m_modules[i].m_width << ", " << m_pDB->m_modules[i].m_height << "\n";
+    } else if(m_pDB->m_modules[i].m_isFiller) {
+      if(z[i] < 1) {
+        out_fillerUp << x[2*i] << ", " << x[2*i+1] << ", " << m_pDB->m_modules[i].m_widths[0] << ", " << m_pDB->m_modules[i].m_heights[0] << "\n";
+      } else {
+        out_fillerDown << x[2*i] << ", " << x[2*i+1] << ", " << m_pDB->m_modules[i].m_widths[1] << ", " << m_pDB->m_modules[i].m_heights[1] << "\n";
+      }
+    } else {
+      if(z[i] < 1) {
+        out_cellUp << x[2*i] << ", " << x[2*i+1] << ", " << m_pDB->m_modules[i].m_widths[0] << ", " << m_pDB->m_modules[i].m_heights[0] << "\n";
+      } else {
+        out_cellDown << x[2*i] << ", " << x[2*i+1] << ", " << m_pDB->m_modules[i].m_widths[1] << ", " << m_pDB->m_modules[i].m_heights[1] << "\n";
+      }
+    }
+  }
+  out_cellUp.close();
+  out_cellDown.close();
+  out_hb.close();
+  out_fillerUp.close();
+  out_fillerDown.close();
+  // field-up-*.cvs
+  ofstream out_fieldUpX( (dir+"field-up-x.csv").c_str() , ios::out );
+  ofstream out_fieldUpY( (dir+"field-up-y.csv").c_str() , ios::out );
+  for(int y=0;y<binNumY_;++y){
+    for(int x=0;x<binNumX_;++x){
+      out_fieldUpX << bins_[0][x][y]->electroForceX_;
+      out_fieldUpY << bins_[0][x][y]->electroForceY_;
+      if(x != binNumX_-1){
+        out_fieldUpX << ", ";
+        out_fieldUpY << ", ";
+      }
+    }
+      out_fieldUpX << "\n";
+      out_fieldUpY << "\n";
+  }
+  out_fieldUpX.close();
+  out_fieldUpY.close();
+  // field-down-*.cvs
+  ofstream out_fieldDownX( (dir+"field-down-x.csv").c_str() , ios::out );
+  ofstream out_fieldDownY( (dir+"field-down-y.csv").c_str() , ios::out );
+  for(int y=0;y<binNumY_;++y){
+    for(int x=0;x<binNumX_;++x){
+      out_fieldDownX << bins_[1][x][y]->electroForceX_;
+      out_fieldDownY << bins_[1][x][y]->electroForceY_;
+      if(x != binNumX_-1){
+        out_fieldDownX << ", ";
+        out_fieldDownY << ", ";
+      }
+    }
+      out_fieldDownX << "\n";
+      out_fieldDownY << "\n";
+  }
+  out_fieldDownX.close();
+  out_fieldDownY.close();
 }

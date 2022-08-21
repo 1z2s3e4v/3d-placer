@@ -603,14 +603,14 @@ public:
 public: // eDensity Functions
   void InitEDensity();
   void InitFillerPlace();
-  void FillerSpreading();
+  void FillerSpreading(double, double);
 
   static void   GetPotentialGrad_eDensity( const vector<double>& x, const vector<double>& z, const int& i, double& gradX, double& gradY, double& gradZ, MyNLP* pNLP );
   void updateDensityForceBin();
 
   pair<int, int> getDensityMinMaxIdxX(int left, int right);
   pair<int, int> getDensityMinMaxIdxY(int bottom, int top);
-  pair<int, int> getDensityMinMaxIdxZ(int back, int front);
+  pair<int, int> getDensityMinMaxIdxZ(double back, double front);
   double getOverlapDensityArea(Bin* bin, int left, int right, int bottom, int top);
   double getOverlapDensityVolumn(Bin* bin, int left, int right, int bottom, int top, int back, int front);
   void updateBinsGCellDensityVolumn();
@@ -639,6 +639,8 @@ public: // eDensity Functions
   vector<double> vMovableArea_;
   double lastWL_, curWL_;
   double densityGradSum_;
+
+  void draw_field(int iter, string dir);
 };
 
 class Bin {

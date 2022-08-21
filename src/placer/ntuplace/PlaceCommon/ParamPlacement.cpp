@@ -159,8 +159,9 @@ CParamPlacement::CParamPlacement()
     noZ = false;
     bPlot = false;
     denRefWL = 446000000;
-    initDensityPenalty = 0.00008;
+    initDensityPenalty = 0.0000016;
     nGNNFeature = 0;
+    bPre2dPlace = false;
 }
 
 void CParamPlacement::Print()
