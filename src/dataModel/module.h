@@ -100,7 +100,7 @@ class Die_C{
     double _maxUtil; // die max utility
     int _rowHeight; 
     vector<Row_C*> _vRows; // die rows
-    vector<Cell_C*> _vCells;
+    unordered_set<Cell_C*> _sCells;
 public:
     Die_C();
     Die_C(int, int, int, int, int); // sizeX, sizeY, maxUtil, techId, rowHeight
@@ -114,7 +114,7 @@ public:
     int get_row_num();
     int get_width();
     int get_height();
-    vector<Cell_C*>& get_cells();
+    unordered_set<Cell_C*>& get_cells();
 };
 
 class Pin_C{
@@ -173,6 +173,9 @@ class Cell_C{
     int _dieId;
     Die_C* _die;
     Row_C* _row;
+    int _degree;
+
+    vector<double> _vGnnFeatures; // size=9: [z, x, y, cellDegree, avgNetDegree, pullForce_x, pullForce_y, pushForce_x, pushForce_y]
 public:
     Cell_C();
 	Cell_C(string name, CellLib_C* master_cell);
@@ -180,6 +183,8 @@ public:
     void set_pos(Pos);
     void set_xy(Pos);
     void set_die(Die_C*);
+    void set_die_quick(Die_C*); // use this when set die for all cell
+    void set_degree(int);
     string get_name();
     int get_id();
     int get_width();
@@ -187,6 +192,7 @@ public:
     int get_width(int); // get width with techId
     int get_height(int); // get height with techId
     int get_pin_num();
+    int get_degree();
     Pin_C* get_pin(int); // get pin with pinId
     Pin_C* get_pin(string); // get pin with pinName
     vector<Pin_C*>& get_pins();
@@ -199,6 +205,9 @@ public:
     int get_dieId();
 
     bool check_drc(); // check if the position is satisfied for the constraints. (no overlap with rows and in die)
+
+    vector<double>& get_GnnFeatures();
+    void setGnnFeatures(vector<double>);
 };
 
 class Chip_C{
@@ -232,13 +241,19 @@ public:
 class Design_C{
     vector<Net_C*> _vNets;
     vector<Cell_C*> _vCells;
-    map<string, Net_C*> _mNets;
-    map<string, Cell_C*> _mCells;
+    unordered_map<string, Net_C*> _mNets;
+    unordered_map<string, Cell_C*> _mCells;
+
+    int _maxNetDegree;
+    int _minNetDegree;
+    int _maxCellDegree;
+    int _minCellDegree;
 
 public:
     Design_C();
     void add_net(Net_C* net);
     void add_cell(Cell_C* cell);
+    void set_cell_degree();
     int get_cell_num();
     int get_net_num();
     Cell_C* get_cell(string); // get cell with cellName
@@ -247,8 +262,8 @@ public:
     Net_C* get_net(int); // get net with netId
     vector<Cell_C*>& get_cells();
     vector<Net_C*>& get_nets();
-    map<string,Cell_C*>& get_cells_map();
-    map<string,Net_C*>& get_nets_map();
+    unordered_map<string,Cell_C*>& get_cells_map();
+    unordered_map<string,Net_C*>& get_nets_map();
 };
 
 

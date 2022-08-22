@@ -56,6 +56,8 @@ DmMgr_C::DmMgr_C(Parser_C& parser, ParamHdl_C& paramHdl, clock_t tStart){
         if(it==mNetDegree.end()) mNetDegree[net.numPins] = 1;
         else mNetDegree[net.numPins]++; 
     }
+    _pDesign->set_cell_degree();
+
     for(auto it : mNetDegree){
         _vSortedNetDegree.emplace_back(pair<int,int>(it.first,it.second));   
     }
@@ -63,10 +65,7 @@ DmMgr_C::DmMgr_C(Parser_C& parser, ParamHdl_C& paramHdl, clock_t tStart){
     // cells degree
     vector<Cell_C*> v_cell = _pDesign->get_cells();
     for(Cell_C* cell : v_cell){
-        int cellDegree = 0;
-        for(int i=0;i<cell->get_pin_num();++i){
-            if(cell->get_pin(i)->get_net() != nullptr) cellDegree++;
-        }
+        int cellDegree = cell->get_degree();
         auto it = mCellDegree.find(cellDegree);
         if(it==mCellDegree.end()) mCellDegree[cellDegree] = 1;
         else mCellDegree[cellDegree]++; 
@@ -211,15 +210,15 @@ void DmMgr_C::dump_info(){
 void DmMgr_C::output_result(string fileName){
     ofstream fout(_paramHdl.get_output_fileName());
     Die_C* topDie = _pChip->get_die(0);
-    vector<Cell_C*>& v_topCells = topDie->get_cells();
-    fout << "TopDiePlacement " << v_topCells.size() << "\n";
-    for(Cell_C* cell : v_topCells){
+    unordered_set<Cell_C*>& s_topCells = topDie->get_cells();
+    fout << "TopDiePlacement " << s_topCells.size() << "\n";
+    for(Cell_C* cell : s_topCells){
         fout << "Inst " << cell->get_name() << " " << cell->get_posX() << " " << cell->get_posY() << "\n";
     }
     Die_C* botDie = _pChip->get_die(1);
-    vector<Cell_C*>& v_botCells = botDie->get_cells();
-    fout << "BottomDiePlacement " << v_botCells.size() << "\n";
-    for(Cell_C* cell : v_botCells){
+    unordered_set<Cell_C*>& s_botCells = botDie->get_cells();
+    fout << "BottomDiePlacement " << s_botCells.size() << "\n";
+    for(Cell_C* cell : s_botCells){
         fout << "Inst " << cell->get_name() << " " << cell->get_posX() << " " << cell->get_posY() << "\n";
     }
     vector<Net_C*>& v_d2dNets = _pChip->get_d2d_nets();
@@ -240,8 +239,8 @@ void DmMgr_C::output_aux_form(int dieId){  // output in dir "./aux/<case-name>/"
     system(cmd.c_str());
     AUX aux(aux_dir, caseName);
     // nodes
-    vector<Cell_C*>& v_cells = _pChip->get_die(dieId)->get_cells();
-    for(Cell_C* cell : v_cells){
+    unordered_set<Cell_C*>& s_cells = _pChip->get_die(dieId)->get_cells();
+    for(Cell_C* cell : s_cells){
         aux.add_node(cell->get_name(), cell->get_width(), cell->get_height(), cell->get_posX(), cell->get_posY(),0);
         for(int i=0;i<cell->get_pin_num();++i){
             Pin_C* pin = cell->get_pin(i);

@@ -221,10 +221,12 @@ $(document).ready(function(){
   });
   $("[type=BoundingBox]").each(function(i, layout) {
     $(this).mouseenter(function(){
-      $(this).css("stroke-width",(parseFloat($(this).css("stroke-width"))+2)*1.5);
-      showNet($(this).attr("net"));
       var netName = $(this).attr("net");
+      showNet($(this).attr("net"));
       $("[net="+netName+"]").each(function(j, layout) {
+        if($(this).attr("type") == "BoundingBox"){
+          $(this).css("stroke-width",(parseFloat($(this).css("stroke-width"))+2)*1.5);
+        }
         if($(this).attr("type") == "pin"){
           var cellName = $(this).attr("cell");
           $("[name="+cellName+"]").each(function(k, layout) {
@@ -240,6 +242,9 @@ $(document).ready(function(){
         disappearNet($(this).attr("net"))
       var netName = $(this).attr("net");
       $("[net="+netName+"]").each(function(j, layout) {
+        if($(this).attr("type") == "BoundingBox"){
+          $(this).css("stroke-width",parseFloat($(this).css("stroke-width"))/1.5-2);
+        }
         if($(this).attr("type") == "pin"){
           var cellName = $(this).attr("cell");
           $("[name="+cellName+"]").each(function(k, layout) {
