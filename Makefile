@@ -1,7 +1,7 @@
 CC=g++
 CG=gcc
 #LIB=src/lib/liblpsolve55.a
-LDFLAGS= -g -std=c++11 -lm -fomit-frame-pointer -funroll-loops -ffast-math -funit-at-a-time -fPIC -DNDEBUG -pthread
+LDFLAGS= -O3 -std=c++11 -lm -fomit-frame-pointer -funroll-loops -ffast-math -funit-at-a-time -fPIC -DNDEBUG -pthread
 CLDFLAGS=-fomit-frame-pointer -funroll-loops -ffast-math -funit-at-a-time -fPIC -DYY_NEVER_INTERACTIVE -DPARSER_LP -DINVERSE_ACTIVE=INVERSE_LUSOL -DRoleIsExternalInvEngine
 SOURCES=src/main/main.cpp src/parser/parser.cpp src/dataModel/dm.cpp src/dataModel/module.cpp src/dataModel/bin.cpp src/utility/paramHdl.cpp src/utility/message.cpp src/utility/drawHtml.cpp src/utility/aux.cpp src/utility/hgr.cpp src/placer/placer.cpp \
 		src/placer/ntuplace/PlaceCommon/util.cpp src/placer/ntuplace/PlaceCommon/placebin.cpp src/placer/ntuplace/PlaceCommon/placeutil.cpp src/placer/ntuplace/PlaceCommon/ParamPlacement.cpp src/placer/ntuplace/PlaceDB/placedb.cpp \
