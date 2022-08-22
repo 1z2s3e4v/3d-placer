@@ -1826,6 +1826,13 @@ bool Placer_C::shrunk2d_replace(){
     //     mincut_partition(); // set_die() for each cell
     // else 
     //     mincut_k_partition(); // set_die() for each cell
+
+    // if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+    //     draw_layout_result("-init-tier-partition");
+    //     draw_layout_result_plt(false, "-init-tier-partition");
+    // }
+    // cout << BLUE << "[Placer]" << RESET << " - Partition: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
+    cout << BLUE << "[Placer]" << RESET << " - Partition result: " << "Die[0].cell_num = " << _pChip->get_die(0)->get_cells().size() << ", Die[1].cell_num = " << _pChip->get_die(1)->get_cells().size() << ".\n";
     bin_based_partition_new();
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Partition: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
@@ -2448,27 +2455,75 @@ void Placer_C::mincut_k_partition(){
 }
 void Placer_C::bin_based_partition_new() {
 
-    // double cutline = 0.5;
-    // double width_avg0 = 0;
-    // double width_avg1 = 0;
-    // for(Cell_C* cell : _vCell){ // Todo v_cell ?= _vCell
-    //     width_avg0 += (double)cell->get_width(0)/ _vCell.size();
-    //     width_avg1 += (double)cell->get_width(1)/ _vCell.size();
-    // }
-    // cutline = ((width_avg1*_pChip->get_die(1)->get_row_height()) / (width_avg1*_pChip->get_die(1)->get_row_height() + width_avg0*_pChip->get_die(0)->get_row_height())) * (_pChip->get_die(0)->get_max_util() / _pChip->get_die(1)->get_max_util());
+    double cutline = 0.5;
+    double width_avg0 = 0;
+    double width_avg1 = 0;
+    for(Cell_C* cell : _vCell){ // Todo v_cell ?= _vCell
+        width_avg0 += (double)cell->get_width(_pChip->get_die(0)->get_techId())/ _vCell.size();
+        width_avg1 += (double)cell->get_width(_pChip->get_die(1)->get_techId())/ _vCell.size();
+    }
+    cutline = ((width_avg1*_pChip->get_die(1)->get_row_height()) / (width_avg1*_pChip->get_die(1)->get_row_height() + width_avg0*_pChip->get_die(0)->get_row_height())) * (_pChip->get_die(0)->get_max_util() / _pChip->get_die(1)->get_max_util());
+    cout << "cutline = " << cutline << "\n";
 
+    // int bins_num = _vCell.size() * 1.1;
     
-    Partitioner* partitioner = new Partitioner();
-    partitioner->parseInput(_vCell, _vNet, _pChip);
-    partitioner->partition();
-    partitioner->printSummary();
-    vector<vector<int> >& cellPart = partitioner->get_part_result();
+    int bins_per_row = 1;
+    int bins_per_col = 1;
+    if (_paramHdl.get_case_name() == "case3") {
+        bins_per_row = 5;
+        bins_per_col = 5;
+    } else if (_paramHdl.get_case_name() == "case4") {
+        bins_per_row = 11;
+        bins_per_col = 11;
+    } 
+    cout << _paramHdl.get_case_name() << ": " << bins_per_row <<"\n";
+    int bin_width = _pChip->get_die(0)->get_width() / bins_per_row;
+    int bin_height = _pChip->get_die(0)->get_height() / bins_per_col;
+    vector <vector <vector <Cell_C*>>> bins(bins_per_row, vector< vector <Cell_C*>> (bins_per_col, vector <Cell_C*> ())); 
+    // vector<int> cell_num_in_bin;
+    for (Cell_C* cell : _vCell) {
+        int row_ind = floor(cell->get_posX() / bin_width);
+        int col_ind = floor(cell->get_posY() / bin_height);
+        bins[row_ind][col_ind].emplace_back(cell);
+    }
 
-    for (int i=0; i<2; ++i){
-        for(int cellId : cellPart[i]){ 
-            _vCell[cellId]->set_die(_pChip->get_die(i));
+   
+    double used_area[2] = {0.0, 0.0};
+    double maxArea[2];
+    for (int i=0; i<bins_per_row; ++i) {
+        for (int j=0; j<bins_per_col; ++j) {
+            Partitioner* partitioner = new Partitioner();
+            maxArea[0] = (double) _pChip->get_die(0)->get_width() * (double) _pChip->get_die(0)->get_height() * _pChip->get_die(0)->get_max_util() - used_area[0];
+            maxArea[1] = (double) _pChip->get_die(1)->get_width() * (double) _pChip->get_die(1)->get_height() * _pChip->get_die(1)->get_max_util() - used_area[1];
+            cout << "place " << maxArea[0] << "," << maxArea[1] << "\n";
+            // cout << "place " << used_area[0] << "," << used_area[1] << "\n";
+            partitioner->parseInput(_vCell, _pChip, bins[i][j], maxArea, cutline);
+            partitioner->partition();
+            partitioner->printSummary();
+            vector<vector<int> >& cellPart = partitioner->get_part_result();
+
+            bool inv = (cellPart[0].size() >= cellPart[1].size()) ? false : true;
+            for (int k=0; k<2; ++k){
+                for(int cellId : cellPart[k]){ 
+                    Cell_C* cell = _vCell[cellId];
+                    cell->set_die(_pChip->get_die(k));
+                    used_area[k] += cell->get_width() * cell->get_height();
+                }
+            }
         }
     }
+    
+    // Partitioner* partitioner = new Partitioner();
+    // partitioner->parseInput(_vCell, _pChip);
+    // partitioner->partition();
+    // partitioner->printSummary();
+    // vector<vector<int> >& cellPart = partitioner->get_part_result();
+
+    // for (int i=0; i<2; ++i){
+    //     for(int cellId : cellPart[i]){ 
+    //         _vCell[cellId]->set_die(_pChip->get_die(i));
+    //     }
+    // }
     
 }
 void Placer_C::bin_based_partition_real() {
