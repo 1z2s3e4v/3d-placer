@@ -573,7 +573,7 @@ bool Placer_C::true3d_placement(){
             cell->set_die(_pChip->get_die(0));
             cell->set_xy(Pos(_pChip->get_width()/2, _pChip->get_height()/2));
         }
-        if(_vCell.size() > 70000){
+        if(_vCell.size() > 700000){
             shrunked_2d_replace();
         }
     }
@@ -640,7 +640,6 @@ bool Placer_C::true3d_placement(){
             draw_layout_result_plt(false, "-2.2-tpgnn");
         }
     } 
-
 
     // check via usage
     if(cal_ball_num() > _pChip->get_max_ball_num()){
