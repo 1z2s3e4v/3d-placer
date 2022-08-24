@@ -10,14 +10,19 @@
 #include "partitioner.h"
 using namespace std;
 
-void Partitioner::parseInput(vector<Cell_C*>& v_Cell, vector<Net_C*>& _vNet, Chip_C* p_Chip) 
+void Partitioner::parseInput(vector<Cell_C*>& v_Cell, Chip_C* p_Chip, vector <Cell_C*>& bin_cell, double(& maxArea)[2], double cutline) 
 {
 
     _vCell = v_Cell;
     _pChip = p_Chip;
-    _maxArea[0] = _pChip->get_die(0)->get_width() * _pChip->get_die(0)->get_height() * _pChip->get_die(0)->get_max_util();
-    _maxArea[1] = _pChip->get_die(1)->get_width() * _pChip->get_die(1)->get_height() * _pChip->get_die(1)->get_max_util();
-    for (Cell_C* cell_ex : _vCell) {
+    _cutline = cutline;
+    _maxArea[0] = maxArea[0];
+    _maxArea[1] = maxArea[1];
+    // _maxArea[0] = (double) _pChip->get_die(0)->get_width() * (double) _pChip->get_die(0)->get_height() * _pChip->get_die(0)->get_max_util() - used_area[0];
+    // _maxArea[1] = (double) _pChip->get_die(1)->get_width() * (double) _pChip->get_die(1)->get_height() * _pChip->get_die(1)->get_max_util() - used_area[1];
+    // cout << _maxArea[0] << "," << _maxArea[1] << "\n";
+    // for (Cell_C* cell_ex : _vCell) {
+    for (Cell_C* cell_ex : bin_cell) {
         int cellId = _cellNum;
         int cellName = cell_ex->get_id();
         Cell* cell = new Cell(cellName, 0, cellId);
@@ -71,10 +76,23 @@ void Partitioner::parseInput(vector<Cell_C*>& v_Cell, vector<Net_C*>& _vNet, Chi
 }
 
 void Partitioner::initial_partition() {
+    
+    // for (int i=0; i<_cellNum; i++) {
+    //     Cell* cell = _cellArray[i];
+    //     int part = _vCell[cell->getName()]->get_dieId();
+    //     cell->setPart(part);
+    //     _partSize[part] += 1;
+    //     _partArea[part] += _vCell[cell->getName()]->get_width(_pChip->get_die(part)->get_techId()) * _vCell[cell->getName()]->get_height(_pChip->get_die(part)->get_techId());
+
+    //     for (int j=0; j<cell->getNetList().size(); j++) {
+    //         _netArray[cell->getNetList()[j]]->incPartCount(part); 
+    //     }
+
+    // }
     for (int i=0; i<_cellNum; i++) {
         Cell* cell = _cellArray[i];
 
-        if (i < _cellNum / 2) {
+        if (i < _cellNum * (1 - _cutline)) {
             cell->setPart(0);
             _partSize[0] += 1;
             _partArea[0] += _vCell[cell->getName()]->get_width(_pChip->get_die(0)->get_techId()) * _vCell[cell->getName()]->get_height(_pChip->get_die(0)->get_techId());
@@ -87,8 +105,6 @@ void Partitioner::initial_partition() {
             cell->setPart(1);
             _partSize[1] += 1;
             _partArea[1] += _vCell[cell->getName()]->get_width(_pChip->get_die(1)->get_techId()) * _vCell[cell->getName()]->get_height(_pChip->get_die(1)->get_techId());
-            // Todo: case3 get_width(1) == 0 get_height(1) == 0
-            // cout << _vCell[cell->getName()]->get_width(1) << "," << _vCell[cell->getName()]->get_height(1)<<"\n";
             for (int j=0; j<cell->getNetList().size(); j++) {
                 _netArray[cell->getNetList()[j]]->incPartCount(1); 
             }
@@ -170,15 +186,27 @@ void Partitioner::initiate_gain() {
 
 Cell* Partitioner::find_cell_to_move() {
 
-    // float lower_bound = (1 - _bFactor) / 2 * _cellNum;
-    // float upper_bound = (1 + _bFactor) / 2 * _cellNum;
+    _bFactor = 0.5;
+    float lower_bound = (1 - _bFactor) / 2 * _cellNum;
+    float upper_bound = (1 + _bFactor) / 2 * _cellNum;
 
-    // if (Partitioner::getPartSize(0) - 1 < lower_bound || Partitioner::getPartSize(1) + 1 > upper_bound) {
+    if (getPartSize(0) - 1 < lower_bound || getPartSize(1) + 1 > upper_bound) {
+        _canBeFromSide[0] = false;
+    } else {
+        _canBeFromSide[0] = true;
+    }
+    if (getPartSize(1) - 1 < lower_bound || getPartSize(0) + 1 > upper_bound) {
+        _canBeFromSide[1] = false;
+    } else {
+        _canBeFromSide[1] = true;
+    }
+
+    // if (getPartSize(0) - 1 < lower_bound || getPartSize(1) + 1 > upper_bound) {
     //     _canBeFromSide[0] = false;
     // } else {
     //     _canBeFromSide[0] = true;
     // }
-    // if (Partitioner::getPartSize(1) - 1 < lower_bound || Partitioner::getPartSize(0) + 1 > upper_bound) {
+    // if (getPartSize(1) - 1 < lower_bound || getPartSize(0) + 1 > upper_bound) {
     //     _canBeFromSide[1] = false;
     // } else {
     //     _canBeFromSide[1] = true;
@@ -194,16 +222,23 @@ Cell* Partitioner::find_cell_to_move() {
     // } else {
     //     _canBeFromSide[1] = true;
     // }
-    if (getPartArea(0) > _maxArea[0]) {
-        _canBeFromSide[1] = false;
-    } else {
-        _canBeFromSide[1] = true;
-    }
-    if (getPartArea(1) > _maxArea[1]) {
-        _canBeFromSide[0] = false;
-    } else {
-        _canBeFromSide[0] = true;
-    }
+
+    // cout << "getPartArea(0)=" << getPartArea(0) << ", _maxArea[0]=" << _maxArea[0] << "\n";
+    // if (getPartArea(0) >= _maxArea[0] || (float) getPartSize(0) / _cellNum > 0.75) {
+    //     // cout << "  --> getPartArea(0) >= _maxArea[0]\n"; 
+    //     _canBeFromSide[1] = false;
+    // } else {
+    //     // cout << "  --> getPartArea(0) < _maxArea[0]\n"; 
+    //     _canBeFromSide[1] = true;
+    // }
+    // // cout << "getPartArea(1)=" << getPartArea(1) << ", _maxArea[1]=" << _maxArea[1] << "\n";
+    // if (getPartArea(1) >= _maxArea[1] || (float) getPartSize(1) / _cellNum > 0.25) {
+    //     // cout << "  --> getPartArea(1) >= _maxArea[1]\n"; 
+    //     _canBeFromSide[0] = false;
+    // } else {
+    //     // cout << "  --> getPartArea(1) < _maxArea[1]\n"; 
+    //     _canBeFromSide[0] = true;
+    // }
 
     Node* node_to_move = _maxGainCell;
     Cell* cell_to_move = _cellArray[node_to_move->getId()];
@@ -215,18 +250,26 @@ Cell* Partitioner::find_cell_to_move() {
     if ( ! _canBeFromSide[from_side]) {
         
         int legal_from_side = 1 - from_side;
-        
+        // cout << "  _canBeFromSide[" << from_side << "] == false\n";
+        // cout << "  _maxGain = " << _maxGain << "\n";
+        bool exist = false;
         for (int i=_maxGain; i>-1*_maxPinNum; i--) {
             if (_bList[legal_from_side][i] != NULL) {
                 node_to_move = _bList[legal_from_side][i];
                 cell_to_move = _cellArray[node_to_move->getId()];
                 from_side = legal_from_side;
                 to_side = 1 - from_side;
+                exist = true;
+                // cout << "  here\n";
                 break;
             }
+            if (! exist) {
+                _earlyBreak = true;
+            }
         }
+        
     }
-         
+    // cout << "  ==> from_side=" << from_side << "\n";
      
     // cout << "cell_to_move: " << cell_to_move->getNode() << " " << cell_to_move->getNode()->getId() << endl;
     
@@ -399,7 +442,7 @@ void Partitioner::update_gain() {
     }
      
     
-    int prefer_from_side = 1; // (_partSize[0] > _partSize[1]) ? 0 : 1;
+    int prefer_from_side = (_maxArea[0] - _partArea[0] > _maxArea[1] - _partArea[1]) ? 1 : 0;// (_partSize[0] > _partSize[1]) ? 0 : 1;
     for (int g=_maxPinNum; g>-1*_maxPinNum; g--) {
         if (_bList[prefer_from_side][g] != NULL) {
             _maxGainCell = _bList[prefer_from_side][g];
@@ -446,31 +489,141 @@ void Partitioner::trace_back() {
     }
 }
 
+bool Partitioner::verification_hard() {
+    double used_area[2] = {0.0, 0.0};
+    for (Cell* cell : _cellArray) {
+        int side = cell->getPart();
+        used_area[side] += _vCell[cell->getName()]->get_width(_pChip->get_die(side)->get_techId()) * _vCell[cell->getName()]->get_height(_pChip->get_die(side)->get_techId());
+    }
+    if (used_area[0] > _maxArea[0] || used_area[1] > _maxArea[1]) {
+        return false;
+    }
+    // if (getPartArea(0) > _maxArea[0] || getPartArea(1) > _maxArea[1]) {
+    //     return false;
+    // }
+    return true;
+}
+
+bool Partitioner::verification_soft() { // Todo
+    if (((double)(getPartArea(0) / getPartArea(1)) < 0.33) || ((double)(getPartArea(1) / getPartArea(0)) < 0.33)) {
+        return false;
+    }
+    // if (((getPartSize(0) / getPartSize(1)) < 1 / 3) || ((getPartSize(1) / getPartSize(0)) < 1 / 3)) {
+    //     return false;
+    // }
+    return true;
+}
+
+vector<vector<int> >& Partitioner::get_part_result() {
+    
+    if (_legalResult_hard) {
+        bool inv = false;
+        int larger_side = getPartSize(0) > getPartSize(1) ? 0 : 1;
+        if (larger_side == 1) {
+            double temp_area[2] = {0.0, 0.0};
+            for (Cell* cell : _cellArray) {
+                int temp_side = 1 - cell->getPart();
+                temp_area[temp_side] += _vCell[cell->getName()]->get_width(_pChip->get_die(temp_side)->get_techId()) * _vCell[cell->getName()]->get_height(_pChip->get_die(temp_side)->get_techId());
+            }
+            if (temp_area[0] > getPartArea(0) && temp_area[0] <= _maxArea[0] && temp_area[1] <= _maxArea[1]) {
+                inv = true;
+            }
+        }
+        if (inv) {
+            cout << "inv\n";
+            for (Cell* cell : _cellArray) {
+                _cellPart[1 - cell->getPart()].emplace_back(cell->getName());
+            }
+        } else {
+            for (Cell* cell : _cellArray) {
+                _cellPart[cell->getPart()].emplace_back(cell->getName());
+            }
+        }
+        
+    } else {
+        int side = (_maxArea[0] < _maxArea[1]) ? 1 : 0;
+        double rest_area[2] = {_maxArea[0], _maxArea[1]};
+        for (Cell* cell : _cellArray) {
+            rest_area[side] -= _vCell[cell->getName()]->get_width(_pChip->get_die(side)->get_techId()) * _vCell[cell->getName()]->get_height(_pChip->get_die(side)->get_techId());
+            if (rest_area[side] >= 0) {
+                _cellPart[side].emplace_back(cell->getName());
+            } else {
+                _cellPart[1 - side].emplace_back(cell->getName());
+                rest_area[side] += _vCell[cell->getName()]->get_width(_pChip->get_die(side)->get_techId()) * _vCell[cell->getName()]->get_height(_pChip->get_die(side)->get_techId());
+                side = 1 - side;
+            }
+            
+        }
+        cout << "xxxxxxxxxx\n";
+    }
+
+    return _cellPart;
+}
+
 void Partitioner::partition() {
 
 
     Partitioner::initial_partition();
     Partitioner::calc_cutsize();
-    cout << " Cutsize: " << _cutSize << endl;
-
+    // cout << " Cutsize: " << _cutSize << endl;
+    
     vector<int> gain;
     int count = 0;
+    _legalResult_hard = false;
+    _legalResult_soft = false;
     for (int iter=0; iter<2; iter++) {
-        
-        initiate_gain();
 
-        Node* pre;
+        if (_maxArea[0] < 0 || _maxArea[1] < 0) {
+            break;
+        }
+
+        initiate_gain();
+        // _earlyBreak = false;
+        int _maxAccGain_soft, _maxAccGainStep_soft;
+
+        // Node* pre;
         for (int step=0; step<_cellNum; step++) {
+
+            
+            // if (_earlyBreak) {
+            //     break;
+            // }
+            
 
             // cout << "step" << step <<endl;
             update_gain();
 
-            if (_accGain >= _maxAccGain) {
-                _maxAccGain = _accGain;
-                _maxAccGainStep = step;
+            
+            bool hard_constraint = verification_hard();
+            bool soft_constraint = verification_soft();
+            // if (_accGain >= _maxAccGain && hard_constraint) {
+            //     _maxAccGain = _accGain;
+            //     _maxAccGainStep = step;
+            //     _legalResult_hard = true;
+            //     cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << "size : "<< getPartSize(0) <<"; " << getPartArea(0) << "," << _maxArea[0] << "\n";
+            // }
+            if ((_accGain >= _maxAccGain || _accGain >= _maxAccGain_soft) && hard_constraint) {
+                if (soft_constraint) {
+                    _maxAccGain_soft = _accGain;
+                    _maxAccGainStep_soft = step;
+                    _legalResult_soft = true;
+                    // cout << "soft " << "("<< getPartSize(0) <<", " << getPartArea(0) << ", " << _maxArea[0] <<") (" << getPartSize(1) <<", " << getPartArea(1) << ", " << _maxArea[1]  << ")\n";
+                } 
+                if (_accGain >= _maxAccGain) {
+                    _maxAccGain = _accGain;
+                    _maxAccGainStep = step;
+                    // cout << "hard " << "("<< getPartSize(0) <<", " << getPartArea(0) << ", " << _maxArea[0] <<") (" << getPartSize(1) <<", " << getPartArea(1) << ", " << _maxArea[1]  << ")\n";
+                }
+                
+                _legalResult_hard = true; 
+            }
+            if (_legalResult_soft) {
+                _maxAccGain = _maxAccGain_soft;
+                _maxAccGainStep = _maxAccGainStep_soft;
             }
 
-            pre = _maxGainCell;
+            // pre = _maxGainCell;
+
         }
         // cout << "maxAccGain: "<< _maxAccGain << endl;
         // cout << "maxAccGainStep: "<< _maxAccGainStep << endl;
@@ -479,46 +632,13 @@ void Partitioner::partition() {
         
         trace_back();
 
-        // int threhold;
-        // if (_cellNum / 2 + _netNum / 2 > 300000) {
-        //     threhold = 120;
-        // } else if (_cellNum / 2 + _netNum / 2 > 100000) {
-        //     threhold = 70;
-        // } else if (_cellNum / 2 + _netNum / 2 > 50000) {
-        //     threhold = 30;
-        // } else {
-        //     threhold = 0;
-        // }
         
-        
-        // if (_maxAccGain <= 0) {
-        //     // cout << "iter = " << iter << endl;
-        //     // cout <<  "maxAccGain = " << _maxAccGain << " <= 0 end" <<endl;
-        //     break;
-        // } else if (_maxAccGain <= threhold) {
-        //     count += 1;
-        // }
-
-        // if (count > 1) {
-        //     // cout << "iter = " << iter << endl;
-        //     // cout << "maxAccGain = " << _maxAccGain << ", is small enough" << endl;
-        //     break;
-        // }
-    }
-
-    for (int i=0; i<gain.size(); i++) {
-        cout << gain[i] << " , ";
     }
  
     calc_cutsize();
 }
 
-vector<vector<int> >& Partitioner::get_part_result() {
-    for (Cell* cell : _cellArray) {
-        _cellPart[cell->getPart()].emplace_back(cell->getName());
-    }
-    return _cellPart;
-}
+
 
 void Partitioner::printSummary() const
 {

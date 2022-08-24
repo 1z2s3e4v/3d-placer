@@ -37,7 +37,8 @@ public:
     
 
     // modify method
-    void parseInput(vector<Cell_C*>& v_Cell, vector<Net_C*>& _vNet, Chip_C* p_Chip);
+    // void parseInput(vector<Cell_C*>& v_Cell, Chip_C* p_Chip);
+    void parseInput(vector<Cell_C*>& v_Cell, Chip_C* p_Chip, vector <Cell_C*>& bin_cell, double (& maxArea)[2], double cutline);
     // void parseInput(fstream& inFile);
     void initial_partition();
     void initiate_gain();
@@ -49,6 +50,8 @@ public:
     void trace_back();
     void partition();
     vector<vector<int> >& get_part_result();// {return _cellPart;}
+    bool verification_hard();
+    bool verification_soft();
 
     // member functions about reporting
     void printSummary() const;
@@ -86,6 +89,10 @@ private:
     vector<Cell_C*>     _vCell;
     Chip_C*             _pChip;
     double              _maxArea[2];
+    bool                _earlyBreak;
+    bool                _legalResult_hard;
+    bool                _legalResult_soft;
+    double              _cutline;
 
     // Clean up partitioner
     void clear();
