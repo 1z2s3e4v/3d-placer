@@ -26,6 +26,10 @@ using namespace std;
 
 class GRouteMap;
 
+
+#include "eDensity/fft.h"
+class Bin;
+
 class MyNLP 
 {
 public:
@@ -344,7 +348,7 @@ private:
   void   OutputDensityGrid( string filename, const int& layer);		// for gnuplot
   void   PrintPotentialGrid();          
   static void   GetPotentialGrad( const vector<double>& x, const vector<double>& z, const int& i, double& gradX, double& gradY, double& gradZ, MyNLP* pNLP );
-  
+
   // 2007-07-10 (donnie)
   static void GetPotentialGradFast( const vector<double>& x, const vector<double>& z, const int& i, double& gradX, double& gradY, double& gradZ, MyNLP* pNLP );
   void        GetPointPotentialGrad( double x, double y, double z, double& gradX, double& gradY, double& gradZ);
@@ -592,7 +596,89 @@ public:
 
   // 2009-11-13
   bool m_bMoveZ; 
+
+  void plotPL(string fileName, int iter);
+  void plotBoxPLT( ofstream& stream, double x1, double y1, double x2, double y2 );
+
+public: // eDensity Functions
+  void InitEDensity();
+  void InitFillerPlace();
+  void FillerSpreading(double, double);
+
+  static void   GetPotentialGrad_eDensity( const vector<double>& x, const vector<double>& z, const int& i, double& gradX, double& gradY, double& gradZ, MyNLP* pNLP );
+  void updateDensityForceBin();
+
+  pair<int, int> getDensityMinMaxIdxX(int left, int right);
+  pair<int, int> getDensityMinMaxIdxY(int bottom, int top);
+  pair<int, int> getDensityMinMaxIdxZ(double back, double front);
+  double getOverlapDensityArea(Bin* bin, int left, int right, int bottom, int top);
+  double getOverlapDensityVolumn(Bin* bin, int left, int right, int bottom, int top, int back, int front);
+  void updateBinsGCellDensityVolumn();
+  void updateBinsGCellDensityArea();
+
+  int nModule_;
+  int nFiller_;
+  // BinGrid
+  vector<vector<vector<Bin*> > > bins_;
+  int binNumX_, binNumY_, binNumZ_;
+  int binSizeX_, binSizeY_, binSizeZ_;
+  vector<double> cellDensitySizes_;
+  vector<double> cellDensityScales_;
+  vector<unique_ptr<FFT> > fft_;
+  vector<float> sumPhi_;
+  double overflowVolumn_;
+  double overflowArea_;
+
+  vector<double> vUsedArea_;
+  vector<int> vCellN_;
+  double coreArea_;
+  int fillerW_;
+  int fillerH_;
+  vector<double> vTargetDensity_;
+  vector<double> vTotalFillerArea_;
+  vector<double> vMovableArea_;
+  double lastWL_, curWL_;
+  double densityGradSum_;
+
+  void draw_field(int iter, string dir);
 };
 
+class Bin {
+public:
+  Bin();
+  Bin(int x, int y, int lx, int ly, int ux, int uy, 
+      float targetDensity);
+  Bin(int x, int y, int z, int lx, int ly, int lz, int ux, int uy, int uz,
+     float targetDensity);
+  ~Bin();
+
+  // index
+  int x_;
+  int y_;
+  int z_;
+
+  // coordinate
+  int lx_;
+  int ly_;
+  int ux_;
+  int uy_;
+  int lz_;
+  int uz_;
+
+  double nonPlaceArea_;
+  double instPlacedArea_;
+  double fillerArea_;
+
+  double nonPlaceVolumn_;
+  double instPlacedVolumn_;
+  double fillerVolumn_;
+
+  float density_;
+  float targetDensity_;  // will enable bin-wise density screening
+  float electroPhi_;
+  float electroForceX_;
+  float electroForceY_;
+  float electroForceZ_;
+};
 
 #endif

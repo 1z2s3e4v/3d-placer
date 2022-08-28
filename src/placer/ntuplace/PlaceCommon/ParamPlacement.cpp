@@ -151,6 +151,17 @@ CParamPlacement::CParamPlacement()
     bLayerPreAssign = false;
     dWeightTSV = 0.0;
     stepZ = 0.2;
+    bF2FhpwlEnhance = false;
+    bStabilityEnhance = false;
+    bUseNAG = false;
+    bFast = true;
+    bUseEDensity = false;
+    noZ = false;
+    bPlot = false;
+    denRefWL = 446000000;
+    initDensityPenalty = 0.0000016;
+    nGNNFeature = 0;
+    bPre2dPlace = false;
 }
 
 void CParamPlacement::Print()

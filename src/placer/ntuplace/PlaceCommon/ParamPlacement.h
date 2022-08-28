@@ -175,6 +175,18 @@ public:
     bool bLayerPreAssign;
     double dWeightTSV;
     double stepZ;
+    double bF2FhpwlEnhance;
+    double bStabilityEnhance;
+    bool bUseNAG;
+    bool bFast;
+    bool bUseEDensity;
+    string plotDir;
+    string plotDir2;
+    bool noZ;
+    int denRefWL;
+    double initDensityPenalty;
+    int nGNNFeature;
+    bool bPre2dPlace;
 };
 
 extern CParamPlacement param;	// global variable

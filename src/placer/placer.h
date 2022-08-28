@@ -17,10 +17,12 @@
 #include "../dataModel/bin.h"
 #include "../utility/paramHdl.h"
 #include "../utility/drawHtml.h"
+#include "../partitioner/partitioner.h"
 
 #include "ntuplace/PlaceDB/placedb.h"
 #include "ntuplace/NLPlace/mlnlp.h"
 #include "ntuplace/PlaceCommon/ParamPlacement.h"
+
 
 using namespace std;
 
@@ -32,8 +34,8 @@ class Placer_C{
     vector<Pos> _vCellBestPos;
     vector<Cell_C*>& _vCell;
     vector<Net_C*>& _vNet;
-    map<string,Cell_C*>& _mCell;
-    map<string,Net_C*>& _mNet;
+    unordered_map<string,Cell_C*>& _mCell;
+    unordered_map<string,Net_C*>& _mNet;
     clock_t _tStart;
     string _RUNDIR = "./run_tmp/"; // become './run_tmp/<casename>' in run();
     string _DRAWDIR = "./draw/"; // become './draw/<casename>' in run();
@@ -54,7 +56,7 @@ public:
     bool shrunked_2d_replace();
     
     
-    bool shrunk2d_refinement(); //Refinement : Main
+    bool via_refinement(); //Refinement : Main
     bool check_new_ball_legal(int new_x, int new_y, int cur_net_id); //Refinement : Check new ball place legal   
     bool check_new_ball_legal_sorted(int new_x, int new_y, int cur_net_id, vector<int> nets_need_compare);
     bool replace_via_spirally();
@@ -80,6 +82,8 @@ public:
     void mincut_k_partition();
     void bin_based_partition_real();
     void bin_based_partition(int bin_num);
+    void bin_based_partition_new();
+    void gnn_partition();
     void init_place_ball();
     void run_ntuplace3(string caseName);
     void run_ntuplace3(string caseName, string otherPara);
@@ -97,7 +101,8 @@ public:
     void create_placedb(CPlaceDB&, int dieId);
     void load_from_placedb(CPlaceDB&);
     /* GlobalPlace + Legal + DetailPlace*/
-    bool true3d_placement();
+    bool true3d_placement(); // d2d-legal-detail
+    bool true3d_placement2(); // global*2 -> legal*2 -> die0
     bool half3d_placement();
     bool ntuplace3d(); // ntuplace3d (remember to replace dir 'ntuplace' to 'ntuplace3d_bak')
     void global_place(bool& isLegal, double& totalHPWL);
@@ -122,6 +127,9 @@ public:
     void draw_layout_result(string tag);
     void draw_layout_result_plt(bool show_hpwl);
     void draw_layout_result_plt(bool show_hpwl, string tag);
+
+    // test
+    bool placement_testGNN();
 };
 
 #endif

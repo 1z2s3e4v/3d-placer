@@ -38,7 +38,7 @@ bool multilevel_nlp( CPlaceDB& placedb,
 {
     double mlnlp_start = seconds();
 
-    int targetBlock = 450000;
+    int targetBlock = 20000000;
     double ratio = 5;
     int maxLevel = INT_MAX;
     
@@ -166,55 +166,55 @@ bool multilevel_nlp( CPlaceDB& placedb,
 	// }*/
     // 	//if( param.bQP )
     // 	if(param.bQP || fixId.size() != 0)
-	if(param.bQP)
-	{
-		cout << "*************************************** frank: closed because QP not yet...\n";
-	    /*printf( "Solve QP (MEM= %.0f MB)\n", GetPeakMemoryUsage() );
-	    fflush( stdout );
+	// if(param.bQP)
+	// {
+	// 	cout << "*************************************** frank: closed because QP not yet...\n";
+	//     /*printf( "Solve QP (MEM= %.0f MB)\n", GetPeakMemoryUsage() );
+	//     fflush( stdout );
 	
-	    // 2006-08-30 Prevent cells too close to the boundary
-	    double coreCenterX = (currentDB->m_coreRgn.left + currentDB->m_coreRgn.right ) * 0.5;
-	    double coreCenterY = (currentDB->m_coreRgn.top + currentDB->m_coreRgn.bottom ) * 0.5;
-	    CRect oldCore = currentDB->m_coreRgn;
-	    //double coreW = (coreCenterX - currentDB->m_coreRgn.left) * 0.9;	// shirnk 10%
-	    //double coreH = (coreCenterY - currentDB->m_coreRgn.bottom) * 0.9; // shirnk 10%
-	    double coreW = (coreCenterX - currentDB->m_coreRgn.left) ;
-	    double coreH = (coreCenterY - currentDB->m_coreRgn.bottom) ;
-	    assert( coreW >= 0 );
-	    assert( coreH >= 0 );
-	    currentDB->m_coreRgn.left = coreCenterX - coreW;    
-	    currentDB->m_coreRgn.right = coreCenterX + coreW;    
-	    currentDB->m_coreRgn.bottom = coreCenterY - coreH;    
-	    currentDB->m_coreRgn.top = coreCenterY + coreH;    
+	//     // 2006-08-30 Prevent cells too close to the boundary
+	//     double coreCenterX = (currentDB->m_coreRgn.left + currentDB->m_coreRgn.right ) * 0.5;
+	//     double coreCenterY = (currentDB->m_coreRgn.top + currentDB->m_coreRgn.bottom ) * 0.5;
+	//     CRect oldCore = currentDB->m_coreRgn;
+	//     //double coreW = (coreCenterX - currentDB->m_coreRgn.left) * 0.9;	// shirnk 10%
+	//     //double coreH = (coreCenterY - currentDB->m_coreRgn.bottom) * 0.9; // shirnk 10%
+	//     double coreW = (coreCenterX - currentDB->m_coreRgn.left) ;
+	//     double coreH = (coreCenterY - currentDB->m_coreRgn.bottom) ;
+	//     assert( coreW >= 0 );
+	//     assert( coreH >= 0 );
+	//     currentDB->m_coreRgn.left = coreCenterX - coreW;    
+	//     currentDB->m_coreRgn.right = coreCenterX + coreW;    
+	//     currentDB->m_coreRgn.bottom = coreCenterY - coreH;    
+	//     currentDB->m_coreRgn.top = coreCenterY + coreH;    
 
-	    CPlaceDBQPPlacer* pqplace = new CPlaceDBQPPlacer( *currentDB );
-	    pqplace->QPplace();
-	    delete pqplace;
-	    pqplace = NULL;
+	//     CPlaceDBQPPlacer* pqplace = new CPlaceDBQPPlacer( *currentDB );
+	//     pqplace->QPplace();
+	//     delete pqplace;
+	//     pqplace = NULL;
 	
-	    currentDB->m_coreRgn = oldCore;*/
-    }
-	else
-	{
-	    // random place
-	    //CRandomPlace::Place( *currentDB, 0.1 );
-	    //CRandomPlace::Place( *currentDB, 0.01 );
-	    //CRandomPlace::Place( *currentDB, 0.005 );
-	    /*MyNLP* mynlp = new MyNLP( *currentDB );
-	    mynlp->m_smoothDelta = levelSmoothDelta[0];
-	    mynlp->m_earlyStop = true;
-	    mynlp->m_lookAheadLegalization = false;
-	    mynlp->m_macroRotate = false;
-	    mynlp->m_weightedForce = false;
-	    mynlp->m_prototype = true;
-	    mynlp->MySolve( 1, levelTargetOver[0], 0 );
-	    delete mynlp;
-	    mynlp = NULL;*/
-		//CRandomPlace::Place( *currentDB, 0.01 );
-	}
+	//     currentDB->m_coreRgn = oldCore;*/
+    // }
+	// else
+	// {
+	//     // random place
+	//     //CRandomPlace::Place( *currentDB, 0.1 );
+	//     //CRandomPlace::Place( *currentDB, 0.01 );
+	//     //CRandomPlace::Place( *currentDB, 0.005 );
+	//     /*MyNLP* mynlp = new MyNLP( *currentDB );
+	//     mynlp->m_smoothDelta = levelSmoothDelta[0];
+	//     mynlp->m_earlyStop = true;
+	//     mynlp->m_lookAheadLegalization = false;
+	//     mynlp->m_macroRotate = false;
+	//     mynlp->m_weightedForce = false;
+	//     mynlp->m_prototype = true;
+	//     mynlp->MySolve( 1, levelTargetOver[0], 0 );
+	//     delete mynlp;
+	//     mynlp = NULL;*/
+	// 	//CRandomPlace::Place( *currentDB, 0.01 );
+	// }
 
-	// for(unsigned int i = 0; i < fixId.size(); i++)
-	//     currentDB->m_modules[fixId[i]].m_isFixed = false;
+	// // for(unsigned int i = 0; i < fixId.size(); i++)
+	// //     currentDB->m_modules[fixId[i]].m_isFixed = false;
     // }
 	//CPlaceDBScaling::XScale( placedb, 1.0/xScale );
     //CPlaceDBScaling::YScale( placedb, 1.0/yScale );
@@ -228,13 +228,16 @@ bool multilevel_nlp( CPlaceDB& placedb,
 
 		double layerThickness = (currentDB->m_front - currentDB->m_back) / (double)(currentDB->m_totalLayer);
 		if(currentDB->m_totalLayer > 1 && !param.bLayerPreAssign){
-			currentDB->LayerAssignmentByPartition(currentDB->m_totalLayer);
+			//currentDB->LayerAssignmentByPartition(currentDB->m_totalLayer);
+			for(unsigned int i = 0; i < currentDB->m_modules.size(); i++){
+				currentDB->m_modules[i].m_cz = 0.5 * layerThickness;
+				//currentDB->m_modules[i].m_z = (int)(0.5 * currentDB->m_totalLayer) * layerThickness;
+			}
 		}
                     
-	    for(unsigned int i = 0; i < currentDB->m_modules.size(); i++)
-	    {
-		currentDB->m_modules[i].m_cz = currentDB->m_modules[i].m_z + 0.5 * layerThickness;
-		//currentDB->m_modules[i].m_z = (int)(0.5 * currentDB->m_totalLayer) * layerThickness;
+	    for(unsigned int i = 0; i < currentDB->m_modules.size(); i++){
+			currentDB->m_modules[i].m_cz = currentDB->m_modules[i].m_z + 0.5 * layerThickness;
+			//currentDB->m_modules[i].m_z = (int)(0.5 * currentDB->m_totalLayer) * layerThickness;
 	    }
 	    currentDB->CalcTSV();
 	    //printf("#TSV: %d\n", (int)currentDB->GetTSVcount());
