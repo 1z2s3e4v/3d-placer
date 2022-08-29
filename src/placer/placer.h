@@ -54,6 +54,13 @@ public:
     bool shrunked_2d_ntuplace(); // 2d place
     bool shrunked_2d_ntuplace(string); // 2d place
     bool shrunked_2d_replace();
+    
+    
+    bool via_refinement(); //Refinement : Main
+    bool check_new_ball_legal(int new_x, int new_y, int cur_net_id); //Refinement : Check new ball place legal   
+    bool check_new_ball_legal_sorted(int new_x, int new_y, int cur_net_id, vector<int> nets_need_compare);
+    bool replace_via_spirally();
+
     void rand_place(int); // die_by_die
     void rand_ball_place();
     void init_ball_place();
@@ -70,6 +77,7 @@ public:
     bool pin3d_ntuplace();
     bool shrunk2d_ntuplace();
     bool shrunk2d_replace();
+    bool shrunk2d_replace_tryflow();
     void mincut_partition();
     void mincut_k_partition();
     void bin_based_partition_real();
