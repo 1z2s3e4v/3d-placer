@@ -105,7 +105,7 @@ public:
     bool true3d_placement2(); // global*2 -> legal*2 -> die0
     bool half3d_placement();
     bool ntuplace3d(); // ntuplace3d (remember to replace dir 'ntuplace' to 'ntuplace3d_bak')
-    void global_place(bool& isLegal, double& totalHPWL);
+    void global_place(bool& isLegal, double& totalHPWL, bool pre2dPlace);
     void legal_place();
     void detail_place();
     void ntu_d2d_global(bool& isLegal, double& totalHPWL);

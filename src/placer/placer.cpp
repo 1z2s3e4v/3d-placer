@@ -255,7 +255,7 @@ bool Placer_C::ntuplace3d(){
     rand_place(1);
     rand_ball_place();
     // ntuplace 3d analytical global place
-    global_place(isLegal, wl1); /////////////////////////////////////////////// main function
+    global_place(isLegal, wl1, true); /////////////////////////////////////////////// main function
     rand_ball_place();
     //ntu_d2d_global(isLegal, wl1);
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
@@ -344,7 +344,7 @@ bool Placer_C::true3d_placement2(){
     bool isLegal = false; 
     double wl1 = 0; // gp-wire
     // 3d analytical global placement
-    global_place(isLegal, wl1); /////////////////////////////////////////////// main function
+    global_place(isLegal, wl1, false); /////////////////////////////////////////////// main function
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Global: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     //cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << (int)wl1 << ".\n";
@@ -563,6 +563,7 @@ bool Placer_C::true3d_placement2(){
 
 bool Placer_C::true3d_placement(){
     cout << BLUE << "[Placer]" << RESET << " - Start True3d Placement Flow.\n";
+    bool pre2dPlace = false;
     double part_time_start=0, total_part_time=0;
     int total_hpwl = 0;
     ////////////////////////////////////////////////////////////////
@@ -577,9 +578,9 @@ bool Placer_C::true3d_placement(){
     else{
         for(Cell_C* cell : _vCell){
             cell->set_die(_pChip->get_die(0));
-            cell->set_xy(Pos(_pChip->get_width()/2, _pChip->get_height()/2));
+            cell->set_xy(Pos(_pChip->get_width()/2.0-cell->get_width()/2.0, _pChip->get_height()/2.0-cell->get_height()/2.0));
         }
-        if(_vCell.size() > 700000){
+        if(pre2dPlace){
             shrunked_2d_replace();
         }
     }
@@ -620,7 +621,7 @@ bool Placer_C::true3d_placement(){
     bool isLegal = false; 
     double wl1 = 0; // gp-wire
     // 3d analytical global placement
-    global_place(isLegal, wl1); /////////////////////////////////////////////// main function
+    global_place(isLegal, wl1, pre2dPlace); /////////////////////////////////////////////// main function
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - Global: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     //cout << BLUE << "[Placer]" << RESET << " - Global: total pin2pin HPWL = " << (int)wl1 << ".\n";
@@ -850,7 +851,7 @@ bool Placer_C::true3d_placement(){
     }
     return true;
 }
-void Placer_C::global_place(bool& isLegal, double& totalHPWL){ // Analytical Global Placement
+void Placer_C::global_place(bool& isLegal, double& totalHPWL, bool pre2dPlace){ // Analytical Global Placement
     // 3d
     param.b3d = true;
     param.nlayer = 2;
@@ -864,7 +865,7 @@ void Placer_C::global_place(bool& isLegal, double& totalHPWL){ // Analytical Glo
     param.bUseNAG = false;
     param.bFast = false;
     param.bUseEDensity = true;
-    param.bPre2dPlace = false;
+    param.bPre2dPlace = pre2dPlace;
     param.plotDir = _DRAWDIR + "gp/";
     param.plotDir2 = _DRAWDIR + "plot/";
     if(_paramHdl.check_flag_exist("draw_gp")){
@@ -3236,13 +3237,17 @@ void Placer_C::bin_based_partition_new() {
     
     int bins_per_row = 1;
     int bins_per_col = 1;
-    if (_paramHdl.get_case_name() == "case3") {
-        bins_per_row = 5;
-        bins_per_col = 5;
-    } else if (_paramHdl.get_case_name() == "case4") {
-        bins_per_row = 11;
-        bins_per_col = 11;
-    } 
+    // if (_paramHdl.get_case_name() == "case3") {
+    //     bins_per_row = 5;
+    //     bins_per_col = 5;
+    // } else if (_paramHdl.get_case_name() == "case4") {
+    //     bins_per_row = 11;
+    //     bins_per_col = 11;
+    // } 
+    if (_vCell.size() > 5000){
+        bins_per_row = sqrt(ceil(sqrt(_vCell.size()*1.1)));
+        bins_per_col = sqrt(ceil(sqrt(_vCell.size()*1.1)));
+    }
     cout << _paramHdl.get_case_name() << ": " << bins_per_row <<"\n";
     int bin_width = _pChip->get_die(0)->get_width() / bins_per_row;
     int bin_height = _pChip->get_die(0)->get_height() / bins_per_col;
@@ -3262,7 +3267,7 @@ void Placer_C::bin_based_partition_new() {
             Partitioner* partitioner = new Partitioner();
             maxArea[0] = (double) _pChip->get_die(0)->get_width() * (double) _pChip->get_die(0)->get_height() * _pChip->get_die(0)->get_max_util() - used_area[0];
             maxArea[1] = (double) _pChip->get_die(1)->get_width() * (double) _pChip->get_die(1)->get_height() * _pChip->get_die(1)->get_max_util() - used_area[1];
-            cout << "place " << maxArea[0] << "," << maxArea[1] << "\n";
+            cout << "valid area = (" << maxArea[0] << ", " << maxArea[1] << ")\n";
             // cout << "place " << used_area[0] << "," << used_area[1] << "\n";
             partitioner->parseInput(_vCell, _pChip, bins[i][j], maxArea, cutline);
             partitioner->partition();
