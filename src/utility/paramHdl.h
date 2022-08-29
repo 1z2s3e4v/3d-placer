@@ -42,7 +42,8 @@ private:
     map<string, string> m_otherFlag{{"time_limit", "time limit, default=3600(s)."}, 
                                     {"repeat", "repeat the code with n times and store the best result. defalt=1."},
                                     {"flow", "placer flow (default is shrunk2d_replace)"},
-                                    {"seed", "random seed"}};
+                                    {"seed", "random seed"},
+                                    {"rParaInd", "test replace"}};
 };
 
 #endif

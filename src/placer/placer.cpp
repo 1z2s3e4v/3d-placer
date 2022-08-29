@@ -47,8 +47,21 @@ void Placer_C::run_safe_mode(){
     cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - Finish!\n";
 }
-
+void Placer_C::get_para(){
+    int ind = stod(_paramHdl.get_para("rParaInd")); 
+    ifstream file("./test.txt");
+    string line, label;
+    int count = 0;
+    while(getline(file, line)){
+        if (count == ind) {
+            _rPara = line;
+        }
+        ++ count;
+    }
+    cout << "_rPara" << _rPara << "\n";
+}
 void Placer_C::run(){
+    get_para(); // test
     cout << BLUE << "[Placer]" << RESET << " - Start\n";
     init_run_dir();
     init_draw_dir();
@@ -3181,7 +3194,8 @@ void Placer_C::run_ntuplace3(string caseName, string otherPara){
 }
 void Placer_C::run_replace(string caseName){
     cout << BLUE << "[Placer]" << RESET << " - Running replace for \'" << caseName << "\'...\n";
-    string cmd = "cd " + _RUNDIR + "; ../../bin/RePlAce-static -pcofmax 1.2 -bmflag ibm -bmname " + caseName + " > " + caseName + "-replace.log" + "; cd ../..";
+    string cmd = "cd " + _RUNDIR + "; ../../bin/RePlAce-static -pcofmax 1.2 -onlyGP -bmflag ibm -bmname " + caseName + " " + _rPara + " > " + caseName + "-replace.log" + "; cd ../..";
+    // string cmd = "cd " + _RUNDIR + "; ../../bin/pRePlAce -preplace -bmflag ibm -aux IBM/" + caseName + "/" + caseName + ".aux" + " -output ./outputs/IBM" + " > " + caseName + "-replace.log" + "; cd ../..";
     system(cmd.c_str());
     cout << BLUE << "[Placer]" << RESET << " - Running replace for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
 }

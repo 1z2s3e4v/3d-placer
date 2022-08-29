@@ -40,6 +40,7 @@ class Placer_C{
     string _RUNDIR = "./run_tmp/"; // become './run_tmp/<casename>' in run();
     string _DRAWDIR = "./draw/"; // become './draw/<casename>' in run();
     vector<BNet_C*> _vBNet;
+    string _rPara;
     
 public:
     //Place_C();
@@ -75,6 +76,7 @@ public:
     void bin_based_partition_real();
     void bin_based_partition(int bin_num);
     void bin_based_partition_new();
+    void partition_refinement();
     void gnn_partition();
     void init_place_ball();
     void run_ntuplace3(string caseName);
@@ -122,6 +124,7 @@ public:
 
     // test
     bool placement_testGNN();
+    void get_para();
 };
 
 #endif
