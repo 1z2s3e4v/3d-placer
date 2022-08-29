@@ -90,6 +90,8 @@ public:
     void run_ntuplace3(string caseName);
     void run_ntuplace3(string caseName, string otherPara);
     void run_replace(string caseName);
+    void run_pReplace(string caseName);
+    void run_replace(string caseName, bool usePRePlAce);
     void run_ntuplace4(string caseName);
     void run_hmetis(int k, double ufactor, string caseName); // (k-way part)
     bool read_pl_and_set_pos(string fileName);
@@ -132,7 +134,7 @@ public:
 
     // test
     bool placement_testGNN();
-    void get_para();
+    void get_para(bool test);
 };
 
 #endif

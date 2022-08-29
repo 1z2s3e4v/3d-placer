@@ -47,21 +47,26 @@ void Placer_C::run_safe_mode(){
     cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - Finish!\n";
 }
-void Placer_C::get_para(){
-    int ind = stod(_paramHdl.get_para("rParaInd")); 
-    ifstream file("./test.txt");
-    string line, label;
-    int count = 0;
-    while(getline(file, line)){
-        if (count == ind) {
-            _rPara = line;
+void Placer_C::get_para(bool test){
+    if (test) {
+        int ind = stod(_paramHdl.get_para("rParaInd")); 
+        ifstream file("./test.txt");
+        string line, label;
+        int count = 0;
+        while(getline(file, line)){
+            if (count == ind) {
+                _rPara = line;
+            }
+            ++ count;
         }
-        ++ count;
+    } else {
+        _rPara = "";
     }
+    
     cout << "_rPara" << _rPara << "\n";
 }
 void Placer_C::run(){
-    get_para(); // test
+    get_para(false); // test
     cout << BLUE << "[Placer]" << RESET << " - Start\n";
     init_run_dir();
     init_draw_dir();
@@ -3257,10 +3262,10 @@ void Placer_C::bin_based_partition_new() {
     //     bins_per_row = 11;
     //     bins_per_col = 11;
     // } 
-    if (_vCell.size() > 5000){
-        bins_per_row = sqrt(ceil(sqrt(_vCell.size()*1.1)));
-        bins_per_col = sqrt(ceil(sqrt(_vCell.size()*1.1)));
-    }
+    // if (_vCell.size() > 5000){
+    //     bins_per_row = sqrt(ceil(sqrt(_vCell.size()*1.1)));
+    //     bins_per_col = sqrt(ceil(sqrt(_vCell.size()*1.1)));
+    // }
     cout << _paramHdl.get_case_name() << ": " << bins_per_row <<"\n";
     int bin_width = _pChip->get_die(0)->get_width() / bins_per_row;
     int bin_height = _pChip->get_die(0)->get_height() / bins_per_col;
@@ -3812,11 +3817,20 @@ void Placer_C::run_ntuplace3(string caseName, string otherPara){
     cout << BLUE << "[Placer]" << RESET << " - Running ntuplace3 for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
 }
 void Placer_C::run_replace(string caseName){
+    run_replace(caseName, false);
+}
+void Placer_C::run_pReplace(string caseName){
+    run_replace(caseName, true);
+}
+void Placer_C::run_replace(string caseName, bool usePRePlAce){
     cout << BLUE << "[Placer]" << RESET << " - Running replace for \'" << caseName << "\'...\n";
     string cmd = "cd " + _RUNDIR + "; ../../bin/RePlAce-static -pcofmax 1.2 -onlyGP -bmflag ibm -bmname " + caseName + " " + _rPara + " > " + caseName + "-replace.log" + "; cd ../..";
-    // string cmd = "cd " + _RUNDIR + "; ../../bin/pRePlAce -preplace -bmflag ibm -aux IBM/" + caseName + "/" + caseName + ".aux" + " -output ./outputs/IBM" + " > " + caseName + "-replace.log" + "; cd ../..";
+    if(usePRePlAce)
+        string cmd = "cd " + _RUNDIR + "; ../../bin/pRePlAce -preplace -pcofmax 1.2 -bmflag ibm -aux IBM/" + caseName + "/" + caseName + ".aux" + " -output ./outputs/" + " " + _rPara + " > " + caseName + "-replace.log" + "; cd ../..";
     system(cmd.c_str());
     cout << BLUE << "[Placer]" << RESET << " - Running replace for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
+    if(usePRePlAce)
+        system(("mv " + _RUNDIR + "outputs/ibm " + _RUNDIR + "outputs/IBM").c_str());
 }
 void Placer_C::run_ntuplace4(string caseName){
     cout << BLUE << "[Placer]" << RESET << " - Running ntuplace4 for \'" << caseName << "\'...\n";
