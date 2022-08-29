@@ -147,6 +147,7 @@ public:
     Net_C();
 	Net_C(string name);
     void update_bbox();
+    void update_bbox_noball();
     void update_pin_die(Pin_C*, int, int);
     void set_id(int);
     void set_ball_xy(Pos);

@@ -207,6 +207,29 @@ void Net_C::update_bbox(){
         _vur[dieId].y = max(_vur[dieId].y, pin->get_y());
     }
 }
+
+void Net_C::update_bbox_noball(){
+    _vll.clear();
+    _vur.clear();
+    _vll.resize(2,Pos(INT_MAX,INT_MAX));
+    _vur.resize(2,Pos(0,0));
+    for(int dieId=0;dieId<2;++dieId){
+        if(_vPinInEachDie[dieId].size()==0){
+            _vll[dieId] = Pos(0,0);
+            _vur[dieId] = Pos(0,0);
+        }
+    }
+    
+    // update boundary with pin
+    for(Pin_C* pin : _vPins){
+        int dieId = pin->get_cell()->get_dieId();
+        _vll[dieId].x = min(_vll[dieId].x, pin->get_x());
+        _vll[dieId].y = min(_vll[dieId].y, pin->get_y());
+        _vur[dieId].x = max(_vur[dieId].x, pin->get_x());
+        _vur[dieId].y = max(_vur[dieId].y, pin->get_y());
+    }
+}
+
 void Net_C::set_id(int id){
     _id = id;
 }
