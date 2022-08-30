@@ -63,7 +63,7 @@ void Placer_C::get_para(bool test){
         _rPara = "";
     }
     
-    cout << "_rPara" << _rPara << "\n";
+    cout << "_rPara = " << _rPara << "\n";
 }
 void Placer_C::run(){
     get_para(false); // test
@@ -3255,13 +3255,13 @@ void Placer_C::bin_based_partition_new() {
     
     int bins_per_row = 1;
     int bins_per_col = 1;
-    // if (_paramHdl.get_case_name() == "case3") {
-    //     bins_per_row = 5;
-    //     bins_per_col = 5;
-    // } else if (_paramHdl.get_case_name() == "case4") {
-    //     bins_per_row = 11;
-    //     bins_per_col = 11;
-    // } 
+    if (_paramHdl.get_case_name() == "case3") {
+        bins_per_row = 5;
+        bins_per_col = 5;
+    } else if (_paramHdl.get_case_name() == "case4") {
+        bins_per_row = 1;
+        bins_per_col = 1;
+    } 
     // if (_vCell.size() > 5000){
     //     bins_per_row = sqrt(ceil(sqrt(_vCell.size()*1.1)));
     //     bins_per_col = sqrt(ceil(sqrt(_vCell.size()*1.1)));

@@ -490,17 +490,17 @@ void Partitioner::trace_back() {
 }
 
 bool Partitioner::verification_hard() {
-    double used_area[2] = {0.0, 0.0};
-    for (Cell* cell : _cellArray) {
-        int side = cell->getPart();
-        used_area[side] += _vCell[cell->getName()]->get_width(_pChip->get_die(side)->get_techId()) * _vCell[cell->getName()]->get_height(_pChip->get_die(side)->get_techId());
-    }
-    if (used_area[0] > _maxArea[0] || used_area[1] > _maxArea[1]) {
-        return false;
-    }
-    // if (getPartArea(0) > _maxArea[0] || getPartArea(1) > _maxArea[1]) {
+    // double used_area[2] = {0.0, 0.0};
+    // for (Cell* cell : _cellArray) {
+    //     int side = cell->getPart();
+    //     used_area[side] += _vCell[cell->getName()]->get_width(_pChip->get_die(side)->get_techId()) * _vCell[cell->getName()]->get_height(_pChip->get_die(side)->get_techId());
+    // }
+    // if (used_area[0] > _maxArea[0] || used_area[1] > _maxArea[1]) {
     //     return false;
     // }
+    if (getPartArea(0) > _maxArea[0] || getPartArea(1) > _maxArea[1]) {
+        return false;
+    }
     return true;
 }
 
