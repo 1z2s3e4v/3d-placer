@@ -1023,33 +1023,35 @@ bool Placer_C::shrunk2d_replace(){
 
 bool Placer_C::via_refinement(){
 
-    cout << BLUE << "[Placer]" << RESET << " Refinement Start. \n ";
+    cout << BLUE << "[Placer]" << RESET << " Refinement Start. \n";
     
     //Step 0 : Initialization
     double time_START, time_END; time_START = clock();
     double time_on_first_stage = 0, time_on_second_stage = 0, time_tmp ;
+    double time_on_sorting = 0, time_tmp_sorting = 0;
     bool placer_succ;
     long long total_hpwl;
     long long ball_curX, ball_curY;     //The (x, y) of via before refinement
     int net_stage_1, net_stage_2_1, net_stage_2_2;
     net_stage_1 = net_stage_2_1 = net_stage_2_2 = 0;
+    total_hpwl = cal_HPWL();
+    cout << BLUE << "[Placer]" << RESET << "HPWL before refinement = " <<total_hpwl << "\n";
+
     //Step 0 : Sort the d2d nets with their gain (Max decrease in HPWL)
     
     // Step 0.1 : Create vector with pair<HPWL gain, ID>
     vector<pair<int, int>> nets;
 
     // Step 0.2 : Create 2 vectors sorted with x, y vias(Need to be renewd when Via's Pos is changed)
-    vector<pair<int, int>> sorted_ball_x;
-    vector<pair<int, int>> sorted_ball_y;
+    vector<pair<int, int>>  sorted_ball_x;
+
     int optimal_HPWL_gain = 0;
     for(Net_C* net : _pChip->get_d2d_nets()){
-        
-
         int original_HPWL = net -> get_total_HPWL();
         ball_curX = net->get_ball_pos().x;
         ball_curY = net->get_ball_pos().y;
         sorted_ball_x.push_back(pair<int, int> (ball_curX, net->get_id()));
-        sorted_ball_y.push_back(pair<int, int> (ball_curY, net->get_id()));
+
 
         net -> update_bbox_noball();
         int ball_bbox_x1, ball_bbox_x2; // The bounding box of changing cell
@@ -1086,7 +1088,6 @@ bool Placer_C::via_refinement(){
     }
     std::sort(nets.begin(), nets.end());
     std::sort(sorted_ball_x.begin(), sorted_ball_x.end());
-    std::sort(sorted_ball_y.begin(), sorted_ball_y.end());
     // Sorted 成功
 
 
@@ -1098,9 +1099,8 @@ bool Placer_C::via_refinement(){
 
     //Step 1 : Sweep through the rectangle, from ll to ur, right move first.
     //This "For" represent times of refinement
-    for (int i = 0; i < 1; i++ ){
+    for (int k = 0; k < 1; k++ ){
         for (auto it = nets.rbegin(); it != nets.rend(); ++it){
-            
             
             Net_C* net = _pDesign -> get_net((*it).second);    
             time_END = clock();
@@ -1146,96 +1146,66 @@ bool Placer_C::via_refinement(){
                 //Step 1.2 : Put the ball into new place
                 //Sweep through intersection box if its center is occupied 
 
-                if (check_new_ball_legal((int) ((ball_bbox_x1 + ball_bbox_x2) /2), (int) ((ball_bbox_y1 + ball_bbox_y2) /2), cur_net_id )){
-                    net -> set_ball_xy(Pos((int) ((ball_bbox_x1 + ball_bbox_x2) /2), (int) ((ball_bbox_y1 + ball_bbox_y2) /2)));
-                    net_really_changed[cur_net_id] = true;
-                    int new_ball_x = (int) ((ball_bbox_x1 + ball_bbox_x2) /2);
-                    int new_ball_y = (int) ((ball_bbox_y1 + ball_bbox_y2) /2);
-                    
-                    //更新sorted兩個vector
-                    for (int i = 0; i < sorted_ball_x.size(); i++){
-                        if(sorted_ball_x[i].second == cur_net_id){
-                            sorted_ball_x.erase(sorted_ball_x.begin() + i);
-                        } 
-                        if(sorted_ball_y[i].second == cur_net_id){
-                            sorted_ball_y.erase(sorted_ball_y.begin() + i);
-                        } 
-                    }
-                    sorted_ball_x.push_back(pair <int, int> (new_ball_x, cur_net_id));
-                    sorted_ball_y.push_back(pair <int, int> (new_ball_y, cur_net_id));
-                    std::sort(sorted_ball_x.begin(), sorted_ball_x.end());
-                    std::sort(sorted_ball_y.begin(), sorted_ball_y.end());
+                // 找到邊框內的Vias，
+                int x1_index, x2_index;
+                x1_index = x2_index = 0;
+                int rectangle_x1, rectangle_x2, rectangle_y1, rectangle_y2;
+                rectangle_x1 = ball_bbox_x1 -  _pChip -> get_ball_width() - _pChip -> get_ball_spacing();
+                rectangle_x2 = ball_bbox_x2 +  _pChip -> get_ball_width() + _pChip -> get_ball_spacing();
+                rectangle_y1 = ball_bbox_y1 -  _pChip -> get_ball_height() - _pChip -> get_ball_spacing();
+                rectangle_y2 = ball_bbox_y2 +  _pChip -> get_ball_height() + _pChip -> get_ball_spacing();
+                rectangle_x1 = max(rectangle_x1, _pChip ->get_ball_spacing() + _pChip ->get_ball_width()/2);
+                rectangle_x2 = min(rectangle_x2, _pChip ->get_width() - _pChip ->get_ball_spacing() - _pChip ->get_ball_width()/2);
+                rectangle_y1 = max(rectangle_y1, _pChip ->get_ball_spacing() + _pChip ->get_ball_height()/2);
+                rectangle_y2 = min(rectangle_y2, _pChip ->get_height() - _pChip ->get_ball_spacing() - _pChip ->get_ball_height()/2);
 
+                // bool index_flag = false;
+                for (int i = 0; i< sorted_ball_x.size(); i++){
+                    if(rectangle_x1 <= sorted_ball_x[i].first){
+                        x1_index = i;
+                        break;
+                    }
                 }
-                else{
-                    // 找到邊框內的Vias，
-                    int x1_index, x2_index;
-                    x1_index = x2_index = 0;
-                    int rectangle_x1, rectangle_x2, rectangle_y1, rectangle_y2;
-                    rectangle_x1 = ball_bbox_x1 -  _pChip -> get_ball_width() - _pChip -> get_ball_spacing();
-                    rectangle_x2 = ball_bbox_x2 +  _pChip -> get_ball_width() + _pChip -> get_ball_spacing();
-                    rectangle_y1 = ball_bbox_y1 -  _pChip -> get_ball_height() - _pChip -> get_ball_spacing();
-                    rectangle_y2 = ball_bbox_y2 +  _pChip -> get_ball_height() + _pChip -> get_ball_spacing();
-                    rectangle_x1 = max(rectangle_x1, _pChip ->get_ball_spacing() + _pChip ->get_ball_width()/2);
-                    rectangle_x2 = min(rectangle_x2, _pChip ->get_width() - _pChip ->get_ball_spacing() - _pChip ->get_ball_width()/2);
-                    rectangle_y1 = max(rectangle_y1, _pChip ->get_ball_spacing() + _pChip ->get_ball_height()/2);
-                    rectangle_y2 = min(rectangle_y2, _pChip ->get_height() - _pChip ->get_ball_spacing() - _pChip ->get_ball_height()/2);
-
-                    // bool index_flag = false;
-                    for (int i = 0; i< sorted_ball_x.size(); i++){
-                        if(rectangle_x1 <= sorted_ball_x[i].first){
-                            x1_index = i;
-                            break;
-                        }
+                for (int i = sorted_ball_x.size() - 1; i >= 0; i--){
+                    if(rectangle_x2 >= sorted_ball_x[i].first){
+                        x2_index = i; 
+                        break;
                     }
-                    for (int i = sorted_ball_x.size() - 1; i >= 0; i--){
-                        if(rectangle_x2 >= sorted_ball_x[i].first){
-                            x2_index = i; 
-                            break;
-                        }
+                }
+                vector<int> nets_need_compare;
+                
+                for (int i = x1_index; i <= x2_index; i++){
+                    int temp_ball_y = _pDesign -> get_net(sorted_ball_x[i].second) -> get_ball_pos().y ;
+                    if (temp_ball_y >= rectangle_y1 && temp_ball_y <= rectangle_y2){
+                        nets_need_compare.push_back(sorted_ball_x[i].second);
                     }
-                    vector<int> temp_via;
-                    vector<int> nets_need_compare;
-                    for(int i = 0; i < sorted_ball_y.size(); i++){
-                        if(sorted_ball_y[i].first >= rectangle_y1 && sorted_ball_y[i].first <= rectangle_y2){
-                            temp_via.push_back(sorted_ball_y[i].second);
-                        }
-                        
-                    }
-                    for (int i = x1_index; i <= x2_index; i++){
-                        vector<int>::iterator it = std::find(temp_via.begin(), temp_via.end(), sorted_ball_x[i].second); 
-                        if (it != temp_via.end()){
-                            nets_need_compare.push_back(sorted_ball_x[i].second);
-                        }
-                    }
-                    // Sweep through the rectangle, from ll to ur, right move first.
-                    for (int new_ball_y = ball_bbox_y1; new_ball_y <= ball_bbox_y2 ; new_ball_y += 1){
-                        bool flag_changeable = false;
-                        for (int new_ball_x = ball_bbox_x1; new_ball_x <= ball_bbox_x2 ; new_ball_x += 1){
-                            if(check_new_ball_legal_sorted(new_ball_x, new_ball_y, cur_net_id, nets_need_compare)) {
-                                net -> set_ball_xy(Pos(new_ball_x, new_ball_y));  
-                                net_really_changed[cur_net_id] = true;
-                                flag_changeable = true;
-                                //更新sorted兩個vector
-                                for (int i = 0; i < sorted_ball_x.size(); i++){
-                                    if(sorted_ball_x[i].second == cur_net_id){
-                                        sorted_ball_x.erase(sorted_ball_x.begin() + i);
-                                    } 
-                                    if(sorted_ball_y[i].second == cur_net_id){
-                                        sorted_ball_y.erase(sorted_ball_y.begin() + i);
-                                    } 
+                }
+                // Sweep through the rectangle, from ll to ur, right move first.
+                for (int new_ball_y = ball_bbox_y1; new_ball_y <= ball_bbox_y2 ; new_ball_y += 1){
+                    bool flag_changeable = false;
+                    for (int new_ball_x = ball_bbox_x1; new_ball_x <= ball_bbox_x2 ; new_ball_x += 1){
+                        if(check_new_ball_legal_sorted(new_ball_x, new_ball_y, cur_net_id, nets_need_compare)) {
+                            net -> set_ball_xy(Pos(new_ball_x, new_ball_y));  
+                            net_really_changed[cur_net_id] = true;
+                            flag_changeable = true;
+                            //更新sorted兩個vector
+                            for (int i = 0; i < sorted_ball_x.size(); i++){
+                                if(sorted_ball_x[i].second == cur_net_id){
+                                    sorted_ball_x.erase(sorted_ball_x.begin() + i);
+                                    break;
                                 }
-                                sorted_ball_x.push_back(pair <int, int> (new_ball_x, cur_net_id));
-                                sorted_ball_y.push_back(pair <int, int> (new_ball_y, cur_net_id));
-                                std::sort(sorted_ball_x.begin(), sorted_ball_x.end());
-                                std::sort(sorted_ball_y.begin(), sorted_ball_y.end());
-                                break;
                             }
+                            
+                            time_tmp_sorting = clock();
+                            sort_ball_xy_vector(new_ball_x, cur_net_id,  sorted_ball_x);
+                            time_on_sorting += clock() - time_tmp_sorting;
+                            break;
                         }
-                        if (flag_changeable) break;
                     }
-                    // Option 2 ends
+                    if (flag_changeable) break;
                 }
+                // Option 2 ends
+                
             }
             time_on_first_stage += clock() - time_tmp;
             //Stage 1 finished
@@ -1261,32 +1231,26 @@ bool Placer_C::via_refinement(){
                 int rectangle_y1 = out_boundary_y1 -  _pChip -> get_ball_height() - _pChip -> get_ball_spacing();
                 int rectangle_y2 = out_boundary_y2 +  _pChip -> get_ball_height() + _pChip -> get_ball_spacing();
                 
-                vector<int> temp_via;
-                vector<int> nets_need_compare;
                 int x1_index, x2_index;
                 x1_index = x2_index = 0;
+                 // bool index_flag = false;
                 for (int i = 0; i< sorted_ball_x.size(); i++){
                     if(rectangle_x1 <= sorted_ball_x[i].first){
                         x1_index = i;
                         break;
                     }
                 }
-
                 for (int i = sorted_ball_x.size() - 1; i >= 0; i--){
                     if(rectangle_x2 >= sorted_ball_x[i].first){
                         x2_index = i; 
                         break;
                     }
                 }
+                vector<int> nets_need_compare;
                 
-                for(int i = 0; i < sorted_ball_y.size(); i++){
-                    if(sorted_ball_y[i].first >= rectangle_y1 && sorted_ball_y[i].first <= rectangle_y2){
-                        temp_via.push_back(sorted_ball_y[i].second);
-                    }
-                }
                 for (int i = x1_index; i <= x2_index; i++){
-                    vector<int>::iterator it = std::find(temp_via.begin(), temp_via.end(), sorted_ball_x[i].second); 
-                    if (it != temp_via.end()){
+                    int temp_ball_y = _pDesign -> get_net(sorted_ball_x[i].second) -> get_ball_pos().y ;
+                    if (temp_ball_y >= rectangle_y1 && temp_ball_y <= rectangle_y2){
                         nets_need_compare.push_back(sorted_ball_x[i].second);
                     }
                 }
@@ -1333,15 +1297,13 @@ bool Placer_C::via_refinement(){
                                 for (int i = 0; i < sorted_ball_x.size(); i++){
                                     if(sorted_ball_x[i].second == cur_net_id){
                                         sorted_ball_x.erase(sorted_ball_x.begin() + i);
-                                    } 
-                                    if(sorted_ball_y[i].second == cur_net_id){
-                                        sorted_ball_y.erase(sorted_ball_y.begin() + i);
-                                    } 
+                                        break;
+                                    }
                                 }
-                                sorted_ball_x.push_back(pair <int, int> (new_ball_x, cur_net_id));
-                                sorted_ball_y.push_back(pair <int, int> (new_ball_y, cur_net_id));
-                                std::sort(sorted_ball_x.begin(), sorted_ball_x.end());
-                                std::sort(sorted_ball_y.begin(), sorted_ball_y.end());
+                                
+                                time_tmp_sorting = clock();
+                                sort_ball_xy_vector(new_ball_x, cur_net_id, sorted_ball_x);
+                                time_on_sorting += clock() - time_tmp_sorting;
                                 break;
                             }
                         }
@@ -1387,15 +1349,13 @@ bool Placer_C::via_refinement(){
                             for (int i = 0; i < sorted_ball_x.size(); i++){
                                 if(sorted_ball_x[i].second == cur_net_id){
                                     sorted_ball_x.erase(sorted_ball_x.begin() + i);
-                                } 
-                                if(sorted_ball_y[i].second == cur_net_id){
-                                    sorted_ball_y.erase(sorted_ball_y.begin() + i);
-                                } 
+                                    break;
+                                }
                             }
-                            sorted_ball_x.push_back(pair <int, int> (new_ball_x, cur_net_id));
-                            sorted_ball_y.push_back(pair <int, int> (new_ball_y, cur_net_id));
-                            std::sort(sorted_ball_x.begin(), sorted_ball_x.end());
-                            std::sort(sorted_ball_y.begin(), sorted_ball_y.end());
+                           
+                            time_tmp_sorting = clock();
+                            sort_ball_xy_vector(new_ball_x, cur_net_id,  sorted_ball_x);
+                            time_on_sorting += clock() - time_tmp_sorting;
                             break;
                         }
                         else{
@@ -1426,6 +1386,8 @@ bool Placer_C::via_refinement(){
     cout << BLUE << "[Placer]" << RESET << " Runtime = " <<  (time_END - time_START)/CLOCKS_PER_SEC << " seconds"<< "\n " ;
     cout << BLUE << "[Placer]" << RESET << " Time on first stage = " <<  time_on_first_stage/CLOCKS_PER_SEC << " seconds"<< "\n " ;
     cout << BLUE << "[Placer]" << RESET << " Time on second stage = " <<  time_on_second_stage/CLOCKS_PER_SEC << " seconds"<< "\n " ;
+    cout << BLUE << "[Placer]" << RESET << " Time on sorting = " <<  time_on_sorting/CLOCKS_PER_SEC << " seconds"<< "\n " ;
+
     cout << BLUE << "[Placer]" << RESET << " Net stage 2_1 = " <<  net_stage_2_1 << "\n " ;
     cout << BLUE << "[Placer]" << RESET << " Net stage 2_2 = " <<  net_stage_2_2 << "\n " ;
 
@@ -1433,12 +1395,12 @@ bool Placer_C::via_refinement(){
     cout << BLUE << "[Placer]" << RESET << " - postRefinement : total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     
     //Step 3.2 : Visualization
-    if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
-            draw_layout_result("post-refinement");
-            draw_layout_result_plt(false, "post-refinement");
-    }
+    // if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
+    //         draw_layout_result("post-refinement");
+    //         draw_layout_result_plt(false, "post-refinement");
+    // }
 
-    cout << BLUE << "[Placer]" << RESET << " Refinement Ends. \n " ;
+    cout << BLUE << "[Placer]" << RESET << " Refinement Ends. \n" ;
     return true;
 }
 
@@ -1469,7 +1431,7 @@ bool Placer_C::check_new_ball_legal(int new_x, int new_y, int cur_net_id){
     return true;
 }
 
-bool Placer_C::check_new_ball_legal_sorted(int new_x, int new_y, int cur_net_id, vector<int> nets_need_compare){
+bool Placer_C::check_new_ball_legal_sorted(int new_x, int new_y, int cur_net_id, vector<int> & nets_need_compare){
 
     // This "if" checks the ball and the boundary
     if (new_x < (_pChip ->get_ball_width() / 2 + _pChip -> get_ball_spacing() )||
@@ -1497,7 +1459,25 @@ bool Placer_C::check_new_ball_legal_sorted(int new_x, int new_y, int cur_net_id,
     return true;
 }
 
+bool Placer_C::sort_ball_xy_vector(int new_place, int net_id, vector<pair<int, int>> & sorted_ball_vector){
 
+    if (new_place <= sorted_ball_vector[0].first){
+        sorted_ball_vector.insert(sorted_ball_vector.begin(), pair <int, int> (new_place, net_id));
+        return true;
+    }
+    for(int i = 0; i < sorted_ball_vector.size() -1; i++){
+        if(new_place >sorted_ball_vector[i].first && new_place <= sorted_ball_vector[i+1].first){
+            sorted_ball_vector.insert(sorted_ball_vector.begin()+ i + 1, pair <int, int> (new_place, net_id));
+            return true;
+        }
+    }
+    if (new_place > sorted_ball_vector[sorted_ball_vector.size() -1].first){
+        sorted_ball_vector.insert(sorted_ball_vector.end(), pair <int, int> (new_place, net_id));
+        return true;
+    }
+
+    return false;
+}
 
 
 bool Placer_C::replace_via_spirally(){

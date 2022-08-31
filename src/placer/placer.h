@@ -54,7 +54,8 @@ public:
     
     bool via_refinement(); //Refinement : Main
     bool check_new_ball_legal(int new_x, int new_y, int cur_net_id); //Refinement : Check new ball place legal   
-    bool check_new_ball_legal_sorted(int new_x, int new_y, int cur_net_id, vector<int> nets_need_compare);
+    bool check_new_ball_legal_sorted(int new_x, int new_y, int cur_net_id, vector<int> &nets_need_compare);
+    bool sort_ball_xy_vector(int new_place, int net_id, vector<pair<int, int>> & sorted_ball_vector);
     bool replace_via_spirally();
 
     void rand_place(int); // die_by_die
