@@ -60,7 +60,7 @@ void Placer_C::get_para(bool test){
             ++ count;
         }
     } else {
-        _rPara = "";
+        _rPara = "-pcofmax 1.2";
     }
     
     cout << "_rPara = " << _rPara << "\n";
@@ -2695,13 +2695,15 @@ void Placer_C::run_pReplace(string caseName){
 }
 void Placer_C::run_replace(string caseName, bool usePRePlAce){
     cout << BLUE << "[Placer]" << RESET << " - Running replace for \'" << caseName << "\'...\n";
-    string cmd = "cd " + _RUNDIR + "; ../../bin/RePlAce-static -pcofmax 1.2 -onlyGP -bmflag ibm -bmname " + caseName + " " + _rPara + " > " + caseName + "-replace.log" + "; cd ../..";
+    string cmd = "cd " + _RUNDIR + "; ../../bin/RePlAce-static -onlyGP " + _rPara +" -bmflag ibm -bmname " + caseName + " > " + caseName + "-replace.log" + "; cd ../..";
     if(usePRePlAce)
-        string cmd = "cd " + _RUNDIR + "; ../../bin/pRePlAce -preplace -pcofmax 1.2 -bmflag ibm -aux IBM/" + caseName + "/" + caseName + ".aux" + " -output ./outputs/" + " " + _rPara + " > " + caseName + "-replace.log" + "; cd ../..";
+        cmd = "cd " + _RUNDIR + "; ../../bin/pRePlAce -preplace -onlyGP " + _rPara + " -bmflag ibm -aux IBM/" + caseName + "/" + caseName + ".aux" + " -output ./outputs/" + " > " + caseName + "-replace.log" + "; cd ../..";
+    if(_paramHdl.check_flag_exist("d") || _paramHdl.check_flag_exist("debug"))
+        cout << "replace-cmd: " << cmd << "\n";
     system(cmd.c_str());
     cout << BLUE << "[Placer]" << RESET << " - Running replace for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
     if(usePRePlAce)
-        system(("mv " + _RUNDIR + "outputs/ibm " + _RUNDIR + "outputs/IBM").c_str());
+        system(("rm -rf " + _RUNDIR + "outputs/IBM; " + "mv " + _RUNDIR + "outputs/ibm " + _RUNDIR + "outputs/IBM").c_str());
 }
 void Placer_C::run_ntuplace4(string caseName){
     cout << BLUE << "[Placer]" << RESET << " - Running ntuplace4 for \'" << caseName << "\'...\n";
