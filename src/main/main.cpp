@@ -25,7 +25,6 @@ int main(int argc, char** argv){
 
     // parameter handler
     ParamHdl_C paramHdl = ParamHdl_C(argc, argv);
-    gArg.Init( argc, argv ); // for ntu_placedb
     if(!paramHdl.ok())
         return 0;
     // parser

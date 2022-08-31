@@ -1,0 +1,420 @@
+UCLA scl 1.0
+# Created	:	Jan  6 2005
+# User   	:	Gi-Joon Nam & Mehmet Yildiz at IBM Austin Research({gnam, mcan}@us.ibm.com)
+
+NumRows :  	46
+
+CoreRow Horizontal
+  Coordinate    :   0.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   176.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   352.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   528.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   704.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   880.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   1056.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   1232.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   1408.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   1584.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   1760.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   1936.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   2112.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   2288.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   2464.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   2640.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   2816.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   2992.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   3168.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   3344.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   3520.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   3696.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   3872.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   4048.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   4224.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   4400.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   4576.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   4752.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   4928.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   5104.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   5280.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   5456.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   5632.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   5808.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   5984.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   6160.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   6336.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   6512.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   6688.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   6864.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   7040.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   7216.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   7392.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   7568.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   7744.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End
+CoreRow Horizontal
+  Coordinate    :   7920.000000
+  Height        :   176.000000
+  Sitewidth     :    1
+  Sitespacing   :    1
+  Siteorient    :    1
+  Sitesymmetry  :    1
+  SubrowOrigin  :    0.000000	NumSites  :  10175.000000
+End

@@ -15,6 +15,7 @@ bool BNet_C::is_cross_net() { // crossing die
         if (top && bot) {
             return true;
         }
+		return false;
 }
 void BNet_C::update_ballPos(){
     double min_x0 = INT_MAX, max_x0 = 0, min_y0 = INT_MAX, max_y0 = 0;
