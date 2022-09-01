@@ -47,6 +47,7 @@ void Placer_C::run_safe_mode(){
     cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - Finish!\n";
 }
+
 void Placer_C::get_para(bool test){
     if (test) {
         int ind = stod(_paramHdl.get_para("rParaInd")); 
@@ -65,6 +66,7 @@ void Placer_C::get_para(bool test){
     
     cout << "_rPara = " << _rPara << "\n";
 }
+
 void Placer_C::run(){
     get_para(false); // test
     cout << BLUE << "[Placer]" << RESET << " - Start\n";
@@ -916,6 +918,7 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
         if(!placer_succ) return false;
     }
+    via_refinement();
     total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - [3.3] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     if(!_paramHdl.check_flag_exist("no_draw") && !_paramHdl.check_flag_exist("only_draw_result")){
@@ -947,12 +950,14 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
         if(!placer_succ) return false;
     }
+    via_refinement();
     total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - [3.4] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     if(!_paramHdl.check_flag_exist("no_draw") && !_paramHdl.check_flag_exist("only_draw_result")){
         draw_layout_result("-3.4-die0-legal");
         draw_layout_result_plt(false, "-3.4-die0-legal");
     }
+
     // 5. legal die1 again with projected die0 and balls
     if(_pChip->get_die(1)->get_cells().size() > 0){
         AUX aux;
@@ -978,13 +983,14 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
         if(!placer_succ) return false;
     }
+    via_refinement();
     total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - [3.5] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     if(!_paramHdl.check_flag_exist("no_draw") && !_paramHdl.check_flag_exist("only_draw_result")){
         draw_layout_result("-3.5-die1-legal");
         draw_layout_result_plt(false, "-3.5-die1-legal");
     }
-    // 6. replace die0 again with projected die1 and balls
+    // 6. detail die0 
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux;
         create_aux_form(aux, 0, "die0");
@@ -993,7 +999,7 @@ bool Placer_C::shrunk2d_replace(){
         // check nets
         aux.remove_open_net();
         aux.write_files();
-        run_ntuplace3("die0", "-noglobal");
+        run_ntuplace3("die0", "-noglobal -nolegal");
         placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
         if(!placer_succ) return false;
     }
@@ -1009,17 +1015,58 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
         if(!placer_succ) return false;
     }
+    via_refinement();
     total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - [3.6] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     if(!_paramHdl.check_flag_exist("no_draw") && !_paramHdl.check_flag_exist("only_draw_result")){
-        draw_layout_result("-3.6-die0-re");
-        draw_layout_result_plt(false, "-3.6-die0-re");
+        draw_layout_result("-3.6-die0-detail");
+        draw_layout_result_plt(false, "-3.6-die0-detail");
     }
+
+    {
+        // 7. detail die0 
+        if(_pChip->get_die(0)->get_cells().size() > 0){
+            AUX aux;
+            create_aux_form(aux, 0, "die0");
+            //add_project_pin(aux, 1);
+            add_project_ball(aux);
+            // check nets
+            aux.remove_open_net();
+            aux.write_files();
+            run_ntuplace3("die0", "-noglobal -nolegal");
+            placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
+            if(!placer_succ) return false;
+        }
+        if(cal_ball_num() > 0){ // replace balls
+            AUX aux;
+            create_aux_form_for_ball(aux, "ball");
+            add_project_pin(aux, 0);
+            add_project_pin(aux, 1);
+            // check nets
+            aux.remove_open_net();
+            aux.write_files();
+            run_ntuplace3("ball");
+            placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+            if(!placer_succ) return false;
+        }
+        via_refinement();
+        total_hpwl = cal_HPWL();
+        cout << BLUE << "[Placer]" << RESET << " - [3.7] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+        if(!_paramHdl.check_flag_exist("no_draw") && !_paramHdl.check_flag_exist("only_draw_result")){
+            draw_layout_result("-3.7-die0-redetail");
+            draw_layout_result_plt(false, "-3.7-die0-redetail");
+        }
+    }
+
+    via_refinement();
+    via_refinement();
+
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - D2D-PL: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     
     return true;
 }
+
 
 bool Placer_C::via_refinement(){
 
@@ -1032,9 +1079,10 @@ bool Placer_C::via_refinement(){
     bool placer_succ;
     long long total_hpwl;
     long long ball_curX, ball_curY;     //The (x, y) of via before refinement
-    int net_stage_1, net_stage_2_1, net_stage_2_2;
-    net_stage_1 = net_stage_2_1 = net_stage_2_2 = 0;
+    int net_stage_1, net_stage_2;
+    net_stage_1 = net_stage_2 = 0;
     total_hpwl = cal_HPWL();
+    int tmp_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << "HPWL before refinement = " <<total_hpwl << "\n";
 
     //Step 0 : Sort the d2d nets with their gain (Max decrease in HPWL)
@@ -1188,6 +1236,7 @@ bool Placer_C::via_refinement(){
                             net -> set_ball_xy(Pos(new_ball_x, new_ball_y));  
                             net_really_changed[cur_net_id] = true;
                             flag_changeable = true;
+                            net_stage_1 ++;
                             //更新sorted兩個vector
                             for (int i = 0; i < sorted_ball_x.size(); i++){
                                 if(sorted_ball_x[i].second == cur_net_id){
@@ -1213,11 +1262,11 @@ bool Placer_C::via_refinement(){
             //Stage 2 start
             //Step 2 : Start getting the net closed to the center of intersection box
             time_tmp = clock();
+
             if(net_really_changed[cur_net_id] == false ){
 
                 int center_x = (int) ((ball_bbox_x1 + ball_bbox_x2) /2);
                 int center_y = (int) ((ball_bbox_y1 + ball_bbox_y2) /2);
-                
                 int x_distance = abs(center_x - ball_curX);
                 int y_distance = abs(center_y - ball_curY);
                 //The outer boundary for Via replace
@@ -1255,44 +1304,46 @@ bool Placer_C::via_refinement(){
                     }
                 }
 
-                double vector_length = sqrt(pow(x_distance, 2) + pow(y_distance, 2));
-                int step = (int) vector_length;
+                //Start placing 
+                int x1 = ball_bbox_x1, x2 = ball_bbox_x2, y1 = ball_bbox_y1, y2 = ball_bbox_y2; 
+                bool flag_changeable = false;
+                bool flag_verti = true, flag_hori = true;                
+                double time_tmp_second_stage_while = clock();
                 int new_ball_x, new_ball_y;
-                double v_x, v_y; //All positive
-                int flag_changeable = false, flag_direction = 0;
-                if (vector_length > 1 ){
-                    v_x = x_distance / vector_length;
-                    v_y = y_distance / vector_length;
 
-                    for (int i = 1; i <= step; i++){
-                        flag_changeable = false;
-                        flag_direction = 0;
-                        // 1 : ll
+                while(flag_verti == true || flag_hori == true){
 
-                        for (int j = 0; j < 4; j++){
+                    // if((clock()-time_tmp_second_stage_while)/CLOCKS_PER_SEC > 5) break;
 
-                            if(j==0){
-                                new_ball_x = (int) (center_x - v_x * i);
-                                new_ball_y = (int) (center_y - v_y * i);
-                            }
-                            else if (j==1){
-                                new_ball_x = (int) (center_x - v_x * i);
-                                new_ball_y = (int) (center_y + v_y * i);
-                            }
-                            else if (j==2){
-                                new_ball_x = (int) (center_x + v_x * i);
-                                new_ball_y = (int) (center_y + v_y * i);
-                            }
-                            else if (j==3){
-                                new_ball_x = (int) (center_x + v_x * i);
-                                new_ball_y = (int) (center_y - v_y * i);
-                            }
+                    if(flag_hori == true){
+                        x1 --;
+                        x2 ++;
+                        if(x1 < out_boundary_x1 || x2 > out_boundary_x2){
+                            flag_hori = false;
+                            x1 = out_boundary_x1;
+                            x2 = out_boundary_x2;
+                        }
+                    }               
+                    if (flag_verti == true){
+                        y1 --;
+                        y2 ++;
+                        if(y1 < out_boundary_y1 || y2 > out_boundary_y2){
+                            flag_verti = false;
+                            y1 = out_boundary_y1;
+                            y2 = out_boundary_y2;
+                        }
+                    }      
+                    //先跑hori
+                    for (int iter = 0; iter < 2; iter ++){
+                        if (iter == 0) new_ball_y = y1;
+                        else new_ball_y = y2;
 
+                        for (new_ball_x = x1; new_ball_x <= x2 ; new_ball_x += 5){
                             if(check_new_ball_legal_sorted(new_ball_x, new_ball_y, cur_net_id, nets_need_compare)) {
                                 net -> set_ball_xy(Pos(new_ball_x, new_ball_y));  
                                 net_really_changed[cur_net_id] = true;
                                 flag_changeable = true;
-                                net_stage_2_1 += 1;
+                                net_stage_2 ++;
                                 //更新sorted兩個vector
                                 for (int i = 0; i < sorted_ball_x.size(); i++){
                                     if(sorted_ball_x[i].second == cur_net_id){
@@ -1302,72 +1353,47 @@ bool Placer_C::via_refinement(){
                                 }
                                 
                                 time_tmp_sorting = clock();
-                                sort_ball_xy_vector(new_ball_x, cur_net_id, sorted_ball_x);
+                                sort_ball_xy_vector(new_ball_x, cur_net_id,  sorted_ball_x);
                                 time_on_sorting += clock() - time_tmp_sorting;
                                 break;
                             }
                         }
                         if(flag_changeable) break;
-                    }                  
-                }
-                //3-rd stage 從center往十字放
-                if(net_really_changed[cur_net_id] == false ){
-                    int x1, x2, y1, y2; 
-                    x1 = x2 = center_x;
-                    y1 = y2 = center_y; 
-                    flag_changeable = false;
-                    while(x1 >= out_boundary_x1 && x2 <= out_boundary_x2 
-                    && y1 >= out_boundary_y1 && y2 <= out_boundary_y2){
-                        
-                        if(check_new_ball_legal_sorted(x1, center_y, cur_net_id, nets_need_compare)){
-                            new_ball_x = x1;
-                            new_ball_y = center_y;
-                            flag_changeable = true;
-                        }
-                        else if (check_new_ball_legal_sorted(x2, center_y, cur_net_id, nets_need_compare)){
-                            new_ball_x = x2;
-                            new_ball_y = center_y;
-                            flag_changeable = true;
-                        }
-                        else if (check_new_ball_legal_sorted(center_x, y1, cur_net_id, nets_need_compare)){
-                            new_ball_x = center_x;
-                            new_ball_y = y1;
-                            flag_changeable = true;
-                        }
-                        else if (check_new_ball_legal_sorted(center_x, y2, cur_net_id, nets_need_compare)){
-                            new_ball_x = center_x;
-                            new_ball_y = y2;
-                            flag_changeable = true;
-                        }
-                        
-                        if(flag_changeable){
-                            net -> set_ball_xy(Pos(new_ball_x, new_ball_y));  
-                            net_really_changed[cur_net_id] = true;
-                            net_stage_2_2 += 1;
-                            flag_changeable = true;
-                            //更新sorted兩個vector
-                            for (int i = 0; i < sorted_ball_x.size(); i++){
-                                if(sorted_ball_x[i].second == cur_net_id){
-                                    sorted_ball_x.erase(sorted_ball_x.begin() + i);
-                                    break;
-                                }
-                            }
-                           
-                            time_tmp_sorting = clock();
-                            sort_ball_xy_vector(new_ball_x, cur_net_id,  sorted_ball_x);
-                            time_on_sorting += clock() - time_tmp_sorting;
-                            break;
-                        }
-                        else{
-                            x1 -= 1;
-                            y1 -= 1;
-                            x2 += 1;
-                            y2 += 1;
-                        }
                     }
+                    //再排Verti
+                    for (int iter = 0; iter < 2; iter ++){
+                        if (iter == 0) new_ball_x = x1;
+                        else new_ball_x = x2;
+
+                        for (new_ball_y = y1; new_ball_y <= y2 ; new_ball_y += 5){
+                            if(check_new_ball_legal_sorted(new_ball_x, new_ball_y, cur_net_id, nets_need_compare)) {
+                                net -> set_ball_xy(Pos(new_ball_x, new_ball_y));  
+                                net_really_changed[cur_net_id] = true;
+                                flag_changeable = true;
+                                net_stage_2 ++;
+                                //更新sorted兩個vector
+                                for (int i = 0; i < sorted_ball_x.size(); i++){
+                                    if(sorted_ball_x[i].second == cur_net_id){
+                                        sorted_ball_x.erase(sorted_ball_x.begin() + i);
+                                        break;
+                                    }
+                                }
+                                
+                                time_tmp_sorting = clock();
+                                sort_ball_xy_vector(new_ball_x, cur_net_id,  sorted_ball_x);
+                                time_on_sorting += clock() - time_tmp_sorting;
+                                break;
+                            }
+                        }
+                        if(flag_changeable) break;
+                    }
+
+
+                    if(flag_changeable) break;
                 }
-                //2.2 Stage finished
-            } // 改 2nd stage code
+
+                //Second Stage finished
+            } 
             time_on_second_stage += clock() - time_tmp;
             net -> update_bbox();
         }
@@ -1380,20 +1406,23 @@ bool Placer_C::via_refinement(){
         if(it->second == true) net_changed ++;
     }
 
-    cout << BLUE << "[Placer]" << RESET << " Nets need refinement = " << nets.size() << "\n " ;
-    cout << BLUE << "[Placer]" << RESET << " Nets really changed = " <<  net_changed << "\n " ;
-    cout << BLUE << "[Placer]" << RESET << " Optimal HPWL gain = " <<  optimal_HPWL_gain << "\n " ;
-    cout << BLUE << "[Placer]" << RESET << " Runtime = " <<  (time_END - time_START)/CLOCKS_PER_SEC << " seconds"<< "\n " ;
-    cout << BLUE << "[Placer]" << RESET << " Time on first stage = " <<  time_on_first_stage/CLOCKS_PER_SEC << " seconds"<< "\n " ;
-    cout << BLUE << "[Placer]" << RESET << " Time on second stage = " <<  time_on_second_stage/CLOCKS_PER_SEC << " seconds"<< "\n " ;
-    cout << BLUE << "[Placer]" << RESET << " Time on sorting = " <<  time_on_sorting/CLOCKS_PER_SEC << " seconds"<< "\n " ;
+    cout << BLUE << "[Placer]" << RESET << " Nets need refinement = " << nets.size() << "\n" ;
+    cout << BLUE << "[Placer]" << RESET << " Nets really changed = " <<  net_changed << "\n" ;
+    cout << BLUE << "[Placer]" << RESET << " Refine success rate(net) = " <<  100 * ((double)net_changed/(double)nets.size()) << "% \n" ;
 
-    cout << BLUE << "[Placer]" << RESET << " Net stage 2_1 = " <<  net_stage_2_1 << "\n " ;
-    cout << BLUE << "[Placer]" << RESET << " Net stage 2_2 = " <<  net_stage_2_2 << "\n " ;
+    cout << BLUE << "[Placer]" << RESET << " Runtime = " <<  (time_END - time_START)/CLOCKS_PER_SEC << " seconds"<< "\n" ;
+    cout << BLUE << "[Placer]" << RESET << " Time on first stage = " <<  time_on_first_stage/CLOCKS_PER_SEC << " seconds"<< "\n" ;
+    cout << BLUE << "[Placer]" << RESET << " Time on second stage = " <<  time_on_second_stage/CLOCKS_PER_SEC << " seconds"<< "\n" ;
+    cout << BLUE << "[Placer]" << RESET << " Time on sorting = " <<  time_on_sorting/CLOCKS_PER_SEC << " seconds"<< "\n" ;
+    cout << BLUE << "[Placer]" << RESET << " Net stage 1 = " <<  net_stage_1 << "\n" ;
+    cout << BLUE << "[Placer]" << RESET << " Net stage 2 = " <<  net_stage_2 << "\n" ;
 
-    total_hpwl = cal_HPWL();
-    cout << BLUE << "[Placer]" << RESET << " - postRefinement : total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
     
+    cout << BLUE << "[Placer]" << RESET << " - postRefinement : total HPWL = " << CYAN << cal_HPWL() << RESET << ".\n";
+    cout << BLUE << "[Placer]" << RESET << " Optimal HPWL gain = " <<  optimal_HPWL_gain << "\n" ;
+    double refine_HPWL_rate = 100 * (((double)tmp_hpwl -  (double)cal_HPWL())/optimal_HPWL_gain) ;
+    cout << BLUE << "[Placer]" << RESET << " Refine success rate(HPWL) = " <<  refine_HPWL_rate << "% \n" ;
+
     //Step 3.2 : Visualization
     // if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
     //         draw_layout_result("post-refinement");
@@ -1478,7 +1507,6 @@ bool Placer_C::sort_ball_xy_vector(int new_place, int net_id, vector<pair<int, i
 
     return false;
 }
-
 
 bool Placer_C::replace_via_spirally(){
     // Option 3: Begin from center, walk spirally
@@ -1604,6 +1632,117 @@ bool Placer_C::replace_via_spirally(){
     //     }                  
     // }
 
+    //十字和叉叉
+    // double vector_length = sqrt(pow(x_distance, 2) + pow(y_distance, 2));
+    // int step = (int) vector_length;
+    // int new_ball_x, new_ball_y;
+    // double v_x, v_y; //All positive
+    // bool flag_changeable = false;
+    // bool flag_changeable_cross = false;
+    // int flag_direction = 0;
+    // x1 = x2 = center_x;
+    // y1 = y2 = center_y; 
+
+    // if (vector_length > 1 ){
+    //     v_x = x_distance / vector_length;
+    //     v_y = y_distance / vector_length;
+
+
+    //     for (int i = 1; i <= step; i++){
+    //         flag_changeable = false;
+    //         flag_changeable_cross = false;
+    //         flag_direction = 0;
+    //         // 1 : ll
+
+    //         for (int j = 0; j < 4; j++){
+
+    //             if(j==0){
+    //                 new_ball_x = (int) (center_x - v_x * i);
+    //                 new_ball_y = (int) (center_y - v_y * i);
+    //             }
+    //             else if (j==1){
+    //                 new_ball_x = (int) (center_x - v_x * i);
+    //                 new_ball_y = (int) (center_y + v_y * i);
+    //             }
+    //             else if (j==2){
+    //                 new_ball_x = (int) (center_x + v_x * i);
+    //                 new_ball_y = (int) (center_y + v_y * i);
+    //             }
+    //             else if (j==3){
+    //                 new_ball_x = (int) (center_x + v_x * i);
+    //                 new_ball_y = (int) (center_y - v_y * i);
+    //             }
+
+    //             if(check_new_ball_legal_sorted(new_ball_x, new_ball_y, cur_net_id, nets_need_compare)) {
+    //                 net -> set_ball_xy(Pos(new_ball_x, new_ball_y));  
+    //                 net_really_changed[cur_net_id] = true;
+    //                 flag_changeable = true;
+    //                 net_stage_2_1 += 1;
+    //                 //更新sorted兩個vector
+    //                 for (int i = 0; i < sorted_ball_x.size(); i++){
+    //                     if(sorted_ball_x[i].second == cur_net_id){
+    //                         sorted_ball_x.erase(sorted_ball_x.begin() + i);
+    //                         break;
+    //                     }
+    //                 }
+    //                 time_tmp_sorting = clock();
+    //                 sort_ball_xy_vector(new_ball_x, cur_net_id, sorted_ball_x);
+    //                 time_on_sorting += clock() - time_tmp_sorting;
+    //                 break;
+    //             }
+
+    //         }
+    //         if(flag_changeable) break;
+    //         //跑到這代表這一個step叉叉沒成功
+    //         //先跑左右直線
+    //         if(x1 >= out_boundary_x1 && x2 <= out_boundary_x2 ){
+    //             if(check_new_ball_legal_sorted(x1, center_y, cur_net_id, nets_need_compare)){
+    //                 new_ball_x = x1;
+    //                 new_ball_y = center_y;
+    //                 flag_changeable_cross = true;
+    //             }
+    //             else if (check_new_ball_legal_sorted(x2, center_y, cur_net_id, nets_need_compare)){
+    //                 new_ball_x = x2;
+    //                 new_ball_y = center_y;
+    //                 flag_changeable_cross = true;
+    //             }
+    //         }
+    //         if(flag_changeable_cross == false && y1 >= out_boundary_y1 && y2 <= out_boundary_y2){
+    //             if (check_new_ball_legal_sorted(center_x, y1, cur_net_id, nets_need_compare)){
+    //                 new_ball_x = center_x;
+    //                 new_ball_y = y1;
+    //                 flag_changeable_cross = true;
+    //             }
+    //             else if (check_new_ball_legal_sorted(center_x, y2, cur_net_id, nets_need_compare)){
+    //                 new_ball_x = center_x;
+    //                 new_ball_y = y2;
+    //                 flag_changeable_cross = true;
+    //             }
+    //         }
+    //         if(flag_changeable_cross){
+    //             net -> set_ball_xy(Pos(new_ball_x, new_ball_y));  
+    //             net_really_changed[cur_net_id] = true;
+    //             net_stage_2_2 += 1;
+    //             //更新sorted兩個vector
+    //             for (int i = 0; i < sorted_ball_x.size(); i++){
+    //                 if(sorted_ball_x[i].second == cur_net_id){
+    //                     sorted_ball_x.erase(sorted_ball_x.begin() + i);
+    //                     break;
+    //                 }
+    //             }
+                
+    //             time_tmp_sorting = clock();
+    //             sort_ball_xy_vector(new_ball_x, cur_net_id,  sorted_ball_x);
+    //             time_on_sorting += clock() - time_tmp_sorting;
+    //             break;
+    //         }
+    //         else{
+    //             x1 -= 1;
+    //             y1 -= 1;
+    //             x2 += 1;
+    //             y2 += 1;
+    //         }
+    //     }                  
     return true;
 }
 
@@ -2110,8 +2249,8 @@ void Placer_C::bin_based_partition_new() {
         bins_per_row = 5;
         bins_per_col = 5;
     } else if (_paramHdl.get_case_name() == "case4") {
-        bins_per_row = 1;
-        bins_per_col = 1;
+        bins_per_row = 9;
+        bins_per_col = 9;
     } 
     // if (_vCell.size() > 5000){
     //     bins_per_row = sqrt(ceil(sqrt(_vCell.size()*1.1)));
@@ -2140,7 +2279,7 @@ void Placer_C::bin_based_partition_new() {
             // cout << "place " << used_area[0] << "," << used_area[1] << "\n";
             partitioner->parseInput(_vCell, _pChip, bins[i][j], maxArea, cutline);
             partitioner->partition();
-            partitioner->printSummary();
+            // partitioner->printSummary();
             vector<vector<int> >& cellPart = partitioner->get_part_result();
 
             bool inv = (cellPart[0].size() >= cellPart[1].size()) ? false : true;
