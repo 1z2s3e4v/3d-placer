@@ -14,7 +14,7 @@ import re
 import sys
 
 class ShowPlace:
-    def __init__(self, base_folder, plot_field=True):
+    def __init__(self, base_folder, plot_field=1):
         self.base_folder = base_folder
         self.plot_field = plot_field
 
@@ -26,6 +26,8 @@ class ShowPlace:
         iters.sort()
         self.iters = iters
         print("found " + str(len(self.iters)) + " frames in " + base_folder)
+        if(len(self.iters) == 0):
+            return
 
         # load first frame
         if len(self.iters) == 0:
@@ -181,15 +183,24 @@ if(len(sys.argv)<2):
     print('no argument')
     sys.exit()
 caseName = sys.argv[1]
-PLOT_FIELD = True
-BASE_FOLDER = "./draw/"+caseName+"/plot"
+PLOT_FIELD = 1
+PLOT_FILLER = 1
+if len(sys.argv)>2:
+    PLOT_FIELD = int(sys.argv[2])
+if len(sys.argv)>3:
+    PLOT_FILLER = int(sys.argv[3])
+#BASE_FOLDER = "./draw/"+caseName+"/plot"
 GIF_PREFIX = "./draw/"+caseName+"/"+caseName
 
 # fo_viewer = ShowPlace("./plot/eplace/filler-only", plot_field=PLOT_FIELD)
 # fo_viewer.anim.save(GIF_PREFIX + "-filler-only.gif")
 #plt.show(block=False)
 
-mj_viewer = ShowPlace(BASE_FOLDER, plot_field=PLOT_FIELD)
+if(PLOT_FILLER):
+    mj_viewer = ShowPlace("./draw/"+caseName+"/plot/plot-filler", plot_field=False)
+    mj_viewer.anim.save(GIF_PREFIX + "-filler.gif")
+
+mj_viewer = ShowPlace("./draw/"+caseName+"/plot", plot_field=PLOT_FIELD)
 mj_viewer.anim.save(GIF_PREFIX + "-major.gif")
 #plt.show(block=False)
 

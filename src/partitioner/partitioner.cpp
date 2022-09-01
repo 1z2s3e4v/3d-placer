@@ -151,12 +151,25 @@ void Partitioner::initiate_gain() {
             
             int from_num = net->getPartCount(cell->getPart());
             int to_num = net->getPartCount(1 - cell->getPart());
-
+            
+            //  for 2-pin net, encourage cut
             if (from_num == 1) {
-                cell->incGain();
+                if (to_num == 1) {
+                    cell->incGain();
+                } 
+                else {
+                    cell->incGain();
+                    cell->incGain();
+                }
             }
             if (to_num == 0) {
-                cell->decGain(); 
+                if (from_num == 2) {
+                    cell->decGain();
+                }
+                else {
+                    cell->decGain();
+                    cell->decGain();
+                } 
             }
             
         }
@@ -400,17 +413,39 @@ void Partitioner::update_gain() {
     
         if (to_num == 0) {
             //  increment gains of all free cells on n
-            for (int j=0; j<net->getCellList().size(); j++) {
-                if ( ! _cellArray[net->getCellList()[j]]->getLock()) {
-                    incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 0);         
+            //  for 2-pin net, decrement gain of the free cell to dicourage from gathering
+            if (from_num == 2) {
+                for (int j=0; j<net->getCellList().size(); j++) {
+                    if ( ! _cellArray[net->getCellList()[j]]->getLock()) {
+                        incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 0);         
+                    }
+                }
+            }
+            else {
+                for (int j=0; j<net->getCellList().size(); j++) {
+                    if ( ! _cellArray[net->getCellList()[j]]->getLock()) {
+                        incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 0);
+                        incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 0);        
+                    }
                 }
             }
                 
         } else if (to_num == 1) {
             // decrement gain of the only T cell on n, if it is free
-            for (int j=0; j<net->getCellList().size(); j++) {
-                if (! _cellArray[net->getCellList()[j]]->getLock() && _cellArray[net->getCellList()[j]]->getPart() == to_side) {
-                    incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 1);
+            // for 2-pin net, increment gain of the free cell to encourage cut
+            if (from_num == 1) {
+                for (int j=0; j<net->getCellList().size(); j++) {
+                    if (! _cellArray[net->getCellList()[j]]->getLock() && _cellArray[net->getCellList()[j]]->getPart() == to_side) {
+                        incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 1);
+                    }
+                } 
+            }
+            else {
+                for (int j=0; j<net->getCellList().size(); j++) {
+                    if (! _cellArray[net->getCellList()[j]]->getLock() && _cellArray[net->getCellList()[j]]->getPart() == to_side) {
+                        incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 1);
+                        incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 1);
+                    }
                 }
             }      
         }
@@ -426,18 +461,40 @@ void Partitioner::update_gain() {
 
         if (from_num == 0) {
             // decrement gains of all free cells on n
-            for (int j=0; j<net->getCellList().size(); j++) {
-                if ( ! _cellArray[net->getCellList()[j]]->getLock()) {
-                    incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 1);         
+            // for 2-pin net, increment gain of the free cell to encourage cut
+            if (to_num == 2) {
+                for (int j=0; j<net->getCellList().size(); j++) {
+                    if ( ! _cellArray[net->getCellList()[j]]->getLock()) {
+                        incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 1);         
+                    }
+                }
+            }
+            else {
+                for (int j=0; j<net->getCellList().size(); j++) {
+                    if ( ! _cellArray[net->getCellList()[j]]->getLock()) {
+                        incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 1);
+                        incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 1);     
+                    }
                 }
             }
         } else if (from_num == 1) {
             // increment gain of the only F cell on n, if it is free
-            for (int j=0; j<net->getCellList().size(); j++) {
-                if (_cellArray[net->getCellList()[j]]->getPart() == from_side && (! _cellArray[net->getCellList()[j]]->getLock())) {
-                    incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 0);
+            //  for 2-pin net, decrement gain of the free cell to dicourage from gathering
+            if (to_num == 1) {
+                for (int j=0; j<net->getCellList().size(); j++) {
+                    if (_cellArray[net->getCellList()[j]]->getPart() == from_side && (! _cellArray[net->getCellList()[j]]->getLock())) {
+                        incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 0);
+                    }
                 }
-            }      
+            }
+            else {
+                for (int j=0; j<net->getCellList().size(); j++) {
+                    if (_cellArray[net->getCellList()[j]]->getPart() == from_side && (! _cellArray[net->getCellList()[j]]->getLock())) {
+                        incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 0);
+                        incr_or_decr_cell_gain(_cellArray[net->getCellList()[j]], 0);
+                    }
+                }
+            }   
         }
     }
      
@@ -637,7 +694,6 @@ void Partitioner::partition() {
  
     calc_cutsize();
 }
-
 
 
 void Partitioner::printSummary() const
