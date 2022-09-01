@@ -38,17 +38,18 @@ public:
 
     // modify method
     // void parseInput(vector<Cell_C*>& v_Cell, Chip_C* p_Chip);
-    void parseInput(vector<Cell_C*>& v_Cell, Chip_C* p_Chip, vector <Cell_C*>& bin_cell, double (& maxArea)[2], double cutline);
+    void parseInput(vector<Cell_C*>& v_Cell, Chip_C* p_Chip, vector <Cell_C*>& bin_cell, double (& maxArea)[2], double cutline, bool inh_part);
     // void parseInput(fstream& inFile);
     void initial_partition();
-    void initiate_gain();
+    void inherit_partition(vector<vector<int> >& cellPart);
+    void initiate_gain(int gain_mult, bool gain_altr);
     Cell* find_cell_to_move();
     void move_cell(Cell* cell);
     void incr_or_decr_cell_gain(Cell* cell, int incr_or_decr);
-    void update_gain();
+    void update_gain(int gain_mult, bool gain_altr);
     void calc_cutsize();
     void trace_back();
-    void partition();
+    void partition(int gain_mult, bool gain_altr);
     vector<vector<int> >& get_part_result();// {return _cellPart;}
     bool verification_hard();
     bool verification_soft();
