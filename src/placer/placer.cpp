@@ -2360,6 +2360,7 @@ void Placer_C::bin_based_partition_new() {
 
     bins_per_row = 5;
     bins_per_col = 5;
+    bin_num = bins_per_row * bins_per_col;
     cout << _paramHdl.get_case_name() << ": " << bins_per_row <<"\n";
     bin_width = _pChip->get_die(0)->get_width() / bins_per_row;
     bin_height = _pChip->get_die(0)->get_height() / bins_per_col;
