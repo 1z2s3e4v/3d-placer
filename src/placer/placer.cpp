@@ -910,18 +910,18 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + "die1" + "/experiment0/tiers/0/" + "die1.pl", 1);
         if(!placer_succ) return false;
     }
-    if(cal_ball_num() > 0){
-        AUX aux;
-        create_aux_form_for_ball(aux, "ball");
-        add_project_pin(aux, 0);
-        add_project_pin(aux, 1);
-        // check nets
-        aux.remove_open_net();
-        aux.write_files();
-        run_ntuplace3("ball");
-        placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
-        if(!placer_succ) return false;
-    }
+    // if(cal_ball_num() > 0){
+    //     AUX aux;
+    //     create_aux_form_for_ball(aux, "ball");
+    //     add_project_pin(aux, 0);
+    //     add_project_pin(aux, 1);
+    //     // check nets
+    //     aux.remove_open_net();
+    //     aux.write_files();
+    //     run_ntuplace3("ball");
+    //     placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+    //     if(!placer_succ) return false;
+    // }
     via_refinement();
     total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - [3.3] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
@@ -942,18 +942,18 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
         if(!placer_succ) return false;
     }
-    if(cal_ball_num() > 0){ // replace balls
-        AUX aux;
-        create_aux_form_for_ball(aux, "ball");
-        add_project_pin(aux, 0);
-        add_project_pin(aux, 1);
-        // check nets
-        aux.remove_open_net();
-        aux.write_files();
-        run_ntuplace3("ball");
-        placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
-        if(!placer_succ) return false;
-    }
+    // if(cal_ball_num() > 0){ // replace balls
+    //     AUX aux;
+    //     create_aux_form_for_ball(aux, "ball");
+    //     add_project_pin(aux, 0);
+    //     add_project_pin(aux, 1);
+    //     // check nets
+    //     aux.remove_open_net();
+    //     aux.write_files();
+    //     run_ntuplace3("ball");
+    //     placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+    //     if(!placer_succ) return false;
+    // }
     via_refinement();
     total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - [3.4] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
@@ -975,18 +975,18 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos(_RUNDIR+"die1.ntup.pl", 1);
         if(!placer_succ) return false;
     }
-    if(cal_ball_num() > 0){ // replace balls
-        AUX aux;
-        create_aux_form_for_ball(aux, "ball");
-        add_project_pin(aux, 0);
-        add_project_pin(aux, 1);
-        // check nets
-        aux.remove_open_net();
-        aux.write_files();
-        run_ntuplace3("ball");
-        placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
-        if(!placer_succ) return false;
-    }
+    // if(cal_ball_num() > 0){ // replace balls
+    //     AUX aux;
+    //     create_aux_form_for_ball(aux, "ball");
+    //     add_project_pin(aux, 0);
+    //     add_project_pin(aux, 1);
+    //     // check nets
+    //     aux.remove_open_net();
+    //     aux.write_files();
+    //     run_ntuplace3("ball");
+    //     placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+    //     if(!placer_succ) return false;
+    // }
     via_refinement();
     total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - [3.5] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
@@ -1007,18 +1007,18 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
         if(!placer_succ) return false;
     }
-    if(cal_ball_num() > 0){ // replace balls
-        AUX aux;
-        create_aux_form_for_ball(aux, "ball");
-        add_project_pin(aux, 0);
-        add_project_pin(aux, 1);
-        // check nets
-        aux.remove_open_net();
-        aux.write_files();
-        run_ntuplace3("ball");
-        placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
-        if(!placer_succ) return false;
-    }
+    // if(cal_ball_num() > 0){ // replace balls
+    //     AUX aux;
+    //     create_aux_form_for_ball(aux, "ball");
+    //     add_project_pin(aux, 0);
+    //     add_project_pin(aux, 1);
+    //     // check nets
+    //     aux.remove_open_net();
+    //     aux.write_files();
+    //     run_ntuplace3("ball");
+    //     placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+    //     if(!placer_succ) return false;
+    // }
     via_refinement();
     total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - [3.6] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
@@ -1041,18 +1041,18 @@ bool Placer_C::shrunk2d_replace(){
             placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
             if(!placer_succ) return false;
         }
-        if(cal_ball_num() > 0){ // replace balls
-            AUX aux;
-            create_aux_form_for_ball(aux, "ball");
-            add_project_pin(aux, 0);
-            add_project_pin(aux, 1);
-            // check nets
-            aux.remove_open_net();
-            aux.write_files();
-            run_ntuplace3("ball");
-            placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
-            if(!placer_succ) return false;
-        }
+        // if(cal_ball_num() > 0){ // replace balls
+        //     AUX aux;
+        //     create_aux_form_for_ball(aux, "ball");
+        //     add_project_pin(aux, 0);
+        //     add_project_pin(aux, 1);
+        //     // check nets
+        //     aux.remove_open_net();
+        //     aux.write_files();
+        //     run_ntuplace3("ball");
+        //     placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
+        //     if(!placer_succ) return false;
+        // }
         via_refinement();
         total_hpwl = cal_HPWL();
         cout << BLUE << "[Placer]" << RESET << " - [3.7] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
@@ -1061,9 +1061,6 @@ bool Placer_C::shrunk2d_replace(){
             draw_layout_result_plt(false, "-3.7-die0-redetail");
         }
     }
-
-    via_refinement();
-    via_refinement();
 
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
     cout << BLUE << "[Placer]" << RESET << " - D2D-PL: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
@@ -1392,7 +1389,6 @@ bool Placer_C::via_refinement(){
                         if(flag_changeable) break;
                     }
 
-
                     if(flag_changeable) break;
                 }
 
@@ -1410,22 +1406,22 @@ bool Placer_C::via_refinement(){
         if(it->second == true) net_changed ++;
     }
 
-    cout << BLUE << "[Placer]" << RESET << " Nets need refinement = " << nets.size() << "\n" ;
-    cout << BLUE << "[Placer]" << RESET << " Nets really changed = " <<  net_changed << "\n" ;
-    cout << BLUE << "[Placer]" << RESET << " Refine success rate(net) = " <<  100 * ((double)net_changed/(double)nets.size()) << "% \n" ;
+    // cout << BLUE << "[Placer]" << RESET << " Nets need refinement = " << nets.size() << "\n" ;
+    // cout << BLUE << "[Placer]" << RESET << " Nets really changed = " <<  net_changed << "\n" ;
+    // cout << BLUE << "[Placer]" << RESET << " Refine success rate(net) = " <<  100 * ((double)net_changed/(double)nets.size()) << "% \n" ;
 
-    cout << BLUE << "[Placer]" << RESET << " Runtime = " <<  (time_END - time_START)/CLOCKS_PER_SEC << " seconds"<< "\n" ;
-    cout << BLUE << "[Placer]" << RESET << " Time on first stage = " <<  time_on_first_stage/CLOCKS_PER_SEC << " seconds"<< "\n" ;
-    cout << BLUE << "[Placer]" << RESET << " Time on second stage = " <<  time_on_second_stage/CLOCKS_PER_SEC << " seconds"<< "\n" ;
-    cout << BLUE << "[Placer]" << RESET << " Time on sorting = " <<  time_on_sorting/CLOCKS_PER_SEC << " seconds"<< "\n" ;
-    cout << BLUE << "[Placer]" << RESET << " Net stage 1 = " <<  net_stage_1 << "\n" ;
-    cout << BLUE << "[Placer]" << RESET << " Net stage 2 = " <<  net_stage_2 << "\n" ;
+    // cout << BLUE << "[Placer]" << RESET << " Runtime = " <<  (time_END - time_START)/CLOCKS_PER_SEC << " seconds"<< "\n" ;
+    // cout << BLUE << "[Placer]" << RESET << " Time on first stage = " <<  time_on_first_stage/CLOCKS_PER_SEC << " seconds"<< "\n" ;
+    // cout << BLUE << "[Placer]" << RESET << " Time on second stage = " <<  time_on_second_stage/CLOCKS_PER_SEC << " seconds"<< "\n" ;
+    // cout << BLUE << "[Placer]" << RESET << " Time on sorting = " <<  time_on_sorting/CLOCKS_PER_SEC << " seconds"<< "\n" ;
+    // cout << BLUE << "[Placer]" << RESET << " Net stage 1 = " <<  net_stage_1 << "\n" ;
+    // cout << BLUE << "[Placer]" << RESET << " Net stage 2 = " <<  net_stage_2 << "\n" ;
 
     
-    cout << BLUE << "[Placer]" << RESET << " - postRefinement : total HPWL = " << CYAN << cal_HPWL() << RESET << ".\n";
-    cout << BLUE << "[Placer]" << RESET << " Optimal HPWL gain = " <<  optimal_HPWL_gain << "\n" ;
-    double refine_HPWL_rate = 100 * (((double)tmp_hpwl -  (double)cal_HPWL())/optimal_HPWL_gain) ;
-    cout << BLUE << "[Placer]" << RESET << " Refine success rate(HPWL) = " <<  refine_HPWL_rate << "% \n" ;
+    // cout << BLUE << "[Placer]" << RESET << " - postRefinement : total HPWL = " << CYAN << cal_HPWL() << RESET << ".\n";
+    // cout << BLUE << "[Placer]" << RESET << " Optimal HPWL gain = " <<  optimal_HPWL_gain << "\n" ;
+    // double refine_HPWL_rate = 100 * (((double)tmp_hpwl -  (double)cal_HPWL())/optimal_HPWL_gain) ;
+    // cout << BLUE << "[Placer]" << RESET << " Refine success rate(HPWL) = " <<  refine_HPWL_rate << "% \n" ;
 
     //Step 3.2 : Visualization
     // if(!_paramHdl.check_flag_exist("no_draw") || !_paramHdl.check_flag_exist("only_draw_result")){
