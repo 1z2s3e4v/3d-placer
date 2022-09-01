@@ -928,6 +928,7 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + "die1" + "/experiment0/tiers/0/" + "die1.pl", 1);
         if(!placer_succ) return false;
     }
+
     // if(cal_ball_num() > 0){
     //     AUX aux;
     //     create_aux_form_for_ball(aux, "ball");
@@ -940,6 +941,7 @@ bool Placer_C::shrunk2d_replace(){
     //     placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
     //     if(!placer_succ) return false;
     // }
+
     via_refinement();
     total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - [3.3] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
@@ -960,6 +962,7 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
         if(!placer_succ) return false;
     }
+
     // if(cal_ball_num() > 0){ // replace balls
     //     AUX aux;
     //     create_aux_form_for_ball(aux, "ball");
@@ -972,6 +975,7 @@ bool Placer_C::shrunk2d_replace(){
     //     placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
     //     if(!placer_succ) return false;
     // }
+
     via_refinement();
     total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - [3.4] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
@@ -993,6 +997,7 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos(_RUNDIR+"die1.ntup.pl", 1);
         if(!placer_succ) return false;
     }
+
     // if(cal_ball_num() > 0){ // replace balls
     //     AUX aux;
     //     create_aux_form_for_ball(aux, "ball");
@@ -1005,6 +1010,7 @@ bool Placer_C::shrunk2d_replace(){
     //     placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
     //     if(!placer_succ) return false;
     // }
+
     via_refinement();
     total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - [3.5] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
@@ -1025,6 +1031,7 @@ bool Placer_C::shrunk2d_replace(){
         placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
         if(!placer_succ) return false;
     }
+
     // if(cal_ball_num() > 0){ // replace balls
     //     AUX aux;
     //     create_aux_form_for_ball(aux, "ball");
@@ -1037,6 +1044,7 @@ bool Placer_C::shrunk2d_replace(){
     //     placer_succ = read_pl_and_set_pos_for_ball(_RUNDIR+"ball.ntup.pl");
     //     if(!placer_succ) return false;
     // }
+
     via_refinement();
     total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - [3.6] total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
@@ -2284,6 +2292,37 @@ void Placer_C::bin_based_partition_new() {
         int col_ind = floor(cell->get_posY() / bin_height);
         bins[row_ind][col_ind].emplace_back(cell);
     }
+// <<<<<<< HEAD
+
+//     // vector<vector<int> > total_cellPart(2);
+//     double used_area[2] = {0.0, 0.0};
+//     double maxArea[2];
+//     for (int i=0; i<bins_per_row; ++i) {
+//         for (int j=0; j<bins_per_col; ++j) {
+//             Partitioner* partitioner = new Partitioner();
+//             maxArea[0] = (double) _pChip->get_die(0)->get_width() * (double) _pChip->get_die(0)->get_height() * _pChip->get_die(0)->get_max_util() - used_area[0];
+//             maxArea[1] = (double) _pChip->get_die(1)->get_width() * (double) _pChip->get_die(1)->get_height() * _pChip->get_die(1)->get_max_util() - used_area[1];
+//             cout << "valid area = (" << maxArea[0] << ", " << maxArea[1] << ")\n";
+//             // cout << "place " << used_area[0] << "," << used_area[1] << "\n";
+//             partitioner->parseInput(_vCell, _pChip, bins[i][j], maxArea, cutline, false);
+//             partitioner->initial_partition();
+//             partitioner->partition(4, true);
+//             partitioner->printSummary();
+//             vector<vector<int> >& cellPart = partitioner->get_part_result();
+//             // total_cellPart[0].insert(total_cellPart[0].end(), cellPart[0].begin(), cellPart[0].end());
+//             // total_cellPart[1].insert(total_cellPart[1].end(), cellPart[1].begin(), cellPart[1].end());
+//             // for (int cellIdx : cellPart[0]) {
+//             //     total_cellPart[0].push_back(cellIdx);
+//             // }
+//             // for (int cellIdx : cellPart[1]) {
+//             //     total_cellPart[1].push_back(cellIdx);
+//             // }
+
+//             bool inv = (cellPart[0].size() >= cellPart[1].size()) ? false : true;
+//             for (int k=0; k<2; ++k){
+//                 for(int cellId : cellPart[k]){ 
+//                     Cell_C* cell = _vCell[cellId];
+// =======
     vector < pair < int, pair < int, int>>> bins_size;
     for (int i=0; i<bins_per_row; ++i) {
         for (int j=0; j<bins_per_col; ++j) {
@@ -2309,8 +2348,9 @@ void Placer_C::bin_based_partition_new() {
         maxArea[1] = totalArea[1] - used_area[1];
         cout << "valid area = (" << maxArea[0] << ", " << maxArea[1] << ")\n";
         // cout << "place " << used_area[0] << "," << used_area[1] << "\n";
-        partitioner->parseInput(_vCell, _pChip, bins[i][j], maxArea, cutline);
-        partitioner->partition();
+        partitioner->parseInput(_vCell, _pChip, bins[i][j], maxArea, cutline, false);
+        partitioner->initial_partition();
+        partitioner->partition(4, true);
         partitioner->printSummary();
         vector<vector<int> >& cellPart = partitioner->get_part_result();
         
@@ -2320,6 +2360,7 @@ void Placer_C::bin_based_partition_new() {
                 Cell_C* cell = _vCell[cellId];
                 used_area[k] += cell->get_width(_pChip->get_die(k)->get_techId()) * cell->get_height(_pChip->get_die(k)->get_techId());
                 if (used_area[k] <= totalArea[k]) {
+// >>>>>>> 4625e716f38a079da0d27a69de233ebe671ba5f5
                     cell->set_die(_pChip->get_die(k));
                 } else {
                     used_area[k] -= cell->get_width(_pChip->get_die(k)->get_techId()) * cell->get_height(_pChip->get_die(k)->get_techId());
@@ -2332,6 +2373,113 @@ void Placer_C::bin_based_partition_new() {
             }
         }
     }
+// <<<<<<< HEAD
+    // bins.clear();
+
+    bins_per_row = 5;
+    bins_per_col = 5;
+    bin_num = bins_per_row * bins_per_col;
+    cout << _paramHdl.get_case_name() << ": " << bins_per_row <<"\n";
+    bin_width = _pChip->get_die(0)->get_width() / bins_per_row;
+    bin_height = _pChip->get_die(0)->get_height() / bins_per_col;
+    vector <vector <vector <Cell_C*>>> new_bins(bins_per_row, vector< vector <Cell_C*>> (bins_per_col, vector <Cell_C*> ())); 
+    // vector<int> cell_num_in_bin;
+    for (Cell_C* cell : _vCell) {
+        int row_ind = floor(cell->get_posX() / bin_width);
+        int col_ind = floor(cell->get_posY() / bin_height);
+        new_bins[row_ind][col_ind].emplace_back(cell);
+    }
+
+    vector < pair < int, pair < int, int>>> new_bins_size;
+    for (int i=0; i<bins_per_row; ++i) {
+        for (int j=0; j<bins_per_col; ++j) {
+            new_bins_size.emplace_back(make_pair(new_bins[i][j].size(), make_pair(i, j)));
+        }
+    }
+
+    sort(new_bins_size.begin(), new_bins_size.end());
+    reverse(new_bins_size.begin(), new_bins_size.end());
+    used_area[0] = 0.0;
+    used_area[1] = 0.0;
+    // double maxArea[2];
+    for (int ind=0; ind<bin_num; ind++) {
+        int i = new_bins_size[ind].second.first;
+        int j = new_bins_size[ind].second.second;
+        Partitioner* partitioner = new Partitioner();
+        totalArea[0] = (double) _pChip->get_die(0)->get_width() * (double) _pChip->get_die(0)->get_height() * _pChip->get_die(0)->get_max_util();
+        totalArea[1] = (double) _pChip->get_die(1)->get_width() * (double) _pChip->get_die(1)->get_height() * _pChip->get_die(1)->get_max_util();
+        maxArea[0] = totalArea[0] - used_area[0];
+        maxArea[1] = totalArea[1] - used_area[1];
+        cout << "valid area = (" << maxArea[0] << ", " << maxArea[1] << ")\n";
+        // cout << "place " << used_area[0] << "," << used_area[1] << "\n";
+        partitioner->parseInput(_vCell, _pChip, new_bins[i][j], maxArea, cutline, true);
+        // partitioner->initial_partition();
+        partitioner->partition(4, true);
+        partitioner->printSummary();
+        vector<vector<int> >& cellPart = partitioner->get_part_result();
+        
+        // bool inv = (cellPart[0].size() >= cellPart[1].size()) ? false : true;
+        for (int k=0; k<2; ++k){
+            for(int cellId : cellPart[k]){ 
+                Cell_C* cell = _vCell[cellId];
+                used_area[k] += cell->get_width(_pChip->get_die(k)->get_techId()) * cell->get_height(_pChip->get_die(k)->get_techId());
+                if (used_area[k] <= totalArea[k]) {
+// >>>>>>> 4625e716f38a079da0d27a69de233ebe671ba5f5
+                    cell->set_die(_pChip->get_die(k));
+                } else {
+                    used_area[k] -= cell->get_width(_pChip->get_die(k)->get_techId()) * cell->get_height(_pChip->get_die(k)->get_techId());
+                    cell->set_die(_pChip->get_die(1 - k));
+                    used_area[1 - k] += cell->get_width() * cell->get_height();
+                    cout << "~~~~~~~die:" << k << ", " << totalArea[k] - used_area[k] << "\n";  
+                    cout << "die:" << 1 - k << ", " << totalArea[1 - k] - used_area[1 - k] << "\n";  
+                }
+                
+            }
+        }
+    }
+
+    // bins_per_row = 1;
+    // bins_per_col = 1;
+    // cout << _paramHdl.get_case_name() << ": " << bins_per_row <<"\n";
+    // bin_width = _pChip->get_die(0)->get_width() / bins_per_row;
+    // bin_height = _pChip->get_die(0)->get_height() / bins_per_col;
+    // vector <vector <vector <Cell_C*>>> new_new_bins(bins_per_row, vector< vector <Cell_C*>> (bins_per_col, vector <Cell_C*> ())); 
+    // // vector<int> cell_num_in_bin;
+    // for (Cell_C* cell : _vCell) {
+    //     int row_ind = floor(cell->get_posX() / bin_width);
+    //     int col_ind = floor(cell->get_posY() / bin_height);
+    //     new_new_bins[row_ind][col_ind].emplace_back(cell);
+    // }
+
+   
+    // used_area[0] = 0.0;
+    // used_area[1] = 0.0;
+    // // double maxArea[2];
+    // for (int i=0; i<bins_per_row; ++i) {
+    //     for (int j=0; j<bins_per_col; ++j) {
+    //         Partitioner* partitioner = new Partitioner();
+    //         maxArea[0] = (double) _pChip->get_die(0)->get_width() * (double) _pChip->get_die(0)->get_height() * _pChip->get_die(0)->get_max_util() - used_area[0];
+    //         maxArea[1] = (double) _pChip->get_die(1)->get_width() * (double) _pChip->get_die(1)->get_height() * _pChip->get_die(1)->get_max_util() - used_area[1];
+    //         cout << "valid area = (" << maxArea[0] << ", " << maxArea[1] << ")\n";
+    //         // cout << "place " << used_area[0] << "," << used_area[1] << "\n";
+    //         partitioner->parseInput(_vCell, _pChip, new_new_bins[i][j], maxArea, cutline, true);
+    //         // partitioner->inherit_partition(total_cellPart);
+    //         // partitioner->initial_partition();
+    //         partitioner->partition(4, true);
+    //         partitioner->printSummary();
+    //         vector<vector<int> >& cellPart = partitioner->get_part_result();
+
+    //         bool inv = (cellPart[0].size() >= cellPart[1].size()) ? false : true;
+    //         for (int k=0; k<2; ++k){
+    //             for(int cellId : cellPart[k]){ 
+    //                 Cell_C* cell = _vCell[cellId];
+    //                 cell->set_die(_pChip->get_die(k));
+    //                 used_area[k] += cell->get_width() * cell->get_height();
+    //             }
+    //         }
+    //     }
+    // }
+// =======
     // for (int i=0; i<bins_per_row; ++i) {
     //     for (int j=0; j<bins_per_col; ++j) {
     //         Partitioner* partitioner = new Partitioner();
@@ -2367,6 +2515,7 @@ void Placer_C::bin_based_partition_new() {
     // }
     
 
+// >>>>>>> 4625e716f38a079da0d27a69de233ebe671ba5f5
 
     // Partitioner* partitioner = new Partitioner();
     // partitioner->parseInput(_vCell, _pChip);
