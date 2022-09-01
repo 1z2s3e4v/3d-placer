@@ -63,7 +63,13 @@ void Placer_C::get_para(bool test){
     } else {
         _rPara = "-pcofmax 1.2";
         _rPara1 = "-pcofmax 1.2 -bin 512";
-        _rPara2 = "-pcofmax 1.2";
+        _rPara2 = "-pcofmax 1.2 -bin 512";
+
+        if(_paramHdl.check_flag_exist("preplace")){
+            _rPara = "-pcofmax 1.05 -den 1 -bin 512";
+            _rPara1 = "-pcofmax 1.05 -den 1 -bin 512";
+            _rPara2 = "-pcofmax 1.05 -den 1 -bin 512";
+        }
     }
     
     cout << "_rPara = " << _rPara << "\n";
@@ -86,7 +92,7 @@ void Placer_C::run(){
             if(_vCell.size() < 100)
                 place_succ = shrunk2d_ntuplace();
             else
-            place_succ = shrunk2d_replace();    
+                place_succ = shrunk2d_replace();    
             // place_succ = shrunk2d_replace();
 
             //place_succ = true3d_placement(); // our main function
@@ -244,7 +250,11 @@ bool Placer_C::shrunked_2d_replace(){
     }// <<< create_aux_form();
 
     aux2D.write_files();
-    run_replace(caseName);
+    if(_paramHdl.check_flag_exist("preplace")){
+        run_pReplace(caseName);
+    } else {
+        run_replace(caseName);
+    }
     placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + caseName + "/experiment0/tiers/0/" + caseName + ".pl");
     if(!placer_succ) return false;
     return true;
@@ -874,7 +884,11 @@ bool Placer_C::shrunk2d_replace(){
         aux.remove_open_net();
         aux.write_files();
         _rPara = _rPara1;
-        run_replace("die0");
+        if(_paramHdl.check_flag_exist("preplace")){
+            run_pReplace("die0");
+        } else {
+            run_replace("die0");
+        }
         placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + "die0" + "/experiment0/tiers/0/" + "die0.pl", 0);
         if(!placer_succ) return false;
     }
@@ -897,6 +911,7 @@ bool Placer_C::shrunk2d_replace(){
         draw_layout_result_plt(false, "-3.2-die0-global");
     }
     // 3. Place die1 with projected die0
+    _rPara = _rPara2;
     if(_pChip->get_die(1)->get_cells().size() > 0){
         AUX aux;
         create_aux_form_replace(aux, 1, "die1");
@@ -905,8 +920,11 @@ bool Placer_C::shrunk2d_replace(){
         // check nets
         aux.remove_open_net();
         aux.write_files();
-        run_replace("die1");
-        _rPara = _rPara2;
+        if(_paramHdl.check_flag_exist("preplace")){
+            run_pReplace("die1");
+        } else {
+            run_replace("die1");
+        }
         placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + "die1" + "/experiment0/tiers/0/" + "die1.pl", 1);
         if(!placer_succ) return false;
     }
@@ -2873,7 +2891,7 @@ void Placer_C::run_replace(string caseName, bool usePRePlAce){
     cout << BLUE << "[Placer]" << RESET << " - Running replace for \'" << caseName << "\'...\n";
     string cmd = "cd " + _RUNDIR + "; ../../bin/RePlAce-static -onlyGP " + _rPara +" -bmflag ibm -bmname " + caseName + " > " + caseName + "-replace.log" + "; cd ../..";
     if(usePRePlAce)
-        cmd = "cd " + _RUNDIR + "; ../../bin/pRePlAce -preplace -onlyGP " + _rPara + " -bmflag ibm -aux IBM/" + caseName + "/" + caseName + ".aux" + " -output ./outputs/" + " > " + caseName + "-replace.log" + "; cd ../..";
+        cmd = "cd " + _RUNDIR + "; ../../bin/pRePlAce -t 8 -onlyGP " + _rPara + " -bmflag ibm -aux IBM/" + caseName + "/" + caseName + ".aux" + " -output ./outputs/" + " > " + caseName + "-replace.log" + "; cd ../..";
     if(_paramHdl.check_flag_exist("d") || _paramHdl.check_flag_exist("debug"))
         cout << "replace-cmd: " << cmd << "\n";
     system(cmd.c_str());
