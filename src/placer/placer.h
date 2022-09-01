@@ -36,6 +36,8 @@ class Placer_C{
     string _DRAWDIR = "./draw/"; // become './draw/<casename>' in run();
     vector<BNet_C*> _vBNet;
     string _rPara;
+    string _rPara1;
+    string _rPara2;
     
 public:
     //Place_C();
