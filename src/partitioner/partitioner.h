@@ -42,14 +42,14 @@ public:
     // void parseInput(fstream& inFile);
     void initial_partition();
     void inherit_partition(vector<vector<int> >& cellPart);
-    void initiate_gain(int gain_mult, bool gain_altr);
+    void initiate_gain(int gain_2_pin, int gain_3_pin, int gain_mult, bool gain_altr);
     Cell* find_cell_to_move();
     void move_cell(Cell* cell);
     void incr_or_decr_cell_gain(Cell* cell, int incr_or_decr);
-    void update_gain(int gain_mult, bool gain_altr);
+    void update_gain(int gain_2_pin, int gain_3_pin, int gain_mult, bool gain_altr);
     void calc_cutsize();
     void trace_back();
-    void partition(int gain_mult, bool gain_altr);
+    void partition(int gain_2_pin, int gain_3_pin, int gain_mult, bool gain_altr);
     vector<vector<int> >& get_part_result();// {return _cellPart;}
     bool verification_hard();
     bool verification_soft();
