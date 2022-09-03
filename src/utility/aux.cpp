@@ -1,4 +1,5 @@
 #include "aux.h"
+#include "color.h"
 #include <fstream>
 #include <sstream>
 #include <unordered_map>
@@ -207,6 +208,7 @@ bool AUX::read_pl(vector<AuxNode>& vPlacedNode){
 bool AUX::read_pl(string fileName, vector<AuxNode>& vPlacedNode){
     ifstream fin(fileName);
     if(!fin.good()){
+        cout << BLUE << "[AUX]" << RESET << " - No file \'"<<fileName<<"\'\n";
         return false;
     }
     string line;
@@ -215,12 +217,18 @@ bool AUX::read_pl(string fileName, vector<AuxNode>& vPlacedNode){
         count_line++;
         if(count_line == 1 || line[0] == '#' || line == "") continue;
         stringstream ss(line);
-        string name, tmp;
-        float x,y;
-        ss >> name >> x >> y;
-        bool fixed = false;
-        if(ss >> tmp >> tmp >> tmp){
-            fixed = true;
+        string name, tmp, s_x, s_y;
+        float x=-1, y=-1; bool fixed=false;
+        ss >> name >> s_x >> s_y;
+        if(s_x != "nan" && s_x != "-nan" && s_y != "nan" && s_y != "-nan"){
+            x=stof(s_x); y=stof(s_y);
+            fixed = false;
+            if(ss >> tmp >> tmp >> tmp){
+                fixed = true;
+            }
+        } else{
+            cout << BLUE << "[AUX]" << RESET << " - Cell \'"<<name << " position illegal...\'\n";
+            return false;
         }
         AuxNode node;
         node.name = name;

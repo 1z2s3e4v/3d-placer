@@ -35,9 +35,18 @@ class Placer_C{
     string _RUNDIR = "./run_tmp/"; // become './run_tmp/<casename>' in run();
     string _DRAWDIR = "./draw/"; // become './draw/<casename>' in run();
     vector<BNet_C*> _vBNet;
+    string _prPara;
+    string _prPara1;
+    string _prPara2;
+    string _srPara;
+    string _srPara1;
+    string _srPara2;
     string _rPara;
     string _rPara1;
     string _rPara2;
+    bool _useParallelRePlace;
+    bool _useParallelRePlace1;
+    bool _useParallelRePlace2;
     
 public:
     //Place_C();
@@ -87,9 +96,7 @@ public:
     void init_place_ball();
     void run_ntuplace3(string caseName);
     void run_ntuplace3(string caseName, string otherPara);
-    void run_replace(string caseName);
-    void run_pReplace(string caseName);
-    void run_replace(string caseName, bool usePRePlAce);
+    void run_replace(string caseName, bool parallel_replace);
     void run_ntuplace4(string caseName);
     void run_hmetis(int k, double ufactor, string caseName); // (k-way part)
     bool read_pl_and_set_pos(string fileName);
