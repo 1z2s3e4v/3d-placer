@@ -12,7 +12,7 @@ using namespace std;
 
 void Partitioner::parseInput(vector<Cell_C*>& v_Cell, Chip_C* p_Chip, vector <Cell_C*>& bin_cell, double(& maxArea)[2], double cutline, bool inh_part) 
 {
-    cerr << "parseInput" << endl;
+    // cerr << "parseInput" << endl;
     _vCell = v_Cell;
     _pChip = p_Chip;
     _cutline = cutline;
@@ -131,13 +131,13 @@ void Partitioner::initial_partition() {
 }
 
 void Partitioner::inherit_partition(vector<vector<int> >& cellPart) {
-    cerr << "inherit partition" << endl;
-    cerr << "cellPart[0].size() = " << cellPart[0].size() << endl;
-    cerr << "cellPart[1].size() = " << cellPart[1].size() << endl;
-    cerr << "cellPart[0]: " << endl;
+    // cerr << "inherit partition" << endl;
+    // cerr << "cellPart[0].size() = " << cellPart[0].size() << endl;
+    // cerr << "cellPart[1].size() = " << cellPart[1].size() << endl;
+    // cerr << "cellPart[0]: " << endl;
     for (int i=0; i<cellPart[0].size(); ++i) {
         int cellIdx = cellPart[0][i];
-        cerr << cellIdx << " ";
+        // cerr << cellIdx << " ";
         Cell* cell = _cellArray[cellIdx];
         cell->setPart(0);
         _partSize[0] += 1;
@@ -147,9 +147,9 @@ void Partitioner::inherit_partition(vector<vector<int> >& cellPart) {
             _netArray[cell->getNetList()[j]]->incPartCount(0); 
         }
     }
-    cerr << "cellPart[1]: " << endl;
+    // cerr << "cellPart[1]: " << endl;
     for (int cellIdx : cellPart[1]) {
-        cerr << cellIdx << " ";
+        // cerr << cellIdx << " ";
         Cell* cell = _cellArray[cellIdx];
         cell->setPart(1);
         _partSize[1] += 1;
@@ -748,7 +748,7 @@ vector<vector<int> >& Partitioner::get_part_result() {
             }
         }
         if (inv) {
-            cout << "inv\n";
+            // cout << "inv\n";
             for (Cell* cell : _cellArray) {
                 _cellPart[1 - cell->getPart()].emplace_back(cell->getName());
             }
@@ -772,14 +772,14 @@ vector<vector<int> >& Partitioner::get_part_result() {
             }
             
         }
-        cout << "xxxxxxxxxx\n";
+        // cout << "xxxxxxxxxx\n";
     }
 
     return _cellPart;
 }
 
 void Partitioner::partition(int gain_2_pin, int gain_3_pin, int gain_mult, bool gain_altr) {
-    cerr << "partition" << endl;
+    // cerr << "partition" << endl;
 
     // Partitioner::initial_partition();
     Partitioner::calc_cutsize();

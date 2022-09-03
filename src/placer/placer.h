@@ -44,6 +44,8 @@ class Placer_C{
     string _rPara;
     string _rPara1;
     string _rPara2;
+    bool _multiLevel;
+    double _usedArea[2];
     bool _useParallelRePlace;
     bool _useParallelRePlace1;
     bool _useParallelRePlace2;
