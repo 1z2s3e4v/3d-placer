@@ -26,6 +26,9 @@ Placer_C::Placer_C(Chip_C* p_pChip, Design_C* p_pDesign, ParamHdl_C& paramHdl, c
 
     _RUNDIR = "./run_tmp/" + _paramHdl.get_case_name() + "/";
     _DRAWDIR = "./draw/"+ _paramHdl.get_case_name() + "/";
+
+    _prPara = _prPara1 = _prPara2 = _srPara = _srPara1 = _srPara2 = _rPara = _rPara1 = _rPara2 = "";
+    _useParallelRePlace = _useParallelRePlace1 = _useParallelRePlace2 = false;
 }
 
 void Placer_C::run_safe_mode(){
@@ -61,9 +64,30 @@ void Placer_C::get_para(bool test){
             ++ count;
         }
     } else {
-        _rPara = "-pcofmax 1.2";
-        _rPara1 = "-pcofmax 1.2 -bin 512";
-        _rPara2 = "-pcofmax 1.2";
+        // parallel replace params
+        _prPara = "-pcofmax 1.05 -den 1 -bin 512";
+        _prPara1 = "-pcofmax 1.05 -den 1 -bin 512";
+        _prPara2 = "-pcofmax 1.05 -den 1 -bin 512";
+        // single-thread replace params
+        _srPara = "-pcofmax 1.2";
+        _srPara1 = "-pcofmax 1.2 -bin 512";
+        _srPara2 = "-pcofmax 1.2 -bin 512";
+
+        if(_paramHdl.check_flag_exist("preplace")){ // parallel
+            _useParallelRePlace = true;
+            _useParallelRePlace1 = true;
+            _useParallelRePlace1 = true;
+            _rPara = _prPara;
+            _rPara1 = _prPara1;
+            _rPara2 = _prPara2;
+        } else { // single-thread
+            _useParallelRePlace = false;
+            _useParallelRePlace1 = false;
+            _useParallelRePlace1 = false;
+            _rPara = _srPara;
+            _rPara1 = _srPara1;
+            _rPara2 = _srPara2;
+        }
     }
     
     cout << "_rPara = " << _rPara << "\n";
@@ -86,7 +110,7 @@ void Placer_C::run(){
             if(_vCell.size() < 100)
                 place_succ = shrunk2d_ntuplace();
             else
-            place_succ = shrunk2d_replace();    
+                place_succ = shrunk2d_replace();    
             // place_succ = shrunk2d_replace();
 
             //place_succ = true3d_placement(); // our main function
@@ -118,7 +142,7 @@ void Placer_C::run(){
         if(!place_succ){
             cout << BLUE << "[Placer]" << RESET << " - ###############################\n";
             cout << BLUE << "[Placer]" << RESET << " - Run Again ...\n";
-            continue;
+            exit(1);
         }
     }
 
@@ -244,8 +268,15 @@ bool Placer_C::shrunked_2d_replace(){
     }// <<< create_aux_form();
 
     aux2D.write_files();
-    run_replace(caseName);
+    run_replace(caseName, _useParallelRePlace);
     placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + caseName + "/experiment0/tiers/0/" + caseName + ".pl");
+    if(!placer_succ && _useParallelRePlace){
+        system(("rm -rf " + _RUNDIR + "/outputs/IBM/" + caseName + "/experiment0").c_str());
+        _rPara = _srPara;
+        run_replace(caseName, false);
+        placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + caseName + "/experiment0/tiers/0/" + caseName + ".pl");
+    }
+    
     if(!placer_succ) return false;
     return true;
 }
@@ -874,8 +905,24 @@ bool Placer_C::shrunk2d_replace(){
         aux.remove_open_net();
         aux.write_files();
         _rPara = _rPara1;
-        run_replace("die0");
+        _useParallelRePlace = _useParallelRePlace1;
+        run_replace("die0", _useParallelRePlace);
         placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + "die0" + "/experiment0/tiers/0/" + "die0.pl", 0);
+        if(!placer_succ && _useParallelRePlace){
+            system(("rm -rf " + _RUNDIR + "/outputs/IBM/die0/experiment0").c_str());
+            for(Cell_C* cell : _pChip->get_die(0)->get_cells())
+                cell->set_xy(Pos(_pChip->get_width()/2, _pChip->get_height()/2));
+            AUX aux2;
+            create_aux_form_replace(aux2, 0, "die0");
+            add_project_ball(aux2);
+            //add_project_pin(aux, 1);
+            // check nets
+            aux2.remove_open_net();
+            aux2.write_files();
+            _rPara = _srPara1;
+            run_replace("die0", false);
+            placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + "die0" + "/experiment0/tiers/0/" + "die0.pl", 0);
+        }
         if(!placer_succ) return false;
     }
     if(cal_ball_num() > 0){
@@ -897,6 +944,7 @@ bool Placer_C::shrunk2d_replace(){
         draw_layout_result_plt(false, "-3.2-die0-global");
     }
     // 3. Place die1 with projected die0
+    _rPara = _rPara2;
     if(_pChip->get_die(1)->get_cells().size() > 0){
         AUX aux;
         create_aux_form_replace(aux, 1, "die1");
@@ -905,9 +953,25 @@ bool Placer_C::shrunk2d_replace(){
         // check nets
         aux.remove_open_net();
         aux.write_files();
-        run_replace("die1");
         _rPara = _rPara2;
+        _useParallelRePlace = _useParallelRePlace2;
+        run_replace("die1", _useParallelRePlace);
         placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + "die1" + "/experiment0/tiers/0/" + "die1.pl", 1);
+        if(!placer_succ && _useParallelRePlace){
+            system(("rm -rf " + _RUNDIR + "/outputs/IBM/die1/experiment0").c_str());
+            for(Cell_C* cell : _pChip->get_die(1)->get_cells())
+                cell->set_xy(Pos(_pChip->get_width()/2, _pChip->get_height()/2));
+            AUX aux2;
+            create_aux_form_replace(aux2, 1, "die1");
+            //add_project_pin(aux, 0);
+            add_project_ball(aux2);
+            // check nets
+            aux.remove_open_net();
+            aux.write_files();
+            _rPara = _srPara2;
+            run_replace("die1", false);
+            placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + "die1" + "/experiment0/tiers/0/" + "die1.pl", 1);
+        }
         if(!placer_succ) return false;
     }
 
@@ -3015,7 +3079,7 @@ bool Placer_C::read_pl_and_set_pos(string fileName){
         }
     }
     else{
-        cout << BLUE << "[Placer]" << RESET << " - " << RED << "Error. " << RESET << "NTUplacer failed.\n";
+        cout << BLUE << "[Placer]" << RESET << " - " << RED << "Error. " << RESET << "Placer failed.\n";
         return false;
     }
     return true;
@@ -3037,7 +3101,7 @@ bool Placer_C::read_pl_and_set_pos(string fileName, int dieId){
         }
     }
     else{
-        cout << BLUE << "[Placer]" << RESET << " - " << RED << "Error. " << RESET << "NTUplacer failed.\n";
+        cout << BLUE << "[Placer]" << RESET << " - " << RED << "Error. " << RESET << "Placer failed.\n";
         return false;
     }
     return true;
@@ -3059,7 +3123,7 @@ bool Placer_C::read_pl_and_set_pos_for_ball(string fileName){
         }
     }
     else{
-        cout << BLUE << "[Placer]" << RESET << " - " << RED << "Error. " << RESET << "NTUplacer failed.\n";
+        cout << BLUE << "[Placer]" << RESET << " - " << RED << "Error. " << RESET << "Placer failed.\n";
         return false;
     }
     return true;
@@ -3074,23 +3138,23 @@ void Placer_C::run_ntuplace3(string caseName, string otherPara){
     system(cmd.c_str());
     cout << BLUE << "[Placer]" << RESET << " - Running ntuplace3 for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
 }
-void Placer_C::run_replace(string caseName){
-    run_replace(caseName, false);
-}
-void Placer_C::run_pReplace(string caseName){
-    run_replace(caseName, true);
-}
-void Placer_C::run_replace(string caseName, bool usePRePlAce){
-    cout << BLUE << "[Placer]" << RESET << " - Running replace for \'" << caseName << "\'...\n";
+void Placer_C::run_replace(string caseName, bool use_pReplace){
     string cmd = "cd " + _RUNDIR + "; ../../bin/RePlAce-static -onlyGP " + _rPara +" -bmflag ibm -bmname " + caseName + " > " + caseName + "-replace.log" + "; cd ../..";
-    if(usePRePlAce)
-        cmd = "cd " + _RUNDIR + "; ../../bin/pRePlAce -preplace -onlyGP " + _rPara + " -bmflag ibm -aux IBM/" + caseName + "/" + caseName + ".aux" + " -output ./outputs/" + " > " + caseName + "-replace.log" + "; cd ../..";
+    if(use_pReplace){
+        cout << BLUE << "[Placer]" << RESET << " - Running pReplace for \'" << caseName << "\'...\n";
+        cmd = "cd " + _RUNDIR + "; ../../bin/pRePlAce -preplace -t 8 -onlyGP " + _rPara + " -bmflag ibm -aux IBM/" + caseName + "/" + caseName + ".aux" + " -output ./outputs/" + " > " + caseName + "-replace.log" + "; cd ../..";
+    } else{
+        cout << BLUE << "[Placer]" << RESET << " - Running replace for \'" << caseName << "\'...\n";
+    }
     if(_paramHdl.check_flag_exist("d") || _paramHdl.check_flag_exist("debug"))
         cout << "replace-cmd: " << cmd << "\n";
     system(cmd.c_str());
-    cout << BLUE << "[Placer]" << RESET << " - Running replace for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
-    if(usePRePlAce)
+    if(use_pReplace){
         system(("rm -rf " + _RUNDIR + "outputs/IBM; " + "mv " + _RUNDIR + "outputs/ibm " + _RUNDIR + "outputs/IBM").c_str());
+        cout << BLUE << "[Placer]" << RESET << " - Running pReplace for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
+    } else {
+        cout << BLUE << "[Placer]" << RESET << " - Running replace for \'" << caseName << "\'" << GREEN << " completed!\n" << RESET;
+    }
 }
 void Placer_C::run_ntuplace4(string caseName){
     cout << BLUE << "[Placer]" << RESET << " - Running ntuplace4 for \'" << caseName << "\'...\n";
