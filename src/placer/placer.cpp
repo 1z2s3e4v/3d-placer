@@ -296,11 +296,15 @@ bool Placer_C::shrunked_2d_replace(){
     aux2D.write_files();
     run_replace(caseName, _useParallelRePlace);
     placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + caseName + "/experiment0/tiers/0/" + caseName + ".pl");
-    if(!placer_succ && _useParallelRePlace){
+    if(!placer_succ && _useParallelRePlace){ // safe_mode: change to RePlAce-static
         system(("rm -rf " + _RUNDIR + "/outputs/IBM/" + caseName + "/experiment0").c_str());
         _rPara = _srPara;
         run_replace(caseName, false);
         placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + caseName + "/experiment0/tiers/0/" + caseName + ".pl");
+    }
+    if(!placer_succ){ // final safe_mode: change to ntuplace3
+        system(("rm -rf " + _RUNDIR + "/outputs/IBM/" + caseName + "/experiment0").c_str());
+        placer_succ = shrunked_2d_ntuplace("-nolegal -nodetail");
     }
     
     if(!placer_succ) return false;
@@ -940,7 +944,7 @@ bool Placer_C::shrunk2d_replace(){
         _useParallelRePlace = _useParallelRePlace1;
         run_replace("die0", _useParallelRePlace);
         placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + "die0" + "/experiment0/tiers/0/" + "die0.pl", 0);
-        if(!placer_succ && _useParallelRePlace){
+        if(!placer_succ && _useParallelRePlace){ // safe_mode: change to RePlAce-static
             system(("rm -rf " + _RUNDIR + "/outputs/IBM/die0/experiment0").c_str());
             for(Cell_C* cell : _pChip->get_die(0)->get_cells())
                 cell->set_xy(Pos(_pChip->get_width()/2, _pChip->get_height()/2));
@@ -954,6 +958,20 @@ bool Placer_C::shrunk2d_replace(){
             _rPara = _srPara1;
             run_replace("die0", false);
             placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + "die0" + "/experiment0/tiers/0/" + "die0.pl", 0);
+        }
+        if(!placer_succ){ // final safe_mode: change to ntuplace3
+            system(("rm -rf " + _RUNDIR + "/outputs/IBM/die0/experiment0").c_str());
+            for(Cell_C* cell : _pChip->get_die(0)->get_cells())
+                cell->set_xy(Pos(_pChip->get_width()/2, _pChip->get_height()/2));
+            AUX aux2;
+            create_aux_form(aux2, 0, "die0");
+            //add_project_pin(aux, 1);
+            add_project_ball(aux2);
+            // check nets
+            aux2.remove_open_net();
+            aux2.write_files();
+            run_ntuplace3("die0", "-nolegal -nodetail");
+            placer_succ = read_pl_and_set_pos(_RUNDIR+"die0.ntup.pl", 0);
         }
         if(!placer_succ) return false;
     }
@@ -989,7 +1007,7 @@ bool Placer_C::shrunk2d_replace(){
         _useParallelRePlace = _useParallelRePlace2;
         run_replace("die1", _useParallelRePlace);
         placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + "die1" + "/experiment0/tiers/0/" + "die1.pl", 1);
-        if(!placer_succ && _useParallelRePlace){
+        if(!placer_succ && _useParallelRePlace){ // safe_mode: change to RePlAce-static
             system(("rm -rf " + _RUNDIR + "/outputs/IBM/die1/experiment0").c_str());
             for(Cell_C* cell : _pChip->get_die(1)->get_cells())
                 cell->set_xy(Pos(_pChip->get_width()/2, _pChip->get_height()/2));
@@ -1003,6 +1021,20 @@ bool Placer_C::shrunk2d_replace(){
             _rPara = _srPara2;
             run_replace("die1", false);
             placer_succ = read_pl_and_set_pos(_RUNDIR + "/outputs/IBM/" + "die1" + "/experiment0/tiers/0/" + "die1.pl", 1);
+        }
+        if(!placer_succ){ // final safe_mode: change to ntuplace3
+            system(("rm -rf " + _RUNDIR + "/outputs/IBM/die1/experiment0").c_str());
+            for(Cell_C* cell : _pChip->get_die(1)->get_cells())
+                cell->set_xy(Pos(_pChip->get_width()/2, _pChip->get_height()/2));
+            AUX aux2;
+            create_aux_form(aux2, 1, "die1");
+            //add_project_pin(aux, 0);
+            add_project_ball(aux2);
+            // check nets
+            aux2.remove_open_net();
+            aux2.write_files();
+            run_ntuplace3("die1", "-nolegal -nodetail");
+            placer_succ = read_pl_and_set_pos(_RUNDIR+"die1.ntup.pl", 1);
         }
         if(!placer_succ) return false;
     }
@@ -1186,7 +1218,7 @@ bool Placer_C::via_refinement(){
     int net_stage_1, net_stage_2;
     net_stage_1 = net_stage_2 = 0;
     total_hpwl = cal_HPWL();
-    int tmp_hpwl = cal_HPWL();
+    int tmp_hpwl = total_hpwl;
     cout << BLUE << "[Placer]" << RESET << "HPWL before refinement = " <<total_hpwl << "\n";
 
     //Step 0 : Sort the d2d nets with their gain (Max decrease in HPWL)
@@ -1225,18 +1257,16 @@ bool Placer_C::via_refinement(){
             ball_bbox_y1 = max(net->get_ll(0).y, net->get_ll(1).y);
         }
 
-        net -> set_ball_xy(Pos((int) (ball_bbox_x1 + ball_bbox_x2) /2, (int) (ball_bbox_y1 + ball_bbox_y2) /2));
-        net->update_bbox();
-        int after_HPWL = net-> get_total_HPWL();
-        //Changed
+        Pos best_ball_pos = Pos((ball_bbox_x1 + ball_bbox_x2)/2, (ball_bbox_y1 + ball_bbox_y2) /2);
+        int after_hpwl0 = abs(max(net->get_ur(0).x, best_ball_pos.x) - min(net->get_ll(0).x, best_ball_pos.x)) + abs(max(net->get_ur(0).y, best_ball_pos.y) - min(net->get_ll(0).y, best_ball_pos.y));
+        int after_hpwl1 = abs(max(net->get_ur(1).x, best_ball_pos.x) - min(net->get_ll(1).x, best_ball_pos.x)) + abs(max(net->get_ur(1).y, best_ball_pos.y) - min(net->get_ll(1).y, best_ball_pos.y));
+        int after_HPWL = after_hpwl0 + after_hpwl1;
+
         int HPWL_gain = original_HPWL - after_HPWL;
         if (HPWL_gain > 0) {
             optimal_HPWL_gain += HPWL_gain;
             nets.push_back(pair<int, int> (HPWL_gain, net->get_id()));
         }
-        
-        net->set_ball_xy(Pos(ball_curX, ball_curY));
-        net->update_bbox();
     }
     std::sort(nets.begin(), nets.end());
     std::sort(sorted_ball_x.begin(), sorted_ball_x.end());
@@ -1244,7 +1274,7 @@ bool Placer_C::via_refinement(){
 
 
     // Step 0.3 : Create map to check whether the nets has been refined
-    std::map <int ,bool> net_really_changed; 
+    std::unordered_map <int ,bool> net_really_changed; 
     for (auto it = nets.begin(); it != nets.end(); ++it){
         net_really_changed.insert(pair <int, bool>((*it).second, false));
     }
@@ -1253,7 +1283,6 @@ bool Placer_C::via_refinement(){
     //This "For" represent times of refinement
     for (int k = 0; k < 1; k++ ){
         for (auto it = nets.rbegin(); it != nets.rend(); ++it){
-            
             Net_C* net = _pDesign -> get_net((*it).second);    
             time_END = clock();
             if((time_END - time_START) / CLOCKS_PER_SEC > 300) break;
@@ -1265,110 +1294,103 @@ bool Placer_C::via_refinement(){
             int ball_bbox_x1, ball_bbox_x2; // The bounding box(intersection box) of changing cell
             int ball_bbox_y1, ball_bbox_y2;
             
-            //Step 1 : Start refinement
+            // Step 1 : Start refinement
             time_tmp = clock();
-            if(net_really_changed[cur_net_id] == false ) {
-                //Step 1.1 : Start refining
-                //Get intersection box 
-
-                net -> update_bbox_noball();
-                if(min(net->get_ur(0).x, net->get_ur(1).x) <= max(net->get_ll(0).x, net->get_ll(1).x)){
-                    ball_bbox_x1 = min(net->get_ur(0).x, net->get_ur(1).x);
-                    ball_bbox_x2 = max(net->get_ll(0).x, net->get_ll(1).x);
-                }
-                else {
-                    ball_bbox_x2 = min(net->get_ur(0).x, net->get_ur(1).x);
-                    ball_bbox_x1 = max(net->get_ll(0).x, net->get_ll(1).x);
-                }
-                if(min(net->get_ur(0).y, net->get_ur(1).y) <= max(net->get_ll(0).y, net->get_ll(1).y)){
-                    ball_bbox_y1 = min(net->get_ur(0).y, net->get_ur(1).y);
-                    ball_bbox_y2 = max(net->get_ll(0).y, net->get_ll(1).y);
-                }
-                else {
-                    ball_bbox_y2 = min(net->get_ur(0).y, net->get_ur(1).y);
-                    ball_bbox_y1 = max(net->get_ll(0).y, net->get_ll(1).y);
-                }
-
-                ball_bbox_x1 = max(ball_bbox_x1, _pChip ->get_ball_spacing() + _pChip ->get_ball_width()/2);
-                ball_bbox_x2 = min(ball_bbox_x2, _pChip ->get_width() - _pChip ->get_ball_spacing() - _pChip ->get_ball_width()/2);
-                ball_bbox_y1 = max(ball_bbox_y1, _pChip ->get_ball_spacing() + _pChip ->get_ball_height()/2);
-                ball_bbox_y2 = min(ball_bbox_y2, _pChip ->get_height() - _pChip ->get_ball_spacing() - _pChip ->get_ball_height()/2);
-
-
-                //Step 1.2 : Put the ball into new place
-                //Sweep through intersection box if its center is occupied 
-
-                // 找到邊框內的Vias，
-                int x1_index, x2_index;
-                x1_index = x2_index = 0;
-                int rectangle_x1, rectangle_x2, rectangle_y1, rectangle_y2;
-                rectangle_x1 = ball_bbox_x1 -  _pChip -> get_ball_width() - _pChip -> get_ball_spacing();
-                rectangle_x2 = ball_bbox_x2 +  _pChip -> get_ball_width() + _pChip -> get_ball_spacing();
-                rectangle_y1 = ball_bbox_y1 -  _pChip -> get_ball_height() - _pChip -> get_ball_spacing();
-                rectangle_y2 = ball_bbox_y2 +  _pChip -> get_ball_height() + _pChip -> get_ball_spacing();
-                rectangle_x1 = max(rectangle_x1, _pChip ->get_ball_spacing() + _pChip ->get_ball_width()/2);
-                rectangle_x2 = min(rectangle_x2, _pChip ->get_width() - _pChip ->get_ball_spacing() - _pChip ->get_ball_width()/2);
-                rectangle_y1 = max(rectangle_y1, _pChip ->get_ball_spacing() + _pChip ->get_ball_height()/2);
-                rectangle_y2 = min(rectangle_y2, _pChip ->get_height() - _pChip ->get_ball_spacing() - _pChip ->get_ball_height()/2);
-
-                // bool index_flag = false;
-                for (int i = 0; i< sorted_ball_x.size(); i++){
-                    if(rectangle_x1 <= sorted_ball_x[i].first){
-                        x1_index = i;
-                        break;
-                    }
-                }
-                for (int i = sorted_ball_x.size() - 1; i >= 0; i--){
-                    if(rectangle_x2 >= sorted_ball_x[i].first){
-                        x2_index = i; 
-                        break;
-                    }
-                }
-                vector<int> nets_need_compare;
-                
-                for (int i = x1_index; i <= x2_index; i++){
-                    int temp_ball_y = _pDesign -> get_net(sorted_ball_x[i].second) -> get_ball_pos().y ;
-                    if (temp_ball_y >= rectangle_y1 && temp_ball_y <= rectangle_y2){
-                        nets_need_compare.push_back(sorted_ball_x[i].second);
-                    }
-                }
-                // Sweep through the rectangle, from ll to ur, right move first.
-                for (int new_ball_y = ball_bbox_y1; new_ball_y <= ball_bbox_y2 ; new_ball_y += 1){
-                    bool flag_changeable = false;
-                    for (int new_ball_x = ball_bbox_x1; new_ball_x <= ball_bbox_x2 ; new_ball_x += 1){
-                        if(check_new_ball_legal_sorted(new_ball_x, new_ball_y, cur_net_id, nets_need_compare)) {
-                            net -> set_ball_xy(Pos(new_ball_x, new_ball_y));  
-                            net_really_changed[cur_net_id] = true;
-                            flag_changeable = true;
-                            net_stage_1 ++;
-                            //更新sorted兩個vector
-                            for (int i = 0; i < sorted_ball_x.size(); i++){
-                                if(sorted_ball_x[i].second == cur_net_id){
-                                    sorted_ball_x.erase(sorted_ball_x.begin() + i);
-                                    break;
-                                }
-                            }
-                            
-                            time_tmp_sorting = clock();
-                            sort_ball_xy_vector(new_ball_x, cur_net_id,  sorted_ball_x);
-                            time_on_sorting += clock() - time_tmp_sorting;
-                            break;
-                        }
-                    }
-                    if (flag_changeable) break;
-                }
-                // Option 2 ends
-                
+            // Step 1.1 : Get intersection box
+            net -> update_bbox_noball();
+            if(min(net->get_ur(0).x, net->get_ur(1).x) <= max(net->get_ll(0).x, net->get_ll(1).x)){
+                ball_bbox_x1 = min(net->get_ur(0).x, net->get_ur(1).x);
+                ball_bbox_x2 = max(net->get_ll(0).x, net->get_ll(1).x);
             }
+            else {
+                ball_bbox_x2 = min(net->get_ur(0).x, net->get_ur(1).x);
+                ball_bbox_x1 = max(net->get_ll(0).x, net->get_ll(1).x);
+            }
+            if(min(net->get_ur(0).y, net->get_ur(1).y) <= max(net->get_ll(0).y, net->get_ll(1).y)){
+                ball_bbox_y1 = min(net->get_ur(0).y, net->get_ur(1).y);
+                ball_bbox_y2 = max(net->get_ll(0).y, net->get_ll(1).y);
+            }
+            else {
+                ball_bbox_y2 = min(net->get_ur(0).y, net->get_ur(1).y);
+                ball_bbox_y1 = max(net->get_ll(0).y, net->get_ll(1).y);
+            }
+
+            ball_bbox_x1 = max(ball_bbox_x1, _pChip ->get_ball_spacing() + _pChip ->get_ball_width()/2);
+            ball_bbox_x2 = min(ball_bbox_x2, _pChip ->get_width() - _pChip ->get_ball_spacing() - _pChip ->get_ball_width()/2);
+            ball_bbox_y1 = max(ball_bbox_y1, _pChip ->get_ball_spacing() + _pChip ->get_ball_height()/2);
+            ball_bbox_y2 = min(ball_bbox_y2, _pChip ->get_height() - _pChip ->get_ball_spacing() - _pChip ->get_ball_height()/2);
+
+
+            //Step 1.2 : Put the ball into new place
+            //Sweep through intersection box if its center is occupied 
+
+            // 找到邊框內的Vias，
+            int x1_index, x2_index;
+            x1_index = x2_index = 0;
+            int rectangle_x1, rectangle_x2, rectangle_y1, rectangle_y2;
+            rectangle_x1 = ball_bbox_x1 -  _pChip -> get_ball_width() - _pChip -> get_ball_spacing();
+            rectangle_x2 = ball_bbox_x2 +  _pChip -> get_ball_width() + _pChip -> get_ball_spacing();
+            rectangle_y1 = ball_bbox_y1 -  _pChip -> get_ball_height() - _pChip -> get_ball_spacing();
+            rectangle_y2 = ball_bbox_y2 +  _pChip -> get_ball_height() + _pChip -> get_ball_spacing();
+            rectangle_x1 = max(rectangle_x1, _pChip ->get_ball_spacing() + _pChip ->get_ball_width()/2);
+            rectangle_x2 = min(rectangle_x2, _pChip ->get_width() - _pChip ->get_ball_spacing() - _pChip ->get_ball_width()/2);
+            rectangle_y1 = max(rectangle_y1, _pChip ->get_ball_spacing() + _pChip ->get_ball_height()/2);
+            rectangle_y2 = min(rectangle_y2, _pChip ->get_height() - _pChip ->get_ball_spacing() - _pChip ->get_ball_height()/2);
+
+            // bool index_flag = false;
+            for (int i = 0; i< sorted_ball_x.size(); i++){
+                if(rectangle_x1 <= sorted_ball_x[i].first){
+                    x1_index = i;
+                    break;
+                }
+            }
+            for (int i = sorted_ball_x.size() - 1; i >= 0; i--){
+                if(rectangle_x2 >= sorted_ball_x[i].first){
+                    x2_index = i; 
+                    break;
+                }
+            }
+            vector<int> nets_need_compare;
+            for (int i = x1_index; i <= x2_index; i++){
+                int temp_ball_y = _pDesign -> get_net(sorted_ball_x[i].second) -> get_ball_pos().y ;
+                if (temp_ball_y >= rectangle_y1 && temp_ball_y <= rectangle_y2){
+                    nets_need_compare.push_back(sorted_ball_x[i].second);
+                }
+            }
+
+            // Sweep through the rectangle, from ll to ur, right move first.
+            for (int new_ball_y = ball_bbox_y1; new_ball_y <= ball_bbox_y2 ; new_ball_y += 1){
+                bool flag_changeable = false;
+                for (int new_ball_x = ball_bbox_x1; new_ball_x <= ball_bbox_x2 ; new_ball_x += 1){
+                    if(check_new_ball_legal_sorted(new_ball_x, new_ball_y, cur_net_id, nets_need_compare)) {
+                        net -> set_ball_xy(Pos(new_ball_x, new_ball_y));  
+                        net_really_changed[cur_net_id] = true;
+                        flag_changeable = true;
+                        net_stage_1 ++;
+                        //更新sorted兩個vector
+                        for (int i = 0; i < sorted_ball_x.size(); i++){
+                            if(sorted_ball_x[i].second == cur_net_id){
+                                sorted_ball_x.erase(sorted_ball_x.begin() + i);
+                                break;
+                            }
+                        }
+                        
+                        time_tmp_sorting = clock();
+                        sort_ball_xy_vector(new_ball_x, cur_net_id,  sorted_ball_x);
+                        time_on_sorting += clock() - time_tmp_sorting;
+                        break;
+                    }
+                }
+                if (flag_changeable) break;
+            }
+            // Option 2 ends
             time_on_first_stage += clock() - time_tmp;
-            //Stage 1 finished
+            // Stage 1 finished
     
-            //Stage 2 start
-            //Step 2 : Start getting the net closed to the center of intersection box
+            // Stage 2 start
+            // Step 2 : Start getting the net closed to the center of intersection box
             time_tmp = clock();
-
             if(net_really_changed[cur_net_id] == false ){
-
                 int center_x = (int) ((ball_bbox_x1 + ball_bbox_x2) /2);
                 int center_y = (int) ((ball_bbox_y1 + ball_bbox_y2) /2);
                 int x_distance = abs(center_x - ball_curX);
@@ -1416,9 +1438,7 @@ bool Placer_C::via_refinement(){
                 int new_ball_x, new_ball_y;
 
                 while(flag_verti == true || flag_hori == true){
-
                     // if((clock()-time_tmp_second_stage_while)/CLOCKS_PER_SEC > 5) break;
-
                     if(flag_hori == true){
                         x1 --;
                         x2 ++;
