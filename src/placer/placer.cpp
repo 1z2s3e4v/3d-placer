@@ -683,7 +683,7 @@ bool Placer_C::shrunk2d_ntuplace(){
         mincut_partition(); // set_die() for each cell
     else 
         mincut_k_partition(); // set_die() for each cell
-    // bin_based_partition_new();
+    bin_based_partition_new();
     // gnn_partition();
     init_ball_place();
     total_part_time = (float)clock() / CLOCKS_PER_SEC - part_time_start;
@@ -700,7 +700,6 @@ bool Placer_C::shrunk2d_ntuplace(){
     cout << BLUE << "[Placer]" << RESET << " - " << BLUE << "[STAGE 3]" << RESET << ": D2D LG+DP with Pin Projection.\n";
     part_time_start = (float)clock() / CLOCKS_PER_SEC;
     // 1. Place balls
-    rand_ball_place();
     if(cal_ball_num() > 0){
         AUX aux;
         create_aux_form_for_ball(aux, "ball");
@@ -851,6 +850,8 @@ bool Placer_C::shrunk2d_ntuplace(){
     cout << BLUE << "[Placer]" << RESET << " - D2D-PL: runtime = " << total_part_time << " sec = " << total_part_time/60.0 << " min.\n";
     total_hpwl = cal_HPWL();
     cout << BLUE << "[Placer]" << RESET << " - LG+DP: total HPWL = " << CYAN << total_hpwl << RESET << ".\n";
+    
+    //draw_layout_result("-result");
     return true;
 }
 bool Placer_C::shrunk2d_replace(){
@@ -1211,9 +1212,7 @@ bool Placer_C::shrunk2d_replace(){
 }
 
 bool Placer_C::via_refinement(){
-
     cout << BLUE << "[Placer]" << RESET << " Refinement Start. \n";
-    
     //Step 0 : Initialization
     double time_START, time_END; time_START = clock();
     double time_on_first_stage = 0, time_on_second_stage = 0, time_tmp ;
@@ -1291,7 +1290,7 @@ bool Placer_C::via_refinement(){
         for (auto it = nets.rbegin(); it != nets.rend(); ++it){
             Net_C* net = _pDesign -> get_net((*it).second);    
             time_END = clock();
-            if((time_END - time_START) / CLOCKS_PER_SEC > 300) break;
+            if((time_END - time_START) / CLOCKS_PER_SEC > 240) break;
 
             int cur_net_id = net -> get_id();
             ball_curX = net-> get_ball_pos().x;
@@ -3110,7 +3109,7 @@ bool Placer_C::read_pl_and_set_pos(string fileName, int dieId){
             Cell_C* cell = _mCell[node.name];
             if(cell->get_dieId() == dieId){
                 cell->set_xy(Pos(node.x,node.y));
-                //cout << "Place: " << _mCell[node.name]->get_name() << " " << _mCell[node.name]->get_pos().pos3d2str() << "\n";
+                // cout << "Place: " << _mCell[node.name]->get_name() << " " << _mCell[node.name]->get_pos().pos3d2str() << "\n";
                 // if(!cell->check_drc()){
                 //     cout << BLUE << "[Placer]" << RESET << " - " << YELLOW << "Warning! " << RESET << "NTUplaced Cell \'" << cell->get_name() << "\' at " + cell->get_pos().pos3d2str() +" position not valid.\n";
                 // }
@@ -3134,9 +3133,9 @@ bool Placer_C::read_pl_and_set_pos_for_ball(string fileName){
             if(_mNet.find(node.name) == _mNet.end()) continue;
             Net_C* net = _mNet[node.name];
             net->set_ball_xy(Pos(node.x+ball_w/2, node.y+ball_h/2));
-            if(!(node.x >= 0 && node.x + ball_w <= _pChip->get_width() && node.y >= 0 && node.y + ball_h <= _pChip->get_height())){
-                cout << BLUE << "[Placer]" << RESET << " - " << YELLOW << "Warning! " << RESET << "NTUplaced Terminal \'" << net->get_name() << "\' at " + net->get_ball_pos().pos2d2str() +" position not valid.\n";
-            }
+            // if(!(node.x >= 0 && node.x + ball_w <= _pChip->get_width() && node.y >= 0 && node.y + ball_h <= _pChip->get_height())){
+            //     cout << BLUE << "[Placer]" << RESET << " - " << YELLOW << "Warning! " << RESET << "NTUplaced Terminal \'" << net->get_name() << "\' at " + net->get_ball_pos().pos2d2str() +" position not valid.\n";
+            // }
         }
     }
     else{
@@ -3150,6 +3149,7 @@ void Placer_C::run_ntuplace3(string caseName){
 }
 void Placer_C::run_ntuplace3(string caseName, string otherPara){
     cout << BLUE << "[Placer]" << RESET << " - Running ntuplace3 for \'" << caseName << "\'...\n";
+    system(("rm -rf "+_RUNDIR+caseName+".ntup.pl").c_str());
     // ex: ./bin/ntuplace-r -aux ./run_tmp/die0/die0.aux -out ./run_tmp/die0 > ./run_tmp/die0-ntuplace.log
     string cmd = "./bin/ntuplace-r -aux " + _RUNDIR + caseName + "/" + caseName + ".aux -out " + _RUNDIR + caseName + " " + otherPara + " > " + _RUNDIR + caseName + "-ntuplace.log";
     system(cmd.c_str());
