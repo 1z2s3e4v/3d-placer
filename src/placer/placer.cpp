@@ -1135,6 +1135,7 @@ bool Placer_C::shrunk2d_replace(){
         draw_layout_result("-3.5-die1-legal");
         draw_layout_result_plt(false, "-3.5-die1-legal");
     }
+    output_result(_paramHdl.get_output_fileName());
     // 6. detail die0 
     if(_pChip->get_die(0)->get_cells().size() > 0){
         AUX aux;
@@ -3840,4 +3841,26 @@ bool Placer_C::placement_testGNN(){
         draw_layout_result_plt(false, "-3.6-die0-re");
     }
     return true;
+}
+
+void Placer_C::output_result(string fileName){
+    ofstream fout(_paramHdl.get_output_fileName());
+    Die_C* topDie = _pChip->get_die(0);
+    unordered_set<Cell_C*>& s_topCells = topDie->get_cells();
+    fout << "TopDiePlacement " << s_topCells.size() << "\n";
+    for(Cell_C* cell : s_topCells){
+        fout << "Inst " << cell->get_name() << " " << cell->get_posX() << " " << cell->get_posY() << "\n";
+    }
+    Die_C* botDie = _pChip->get_die(1);
+    unordered_set<Cell_C*>& s_botCells = botDie->get_cells();
+    fout << "BottomDiePlacement " << s_botCells.size() << "\n";
+    for(Cell_C* cell : s_botCells){
+        fout << "Inst " << cell->get_name() << " " << cell->get_posX() << " " << cell->get_posY() << "\n";
+    }
+    vector<Net_C*>& v_d2dNets = _pChip->get_d2d_nets();
+    fout << "NumTerminals " << v_d2dNets.size() << "\n";
+    for(Net_C* net : v_d2dNets){
+        fout << "Terminal " << net->get_name() << " " << net->get_ball_pos().x << " " << net->get_ball_pos().y << "\n";
+    }
+    fout.close();
 }
