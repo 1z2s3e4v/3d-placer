@@ -129,6 +129,8 @@ public:
     // test
     bool placement_testGNN();
     void get_para(bool test);
+
+    void output_result(string);
 };
 
 #endif
