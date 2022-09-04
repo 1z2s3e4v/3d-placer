@@ -65,9 +65,9 @@ void Placer_C::get_para(bool test){
         }
     } else {
         // parallel replace params
-        _prPara = "-pcofmax 1.02 -den 1 -bin 256";
-        _prPara1 = "-pcofmax 1.02 -den 1 -bin 256";
-        _prPara2 = "-pcofmax 1.02 -den 1 -bin 256";
+        _prPara = "-pcofmax 1.025 -den 1 -bin 256";
+        _prPara1 = "-pcofmax 1.025 -den 1 -bin 256";
+        _prPara2 = "-pcofmax 1.025 -den 1 -bin 256";
         // single-thread replace params
         _srPara = "-pcofmax 1.05";
         _srPara1 = "-pcofmax 1.05 -bin 512";
@@ -83,7 +83,7 @@ void Placer_C::get_para(bool test){
             _prPara1 = "-pcofmax 1.05 -den 1 -bin 512";
             _prPara2 = "-pcofmax 1.05 -den 1 -bin 512";
             // single-thread replace params
-            _srPara = "-pcofmax 1.05";
+            _srPara = "-pcofmax 1.05 -bin 512";
             _srPara1 = "-pcofmax 1.05 -bin 512";
             _srPara2 = "-pcofmax 1.05 -bin 512";
             bUseParallelRePlace = false;
@@ -92,11 +92,11 @@ void Placer_C::get_para(bool test){
             _useParallelRePlace2 = bUseParallelRePlace;
         } else if (_vCell.size() > 20000) { // case 3
             // parallel replace params
-            _prPara = "-pcofmax 1.02 -den 1 -bin 256";
-            _prPara1 = "-pcofmax 1.02 -den 1 -bin 256";
-            _prPara2 = "-pcofmax 1.02 -den 1 -bin 256";
+            _prPara = "-pcofmax 1.025 -den 1 -bin 256";
+            _prPara1 = "-pcofmax 1.025 -den 1 -bin 256";
+            _prPara2 = "-pcofmax 1.025 -den 1 -bin 256";
             // single-thread replace params
-            _srPara = "-pcofmax 1.05";
+            _srPara = "-pcofmax 1.05 -bin 512";
             _srPara1 = "-pcofmax 1.05 -bin 512";
             _srPara2 = "-pcofmax 1.05 -bin 512";
             bUseParallelRePlace = true;
