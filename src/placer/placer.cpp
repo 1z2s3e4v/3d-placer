@@ -65,14 +65,17 @@ void Placer_C::get_para(bool test){
         }
     } else {
         // parallel replace params
-        _prPara = "-pcofmax 1.05 -den 1 -bin 512";
-        _prPara1 = "-pcofmax 1.05 -den 1 -bin 512";
-        _prPara2 = "-pcofmax 1.05 -den 1 -bin 512";
+        _prPara = "-pcofmax 1.02 -den 1 -bin 256";
+        _prPara1 = "-pcofmax 1.02 -den 1 -bin 256";
+        _prPara2 = "-pcofmax 1.02 -den 1 -bin 256";
         // single-thread replace params
         _srPara = "-pcofmax 1.05";
         _srPara1 = "-pcofmax 1.05 -bin 512";
         _srPara2 = "-pcofmax 1.05 -bin 512";
         bool bUseParallelRePlace = true;
+        _useParallelRePlace = bUseParallelRePlace;
+        _useParallelRePlace1 = false;
+        _useParallelRePlace2 = false;
 
         if (_vCell.size() > 100000) { // case 4
             // parallel replace params
@@ -84,25 +87,29 @@ void Placer_C::get_para(bool test){
             _srPara1 = "-pcofmax 1.05 -bin 512";
             _srPara2 = "-pcofmax 1.05 -bin 512";
             bUseParallelRePlace = false;
+            _useParallelRePlace = bUseParallelRePlace;
+            _useParallelRePlace1 = bUseParallelRePlace;
+            _useParallelRePlace2 = bUseParallelRePlace;
         } else if (_vCell.size() > 20000) { // case 3
             // parallel replace params
-            _prPara = "-pcofmax 1.05 -den 1 -bin 256";
-            _prPara1 = "-pcofmax 1.05 -den 1 -bin 256";
-            _prPara2 = "-pcofmax 1.05 -den 1 -bin 256";
+            _prPara = "-pcofmax 1.02 -den 1 -bin 256";
+            _prPara1 = "-pcofmax 1.02 -den 1 -bin 256";
+            _prPara2 = "-pcofmax 1.02 -den 1 -bin 256";
             // single-thread replace params
             _srPara = "-pcofmax 1.05";
             _srPara1 = "-pcofmax 1.05 -bin 512";
             _srPara2 = "-pcofmax 1.05 -bin 512";
             bUseParallelRePlace = true;
+            _useParallelRePlace = bUseParallelRePlace;
+            _useParallelRePlace1 = bUseParallelRePlace;
+            _useParallelRePlace2 = bUseParallelRePlace;
         } 
+
         if(_paramHdl.check_flag_exist("preplace")){ // use parallel if given flag '-preplace'
 			bUseParallelRePlace = true;
 		}
         
         if(bUseParallelRePlace){ // parallel
-            _useParallelRePlace = true;
-            _useParallelRePlace1 = true;
-            _useParallelRePlace2 = true;
             _rPara = _prPara;
             _rPara1 = _prPara1;
             _rPara2 = _prPara2;
@@ -114,8 +121,7 @@ void Placer_C::get_para(bool test){
             _rPara1 = _srPara1;
             _rPara2 = _srPara2;
         }
-    }
-    
+    }    
     cout << "_rPara = " << _rPara << "\n";
 }
 
@@ -168,7 +174,7 @@ void Placer_C::run(){
         if(!place_succ){
             cout << BLUE << "[Placer]" << RESET << " - ###############################\n";
             cout << BLUE << "[Placer]" << RESET << " - Run Again ...\n";
-            exit(1);
+            continue;
         }
     }
 
