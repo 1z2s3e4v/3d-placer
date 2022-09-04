@@ -723,7 +723,7 @@ bool Partitioner::verification_hard() {
 }
 
 bool Partitioner::verification_soft() { // Todo
-    if (((double)(getPartArea(0) / getPartArea(1)) < 0.33) || ((double)(getPartArea(1) / getPartArea(0)) < 0.33)) {
+    if (((double)(getPartArea(0) / getPartArea(1)) < 0.35) || ((double)(getPartArea(1) / getPartArea(0)) < 0.35)) {
         return false;
     }
     // if (((getPartSize(0) / getPartSize(1)) < 1 / 3) || ((getPartSize(1) / getPartSize(0)) < 1 / 3)) {
@@ -789,7 +789,7 @@ void Partitioner::partition(int gain_2_pin, int gain_3_pin, int gain_mult, bool 
     int count = 0;
     _legalResult_hard = false;
     _legalResult_soft = false;
-    for (int iter=0; iter<2; iter++) {
+    for (int iter=0; iter<3; iter++) {
 
         if (_maxArea[0] < 0 || _maxArea[1] < 0) {
             break;
