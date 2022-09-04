@@ -2526,7 +2526,7 @@ void Placer_C::bin_based_partition_new() {
             partitioner->parseInput(_vCell, _pChip, new_bins[i][j], maxArea, cutline, true);
             // partitioner->initial_partition();
             if (_vCell.size() > 100000) { // case 4
-                partitioner->partition(1,2,3, true);
+                partitioner->partition(1,1,3, true);
             } else if(_vCell.size() > 20000) { // case 3
                 partitioner->partition(1,2,3, true);
             } else {
